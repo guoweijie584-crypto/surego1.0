@@ -123,7 +123,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
-import { listCheckins, confirmCheckin, createCheckinCode } from '@/common/api/checkin.js'
+import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
 import { listMessages } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { findActivityById } from '@/common/mock/activities.js'
@@ -240,19 +240,19 @@ onShow(async () => {
 })
 
 async function loadState() {
-  const [detail, applications, orders, checkins, messages] = await Promise.all([
+  const userId = getCurrentUserId()
+  const [detail, applications, orders, currentCheckin, messages] = await Promise.all([
     getActivityDetail(activityId.value),
     listApplications(activityId.value),
     listOrders(),
-    listCheckins(activityId.value),
+    getCheckinForUser(activityId.value, userId),
     listMessages()
   ])
 
   activity.value = detail
-  const userId = getCurrentUserId()
   application.value = applications.find((item) => item.activityId === String(activityId.value)) || null
   order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
-  checkin.value = checkins.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
+  checkin.value = currentCheckin || null
   relatedMessages.value = messages.filter((item) => item.activityId === String(activityId.value)).slice(0, 3)
 
   if (activity.value.isCreator || applicationState.value.key === 'approved') {
@@ -330,6 +330,11 @@ async function handlePrimaryAction() {
     return
   }
 
+  if (paymentState.value.key === 'refunded' || paymentState.value.key === 'closed') {
+    uni.showToast({ title: '订单状态不可签到', icon: 'none' })
+    return
+  }
+
   if (!entryCode.value) {
     const code = await createCheckinCode(activityId.value)
     entryCode.value = code.code
@@ -338,7 +343,9 @@ async function handlePrimaryAction() {
   await confirmCheckin({
     activityId: activityId.value,
     code: entryCode.value,
-    userId: getCurrentUserId()
+    userId: getCurrentUserId(),
+    source: 'participant',
+    remark: '参与者中心模拟签到'
   })
   await loadState()
   uni.showToast({ title: '签到成功', icon: 'none' })

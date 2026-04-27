@@ -291,7 +291,7 @@ if (fs.existsSync(messagePath)) {
 const checkinPath = path.join(root, 'common/api/checkin.js');
 if (fs.existsSync(checkinPath)) {
   const checkinSource = fs.readFileSync(checkinPath, 'utf8');
-  for (const helper of ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary']) {
+  for (const helper of ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary', 'getCheckinForUser', 'hasCheckedIn', 'isValidCheckinCode']) {
     if (!checkinSource.includes(helper)) {
       errors.push(`common/api/checkin.js is missing ${helper}`);
     }
@@ -299,6 +299,16 @@ if (fs.existsSync(checkinPath)) {
   for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
     if (!checkinSource.includes(token)) {
       errors.push(`common/api/checkin.js is missing ${token}`);
+    }
+  }
+}
+
+const checkinSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-checkins.schema.json');
+if (fs.existsSync(checkinSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(checkinSchemaPath, 'utf8'));
+  for (const field of ['checked_by', 'source', 'remark']) {
+    if (!schema.properties?.[field]) {
+      errors.push(`surego-checkins schema is missing ${field}`);
     }
   }
 }
@@ -514,6 +524,32 @@ if (fs.existsSync(checkinCloudPath)) {
     if (!source.includes(action)) {
       errors.push(`surego-checkin cloud function is missing ${action}`);
     }
+  }
+  for (const token of ['findExistingCheckin', 'checked_by', 'source', 'remark']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-checkin cloud function is missing ${token}`);
+    }
+  }
+}
+
+const manageCheckinPath = path.join(root, 'pages/manage/checkin.vue');
+if (fs.existsSync(manageCheckinPath)) {
+  const source = fs.readFileSync(manageCheckinPath, 'utf8');
+  for (const token of ['isValidCheckinCode', "source: 'manual'", "source: 'scan'", 'nextCheckablePerson']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/checkin.vue is missing ${token}`);
+    }
+  }
+}
+
+const participantCheckinPath = path.join(root, 'pages/participant/dashboard.vue');
+if (fs.existsSync(participantCheckinPath)) {
+  const source = fs.readFileSync(participantCheckinPath, 'utf8');
+  if (!source.includes('getCheckinForUser')) {
+    errors.push('pages/participant/dashboard.vue is missing getCheckinForUser');
+  }
+  if (source.includes('listCheckins(activityId.value)')) {
+    errors.push('pages/participant/dashboard.vue should use getCheckinForUser instead of scanning all checkins');
   }
 }
 
