@@ -1,0 +1,65 @@
+{
+  "pages": [
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/activity/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/cloudFunction/cloudFunction",
+      "style": {
+        "navigationBarTitleText": "云函数",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/cloudObject/cloudObject",
+      "style": {
+        "navigationBarTitleText": "云对象",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/storage/storage",
+      "style": {
+        "navigationBarTitleText": "云存储",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/clientDB/clientDB",
+      "style": {
+        "navigationBarTitleText": "clientDB",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/schema2code/schema2code",
+      "style": {
+        "navigationBarTitleText": "schema2code",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "uni_modules/uni-id-pages/pages/login/login-withoutpwd",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "成行",
+    "navigationBarBackgroundColor": "#F8F9F9",
+    "backgroundColor": "#F8F9F9"
+  }
+}
