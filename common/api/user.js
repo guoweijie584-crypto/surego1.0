@@ -1,3 +1,5 @@
+import { getCurrentUserProfile } from '@/common/api/auth.js'
+
 const STORAGE_KEY = 'surego_current_user'
 
 const defaultUser = {
@@ -10,8 +12,13 @@ const defaultUser = {
 }
 
 function readUser() {
+  const currentUser = getCurrentUserProfile()
   return {
     ...defaultUser,
+    uid: currentUser.uid,
+    userId: currentUser.userId,
+    nickname: currentUser.nickname || defaultUser.nickname,
+    avatar: currentUser.avatar || defaultUser.avatar,
     ...(uni.getStorageSync(STORAGE_KEY) || {})
   }
 }

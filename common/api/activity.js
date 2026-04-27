@@ -1,6 +1,7 @@
 import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
 import { callSuregoFunction } from '@/common/api/cloud.js'
+import { getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 
@@ -13,11 +14,15 @@ function writeCreatedActivities(items) {
 }
 
 function buildActivityFromForm(form, id = `local_${Date.now()}`) {
+  const currentUser = getCurrentUserProfile()
+  const creatorId = form.creatorId || form.creator_id || currentUser.userId
   return {
     id,
     title: form.title,
-    organizer: form.organizer || '吴哈哈',
-    organizerAvatar: form.organizerAvatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
+    creatorId,
+    creator_id: creatorId,
+    organizer: form.organizer || currentUser.nickname,
+    organizerAvatar: form.organizerAvatar || currentUser.avatar,
     image: form.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',
     category: form.category,
     date: form.date,

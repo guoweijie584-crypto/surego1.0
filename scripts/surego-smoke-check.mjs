@@ -11,6 +11,7 @@ const requiredFiles = [
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
   'common/config/runtime.js',
+  'common/api/auth.js',
   'common/api/cloud.js',
   'common/api/activity.js',
   'common/api/application.js',
@@ -246,6 +247,21 @@ if (fs.existsSync(cloudApiPath)) {
   }
 }
 
+const authApiPath = path.join(root, 'common/api/auth.js');
+if (fs.existsSync(authApiPath)) {
+  const authSource = fs.readFileSync(authApiPath, 'utf8');
+  for (const helper of ['getCurrentUserId', 'getCurrentUserProfile', 'requireLogin']) {
+    if (!authSource.includes(helper)) {
+      errors.push(`common/api/auth.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user']) {
+    if (!authSource.includes(token)) {
+      errors.push(`common/api/auth.js is missing ${token}`);
+    }
+  }
+}
+
 for (const apiFile of ['common/api/activity.js', 'common/api/application.js']) {
   const absolute = path.join(root, apiFile);
   if (!fs.existsSync(absolute)) continue;
@@ -254,6 +270,18 @@ for (const apiFile of ['common/api/activity.js', 'common/api/application.js']) {
     if (!source.includes(token)) {
       errors.push(`${apiFile} is missing ${token}`);
     }
+  }
+}
+
+for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js']) {
+  const absolute = path.join(root, apiFile);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('@/common/api/auth.js')) {
+    errors.push(`${apiFile} must import the auth facade`);
+  }
+  if (source.includes('CURRENT_USER_ID')) {
+    errors.push(`${apiFile} must not define a local CURRENT_USER_ID`);
   }
 }
 

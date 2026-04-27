@@ -1,8 +1,8 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
 import { callSuregoFunction } from '@/common/api/cloud.js'
+import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_checkins'
-const CURRENT_USER_ID = 'mock_user'
 
 function readCheckins() {
   return uni.getStorageSync(STORAGE_KEY) || []
@@ -39,7 +39,7 @@ function buildCheckin(payload) {
   return {
     id: payload.id || `checkin_${Date.now()}`,
     activityId: String(payload.activityId),
-    userId: payload.userId || CURRENT_USER_ID,
+    userId: payload.userId || getCurrentUserId(),
     code: payload.code || '',
     status: 'checked',
     checkedAt: payload.checkedAt || new Date().toISOString()

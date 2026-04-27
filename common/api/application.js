@@ -1,5 +1,6 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
 import { callSuregoFunction } from '@/common/api/cloud.js'
+import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_applications'
 
@@ -22,7 +23,7 @@ function buildApplication(payload, id = `app_${Date.now()}`) {
   return {
     id,
     activityId: String(payload.activityId),
-    userId: payload.userId || 'mock_user',
+    userId: payload.userId || getCurrentUserId(),
     gender: payload.gender,
     mbti: payload.mbti,
     message: payload.message,

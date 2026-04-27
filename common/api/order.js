@@ -1,8 +1,8 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
 import { callSuregoFunction } from '@/common/api/cloud.js'
+import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_orders'
-const CURRENT_USER_ID = 'mock_user'
 
 function readOrders() {
   return uni.getStorageSync(STORAGE_KEY) || []
@@ -16,7 +16,7 @@ function buildOrder(payload, status = 'pending') {
   return {
     id: payload.id || `order_${Date.now()}`,
     activityId: String(payload.activityId),
-    userId: payload.userId || CURRENT_USER_ID,
+    userId: payload.userId || getCurrentUserId(),
     type: payload.type,
     amount: Number(payload.amount) || 0,
     status,
@@ -44,12 +44,12 @@ export async function createOrder(payload) {
   return createLocalOrder(payload)
 }
 
-function getLocalOrderForActivity(activityId, userId = CURRENT_USER_ID) {
+function getLocalOrderForActivity(activityId, userId = getCurrentUserId()) {
   const order = readOrders().find((item) => item.activityId === String(activityId) && item.userId === userId)
   return Promise.resolve(order || null)
 }
 
-export async function getOrderForActivity(activityId, userId = CURRENT_USER_ID) {
+export async function getOrderForActivity(activityId, userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
       return await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
@@ -62,7 +62,7 @@ export async function getOrderForActivity(activityId, userId = CURRENT_USER_ID) 
 
 function ensureLocalOrderForActivity(payload) {
   const items = readOrders()
-  const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === (payload.userId || CURRENT_USER_ID))
+  const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === (payload.userId || getCurrentUserId()))
   if (found) {
     const nextOrder = {
       ...found,
@@ -119,7 +119,7 @@ function listLocalOrders() {
   return Promise.resolve(readOrders())
 }
 
-export async function listOrders(userId = CURRENT_USER_ID) {
+export async function listOrders(userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
       return await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
