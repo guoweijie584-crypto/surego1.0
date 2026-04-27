@@ -412,6 +412,19 @@ if (fs.existsSync(applicationCloudPath)) {
   }
 }
 
+const manageDashboardPath = path.join(root, 'pages/manage/dashboard.vue');
+if (fs.existsSync(manageDashboardPath)) {
+  const source = fs.readFileSync(manageDashboardPath, 'utf8');
+  if (!source.includes('updateActivityStatus')) {
+    errors.push('pages/manage/dashboard.vue is missing updateActivityStatus');
+  }
+  for (const status of ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']) {
+    if (!source.includes(status)) {
+      errors.push(`pages/manage/dashboard.vue is missing lifecycle action ${status}`);
+    }
+  }
+}
+
 const activityCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js');
 if (fs.existsSync(activityCloudPath)) {
   const source = fs.readFileSync(activityCloudPath, 'utf8');

@@ -32,6 +32,28 @@
         </view>
       </view>
 
+      <view class="panel state-panel">
+        <view class="panel__head">
+          <view>
+            <text>活动状态</text>
+            <text>{{ lifecycleLabel }}</text>
+          </view>
+          <text>LIFECYCLE</text>
+        </view>
+        <view class="state-grid">
+          <view
+            v-for="item in lifecycleActions"
+            :key="item.key"
+            class="state-action"
+            :class="{ 'state-action--active': activity.status === item.key }"
+            @tap="setActivityLifecycle(item.key)"
+          >
+            <text>{{ item.label }}</text>
+            <text>{{ item.desc }}</text>
+          </view>
+        </view>
+      </view>
+
       <view class="panel">
         <view class="panel__head">
           <text>快捷操作</text>
@@ -104,7 +126,7 @@
 import { computed, nextTick, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
-import { getActivityDetail } from '@/common/api/activity.js'
+import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { findActivityById } from '@/common/mock/activities.js'
 import { goActivityEdit, goBackHome, goManageCheckin, goMessages, goPayment, showComingSoon } from '@/common/utils/route.js'
@@ -124,7 +146,19 @@ const actions = [
   { title: '票券设置', desc: '金额与规则', icon: 'wallet-filled', tone: 'action__icon--rose', key: 'ticket' }
 ]
 
+const lifecycleActions = [
+  { key: 'draft', label: '草稿', desc: '仅自己可见' },
+  { key: 'reviewing', label: '审核中', desc: '等待平台确认' },
+  { key: 'published', label: '已发布', desc: '可被浏览' },
+  { key: 'recruiting', label: '报名中', desc: '开放申请' },
+  { key: 'formed', label: '已成局', desc: '名额锁定' },
+  { key: 'ongoing', label: '进行中', desc: '现场进行' },
+  { key: 'finished', label: '已结束', desc: '等待复盘' },
+  { key: 'cancelled', label: '已取消', desc: '停止报名' }
+]
+
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
+const lifecycleLabel = computed(() => getLifecycleLabel(activity.value.status))
 
 onLoad(async (query) => {
   const id = (query && query.id) || '103'
@@ -134,6 +168,24 @@ onLoad(async (query) => {
 
 function getInitial(item) {
   return item.gender === 'female' ? '她' : '他'
+}
+
+function getLifecycleLabel(status) {
+  return lifecycleActions.find((item) => item.key === status)?.label || '报名中'
+}
+
+async function setActivityLifecycle(status) {
+  if (activity.value.status === status) {
+    uni.showToast({ title: '已是当前状态', icon: 'none' })
+    return
+  }
+  const result = await updateActivityStatus(activity.value.id, status)
+  activity.value = {
+    ...activity.value,
+    status: result.status || status,
+    lifecycleStatus: result.status || status
+  }
+  uni.showToast({ title: `已切换为${getLifecycleLabel(activity.value.status)}`, icon: 'none' })
 }
 
 async function handleAction(item) {
@@ -330,6 +382,45 @@ async function submitReview() {
   color: #cbd5e1;
   font-size: 19rpx;
   font-weight: 900;
+}
+
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14rpx;
+}
+
+.state-action {
+  min-height: 108rpx;
+  box-sizing: border-box;
+  padding: 20rpx;
+  border: 2rpx solid #f1f5f9;
+  border-radius: 26rpx;
+  background: #f8fafc;
+}
+
+.state-action text:first-child {
+  display: block;
+  color: #0f172a;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.state-action text:last-child {
+  display: block;
+  margin-top: 8rpx;
+  color: #94a3b8;
+  font-size: 19rpx;
+  font-weight: 800;
+}
+
+.state-action--active {
+  border-color: #ff6b6b;
+  background: #fff1f2;
+}
+
+.state-action--active text:first-child {
+  color: #ff6b6b;
 }
 
 .action-grid {
