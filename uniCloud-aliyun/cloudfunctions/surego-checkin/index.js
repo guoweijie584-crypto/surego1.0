@@ -14,6 +14,9 @@ function normalizeCheckin(record = {}) {
     userId: record.user_id || record.userId || 'mock_user',
     code: record.code || '',
     status: record.status || 'checked',
+    checkedBy: record.checked_by || record.checkedBy || '',
+    source: record.source || 'manual',
+    remark: record.remark || '',
     checkedAt: record.checked_at || record.checkedAt || now(),
     createdAt: record.created_at || record.createdAt || record.checked_at || now()
   };
@@ -30,9 +33,23 @@ function buildRecord(payload = {}) {
     user_id: payload.userId || payload.user_id || 'mock_user',
     code: payload.code || '',
     status: payload.status || 'checked',
+    checked_by: payload.checkedBy || payload.checked_by || payload.userId || payload.user_id || 'mock_user',
+    source: payload.source || 'manual',
+    remark: payload.remark || '',
     checked_at: checkedAt,
     created_at: payload.createdAt || payload.created_at || checkedAt
   };
+}
+
+async function findExistingCheckin(activityId, userId) {
+  const result = await collection
+    .where({
+      activity_id: String(activityId || ''),
+      user_id: userId || 'mock_user'
+    })
+    .limit(1)
+    .get();
+  return (result.data || [])[0] || null;
 }
 
 async function getActivityCheckins(activityId) {
@@ -60,6 +77,13 @@ exports.main = async (event) => {
 
   if (action === 'confirm') {
     const record = buildRecord(payload);
+    const existing = await findExistingCheckin(record.activity_id, record.user_id);
+    if (existing) {
+      return {
+        code: 0,
+        data: normalizeCheckin(existing)
+      };
+    }
     const result = await collection.add(record);
     return {
       code: 0,
@@ -67,6 +91,16 @@ exports.main = async (event) => {
         ...record,
         _id: result.id || result._id
       })
+    };
+  }
+
+  if (action === 'getForUser') {
+    const activityId = payload.activityId || payload.activity_id;
+    const userId = payload.userId || payload.user_id || 'mock_user';
+    const found = await findExistingCheckin(activityId, userId);
+    return {
+      code: 0,
+      data: found ? normalizeCheckin(found) : null
     };
   }
 

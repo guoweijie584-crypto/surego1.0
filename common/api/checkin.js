@@ -20,6 +20,10 @@ function buildCode(activityId) {
   }
 }
 
+export function isValidCheckinCode(code = '') {
+  return /^SG\d{4,}$/.test(String(code).trim())
+}
+
 function createLocalCheckinCode(activityId) {
   return Promise.resolve(buildCode(activityId))
 }
@@ -36,18 +40,32 @@ export async function createCheckinCode(activityId) {
 }
 
 function buildCheckin(payload) {
+  const userId = payload.userId || getCurrentUserId()
   return {
     id: payload.id || `checkin_${Date.now()}`,
     activityId: String(payload.activityId),
-    userId: payload.userId || getCurrentUserId(),
+    userId,
     code: payload.code || '',
     status: 'checked',
-    checkedAt: payload.checkedAt || new Date().toISOString()
+    source: payload.source || 'participant',
+    remark: payload.remark || '',
+    checkedBy: payload.checkedBy || payload.checked_by || getCurrentUserId(),
+    checkedAt: payload.checkedAt || new Date().toISOString(),
+    createdAt: payload.createdAt || payload.checkedAt || new Date().toISOString()
   }
 }
 
 function confirmLocalCheckin(payload) {
+  if (!isValidCheckinCode(payload.code)) {
+    uni.showToast({ title: '核销码格式不正确', icon: 'none' })
+    return Promise.resolve(null)
+  }
   const items = readCheckins()
+  const userId = payload.userId || getCurrentUserId()
+  const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === userId)
+  if (found) {
+    return Promise.resolve(found)
+  }
   const checkin = buildCheckin(payload)
 
   writeCheckins([checkin, ...items])
@@ -55,6 +73,10 @@ function confirmLocalCheckin(payload) {
 }
 
 export async function confirmCheckin(payload) {
+  if (!isValidCheckinCode(payload.code)) {
+    uni.showToast({ title: '核销码格式不正确', icon: 'none' })
+    return null
+  }
   if (USE_UNICLOUD) {
     try {
       return await callSuregoFunction('surego-checkin', 'confirm', buildCheckin(payload))
@@ -63,6 +85,27 @@ export async function confirmCheckin(payload) {
     }
   }
   return confirmLocalCheckin(payload)
+}
+
+function getLocalCheckinForUser(activityId, userId = getCurrentUserId()) {
+  const found = readCheckins().find((item) => item.activityId === String(activityId) && item.userId === userId)
+  return Promise.resolve(found || null)
+}
+
+export async function getCheckinForUser(activityId, userId = getCurrentUserId()) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-checkin', 'getForUser', { activityId, userId })
+    } catch (error) {
+      return getLocalCheckinForUser(activityId, userId)
+    }
+  }
+  return getLocalCheckinForUser(activityId, userId)
+}
+
+export async function hasCheckedIn(activityId, userId = getCurrentUserId()) {
+  const checkin = await getCheckinForUser(activityId, userId)
+  return Boolean(checkin)
 }
 
 function listLocalCheckins(activityId) {

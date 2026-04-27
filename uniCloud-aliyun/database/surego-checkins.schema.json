@@ -13,6 +13,9 @@
     "user_id": { "bsonType": "string", "title": "User id" },
     "code": { "bsonType": "string", "title": "Check-in code" },
     "status": { "enum": ["pending", "checked", "expired"], "title": "Check-in status" },
+    "checked_by": { "bsonType": "string", "title": "Checked by" },
+    "source": { "enum": ["manual", "scan", "participant"], "title": "Check-in source" },
+    "remark": { "bsonType": "string", "title": "Remark" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "checked_at": { "bsonType": "timestamp", "title": "Checked at" }
   }
