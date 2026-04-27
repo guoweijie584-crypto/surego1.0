@@ -10,7 +10,7 @@
       </view>
     </view>
 
-    <scroll-view scroll-y class="manage__scroll">
+    <scroll-view scroll-y class="manage__scroll" :scroll-into-view="scrollIntoView">
       <view class="manage__hero">
         <text class="manage__kicker">COMMAND CENTER</text>
         <text class="manage__title">{{ activity.title }}</text>
@@ -48,7 +48,7 @@
         </view>
       </view>
 
-      <view class="panel">
+      <view id="manage-applications" class="panel">
         <view class="panel__head">
           <text>申请队列</text>
           <text>{{ applications.length }} REQUESTS</text>
@@ -74,15 +74,16 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, showComingSoon } from '@/common/utils/route.js'
+import { goBackHome, goMessages, goParticipantDashboard, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('103'))
 const applications = ref([])
+const scrollIntoView = ref('')
 
 const actions = [
   { title: '审核申请', desc: '处理待加入成员', icon: 'personadd-filled', tone: 'action__icon--blue', key: 'review' },
@@ -103,7 +104,37 @@ function getInitial(item) {
   return item.gender === 'female' ? '她' : '他'
 }
 
-function handleAction(item) {
+async function handleAction(item) {
+  if (item.key === 'review') {
+    scrollIntoView.value = ''
+    await nextTick()
+    scrollIntoView.value = 'manage-applications'
+    return
+  }
+
+  if (item.key === 'message') {
+    goMessages()
+    return
+  }
+
+  if (item.key === 'checkin') {
+    goParticipantDashboard(activity.value.id)
+    return
+  }
+
+  if (item.key === 'ticket') {
+    if (activity.value.partyMode === 'free') {
+      uni.showToast({ title: '本局免费，无需票券', icon: 'none' })
+      return
+    }
+    goPayment({
+      activityId: activity.value.id,
+      type: activity.value.partyMode,
+      amount: activity.value.amount
+    })
+    return
+  }
+
   showComingSoon(`${item.title}将在专项页面接入`)
 }
 

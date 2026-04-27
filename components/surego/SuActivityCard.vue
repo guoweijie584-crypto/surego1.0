@@ -41,7 +41,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { goActivityDetail, showComingSoon } from '@/common/utils/route.js'
+import { goActivityDetail, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
   activity: {
@@ -70,7 +70,7 @@ function openDetail() {
 }
 
 function openUser() {
-  showComingSoon('个人主页后续迁移')
+  goUserProfile()
 }
 </script>
 

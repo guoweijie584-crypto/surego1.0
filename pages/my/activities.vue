@@ -48,7 +48,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
-import { goActivityCreate, goActivityDetail, goManageDashboard } from '@/common/utils/route.js'
+import { goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activeTab = ref('hosting')
 const lists = ref({
@@ -89,6 +89,10 @@ function getMode(item) {
 function openActivity(item) {
   if (item.isCreator || item.status === 'hosting') {
     goManageDashboard(item.id)
+    return
+  }
+  if (item.status === 'approved') {
+    goParticipantDashboard(item.id)
     return
   }
   goActivityDetail(item.id)

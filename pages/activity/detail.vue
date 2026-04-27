@@ -223,7 +223,7 @@ import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { activities, members } from '@/common/mock/activities.js'
-import { goActivityRegister, goBackHome, goManageDashboard, showComingSoon } from '@/common/utils/route.js'
+import { goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(activities[0])
 const showShare = ref(false)
@@ -320,7 +320,7 @@ function handlePrimaryAction() {
     return
   }
   if (isJoined.value) {
-    showComingSoon('入场凭证下一轮迁移')
+    goParticipantDashboard(activity.value.id)
     return
   }
   goActivityRegister(activity.value.id)

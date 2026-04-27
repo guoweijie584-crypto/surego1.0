@@ -23,6 +23,7 @@ const requiredFiles = [
   'pages/activity/register.vue',
   'pages/activity/create.vue',
   'pages/manage/dashboard.vue',
+  'pages/participant/dashboard.vue',
   'pages/my/activities.vue',
   'pages/payment/index.vue',
   'pages/status/success.vue'
@@ -37,6 +38,7 @@ const expectedPages = [
   'pages/activity/register',
   'pages/activity/create',
   'pages/manage/dashboard',
+  'pages/participant/dashboard',
   'pages/my/activities',
   'pages/payment/index',
   'pages/status/success'
@@ -119,6 +121,14 @@ if (fs.existsSync(dockPath)) {
     if (dockSource.includes(staleKey)) {
       errors.push(`SuBottomDock.vue still contains stale bottom nav item: ${staleKey}`);
     }
+  }
+}
+
+const routePath = path.join(root, 'common/utils/route.js');
+if (fs.existsSync(routePath)) {
+  const routeSource = fs.readFileSync(routePath, 'utf8');
+  if (!routeSource.includes('goParticipantDashboard')) {
+    errors.push('common/utils/route.js is missing goParticipantDashboard');
   }
 }
 

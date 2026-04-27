@@ -47,6 +47,12 @@ export function goManageDashboard(id) {
   })
 }
 
+export function goParticipantDashboard(id) {
+  uni.navigateTo({
+    url: `/pages/participant/dashboard?id=${encodeURIComponent(id)}`
+  })
+}
+
 export function goMyActivities() {
   uni.navigateTo({
     url: '/pages/my/activities'

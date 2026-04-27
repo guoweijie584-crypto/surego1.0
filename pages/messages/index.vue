@@ -62,7 +62,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listMessages, markAllMessagesRead, markMessageRead } from '@/common/api/message.js'
-import { goBackHome, goManageDashboard } from '@/common/utils/route.js'
+import { goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const tabs = ['全部', '未读', '申请', '活动']
 const activeTab = ref('全部')
@@ -94,7 +94,13 @@ async function openMessage(item) {
   messages.value = messages.value.map((msg) => (msg.id === item.id ? { ...msg, read: true } : msg))
   if (item.type === 'application' && item.activityId) {
     goManageDashboard(item.activityId)
+    return
   }
+  if (item.type === 'activity' && item.activityId) {
+    goParticipantDashboard(item.activityId)
+    return
+  }
+  uni.showToast({ title: '已标记为已读', icon: 'none' })
 }
 </script>
 

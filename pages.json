@@ -43,6 +43,13 @@
       }
     },
     {
+      "path": "pages/participant/dashboard",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/my/activities",
       "style": {
         "navigationStyle": "custom",

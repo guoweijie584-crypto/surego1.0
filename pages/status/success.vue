@@ -56,7 +56,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { activities } from '@/common/mock/activities.js'
-import { goActivityDetail, goBackHome, goManageDashboard } from '@/common/utils/route.js'
+import { goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
@@ -95,6 +95,7 @@ const description = computed(() => {
 })
 
 const detailButtonText = computed(() => {
+  if (isPayment.value) return '查看入场凭证'
   if (isCreate.value) return '进入管理页'
   return '查看活动详情'
 })
@@ -107,6 +108,10 @@ onLoad(async (query) => {
 })
 
 function openNext() {
+  if (isPayment.value) {
+    goParticipantDashboard(activity.value.id)
+    return
+  }
   if (isCreate.value) {
     goManageDashboard(activity.value.id)
     return
