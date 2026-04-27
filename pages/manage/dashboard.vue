@@ -60,22 +60,50 @@
         <view v-for="item in applications" :key="item.id" class="applicant">
           <view class="applicant__avatar">{{ getInitial(item) }}</view>
           <view class="applicant__content">
-            <text class="applicant__name">申请者</text>
+            <view class="applicant__line">
+              <text class="applicant__name">申请者</text>
+              <text class="applicant__status" :class="`applicant__status--${item.status}`">
+                {{ getApplicationStatusLabel(item.status) }}
+              </text>
+            </view>
             <text class="applicant__msg su-line-2">{{ item.message || '想加入这场活动' }}</text>
+            <view v-if="item.answers && item.answers.length" class="answer-list">
+              <view v-for="answer in item.answers" :key="answer.question" class="answer">
+                <text>{{ answer.question }}</text>
+                <text>{{ answer.answer }}</text>
+              </view>
+            </view>
+            <text v-if="item.reviewNote" class="applicant__review">{{ item.reviewNote }}</text>
+            <text v-if="item.rejectReason" class="applicant__review applicant__review--danger">{{ item.rejectReason }}</text>
           </view>
-          <view class="applicant__buttons">
-            <view @tap="review(item, 'approved')">通过</view>
-            <view @tap="review(item, 'rejected')">拒绝</view>
+          <view v-if="item.status === 'pending'" class="applicant__buttons">
+            <view @tap="openReview(item, 'approved')">通过</view>
+            <view @tap="openReview(item, 'rejected')">拒绝</view>
           </view>
         </view>
       </view>
     </scroll-view>
+
+    <SuActionSheet v-model:show="showReviewSheet" :title="reviewMode === 'approved' ? '通过申请' : '拒绝申请'">
+      <view class="review-sheet">
+        <textarea
+          v-model="reviewForm.note"
+          class="review-sheet__textarea"
+          :placeholder="reviewMode === 'approved' ? '给参与者留一句欢迎提示' : '填写拒绝原因，参与者可在凭证页查看'"
+          maxlength="120"
+        />
+        <view class="review-sheet__button" @tap="submitReview">
+          {{ reviewMode === 'approved' ? '确认通过' : '确认拒绝' }}
+        </view>
+      </view>
+    </SuActionSheet>
   </view>
 </template>
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { findActivityById } from '@/common/mock/activities.js'
@@ -84,6 +112,10 @@ import { goActivityEdit, goBackHome, goManageCheckin, goMessages, goPayment, sho
 const activity = ref(findActivityById('103'))
 const applications = ref([])
 const scrollIntoView = ref('')
+const showReviewSheet = ref(false)
+const reviewTarget = ref(null)
+const reviewMode = ref('approved')
+const reviewForm = ref({ note: '' })
 
 const actions = [
   { title: '审核申请', desc: '处理待加入成员', icon: 'personadd-filled', tone: 'action__icon--blue', key: 'review' },
@@ -138,9 +170,34 @@ async function handleAction(item) {
   showComingSoon(`${item.title}将在专项页面接入`)
 }
 
-async function review(item, status) {
-  await reviewApplication(item.id, status)
-  applications.value = applications.value.map((app) => (app.id === item.id ? { ...app, status } : app))
+function getApplicationStatusLabel(status) {
+  const labels = {
+    pending: '待审核',
+    approved: '已通过',
+    rejected: '已拒绝'
+  }
+  return labels[status] || '待审核'
+}
+
+function openReview(item, status) {
+  reviewTarget.value = item
+  reviewMode.value = status
+  reviewForm.value = { note: '' }
+  showReviewSheet.value = true
+}
+
+async function submitReview() {
+  if (!reviewTarget.value) return
+  const status = reviewMode.value
+  const note = reviewForm.value.note.trim()
+  if (status === 'rejected' && !note) {
+    uni.showToast({ title: '请填写拒绝原因', icon: 'none' })
+    return
+  }
+  const options = status === 'approved' ? { reviewNote: note } : { rejectReason: note }
+  const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
+  applications.value = applications.value.map((app) => (app.id === reviewTarget.value.id ? { ...app, ...reviewed } : app))
+  showReviewSheet.value = false
   uni.showToast({
     title: status === 'approved' ? '已通过' : '已拒绝',
     icon: 'none'
@@ -365,10 +422,37 @@ async function review(item, status) {
   min-width: 0;
 }
 
+.applicant__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
 .applicant__name {
   color: #0f172a;
   font-size: 25rpx;
   font-weight: 900;
+}
+
+.applicant__status {
+  flex-shrink: 0;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 18rpx;
+  font-weight: 900;
+}
+
+.applicant__status--approved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.applicant__status--rejected {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .applicant__msg {
@@ -376,6 +460,46 @@ async function review(item, status) {
   color: #64748b;
   font-size: 21rpx;
   font-weight: 700;
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 12rpx;
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  padding: 12rpx 14rpx;
+  border-radius: 18rpx;
+  background: #f8fafc;
+}
+
+.answer text:first-child {
+  color: #94a3b8;
+  font-size: 18rpx;
+  font-weight: 800;
+}
+
+.answer text:last-child {
+  color: #334155;
+  font-size: 21rpx;
+  font-weight: 800;
+}
+
+.applicant__review {
+  display: block;
+  margin-top: 10rpx;
+  color: #16a34a;
+  font-size: 21rpx;
+  font-weight: 800;
+}
+
+.applicant__review--danger {
+  color: #ef4444;
 }
 
 .applicant__buttons {
@@ -395,5 +519,35 @@ async function review(item, status) {
 .applicant__buttons view:last-child {
   background: #fee2e2;
   color: #ef4444;
+}
+
+.review-sheet {
+  padding: 10rpx 2rpx 4rpx;
+}
+
+.review-sheet__textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 180rpx;
+  padding: 22rpx;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 26rpx;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.review-sheet__button {
+  display: flex;
+  height: 88rpx;
+  align-items: center;
+  justify-content: center;
+  margin-top: 22rpx;
+  border-radius: 28rpx;
+  background: #0f172a;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 900;
 }
 </style>

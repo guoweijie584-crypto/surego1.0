@@ -116,6 +116,16 @@ for (const file of expectedSchemas) {
   }
 }
 
+const applicationReviewSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-applications.schema.json');
+if (fs.existsSync(applicationReviewSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(applicationReviewSchemaPath, 'utf8'));
+  for (const field of ['review_note', 'reject_reason', 'reviewer_id']) {
+    if (!schema.properties?.[field]) {
+      errors.push(`surego-applications schema is missing ${field}`);
+    }
+  }
+}
+
 const expectedSchemaPermissions = {
   'uniCloud-aliyun/database/surego-activities.schema.json': {
     required: 'creator_id',
@@ -353,6 +363,16 @@ for (const apiFile of ['common/api/activity.js', 'common/api/application.js']) {
   }
 }
 
+const applicationApiPath = path.join(root, 'common/api/application.js');
+if (fs.existsSync(applicationApiPath)) {
+  const applicationSource = fs.readFileSync(applicationApiPath, 'utf8');
+  for (const token of ['reviewNote', 'rejectReason', 'reviewerId']) {
+    if (!applicationSource.includes(token)) {
+      errors.push(`common/api/application.js is missing ${token}`);
+    }
+  }
+}
+
 for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js']) {
   const absolute = path.join(root, apiFile);
   if (!fs.existsSync(absolute)) continue;
@@ -374,6 +394,16 @@ for (const cloudFile of [
   const source = fs.readFileSync(absolute, 'utf8');
   if (!source.includes('normalize')) {
     errors.push(`${cloudFile} is missing normalize helpers`);
+  }
+}
+
+const applicationCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-application/index.js');
+if (fs.existsSync(applicationCloudPath)) {
+  const source = fs.readFileSync(applicationCloudPath, 'utf8');
+  for (const token of ['reviewNote', 'rejectReason', 'reviewerId']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-application cloud function is missing ${token}`);
+    }
   }
 }
 

@@ -9,6 +9,9 @@ function normalizeApplication(item = {}) {
     id: item.id || item._id,
     activityId: item.activityId || item.activity_id,
     userId: item.userId || item.user_id,
+    reviewNote: item.reviewNote || item.review_note || '',
+    rejectReason: item.rejectReason || item.reject_reason || '',
+    reviewerId: item.reviewerId || item.reviewer_id || '',
     createdAt: item.createdAt || item.created_at,
     reviewedAt: item.reviewedAt || item.reviewed_at
   };
@@ -60,16 +63,23 @@ exports.main = async (event) => {
   }
 
   if (action === 'review') {
+    const reviewedAt = Date.now();
     await collection.doc(payload.id).update({
       status: payload.status,
-      reviewed_at: Date.now()
+      review_note: payload.reviewNote || payload.review_note || '',
+      reject_reason: payload.rejectReason || payload.reject_reason || '',
+      reviewer_id: payload.reviewerId || payload.reviewer_id || '',
+      reviewed_at: reviewedAt
     });
     return {
       code: 0,
       data: normalizeApplication({
         id: payload.id,
         status: payload.status,
-        reviewed_at: Date.now()
+        reviewNote: payload.reviewNote || payload.review_note || '',
+        rejectReason: payload.rejectReason || payload.reject_reason || '',
+        reviewerId: payload.reviewerId || payload.reviewer_id || '',
+        reviewed_at: reviewedAt
       })
     };
   }

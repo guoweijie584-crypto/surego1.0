@@ -16,6 +16,9 @@
     "message": { "bsonType": "string", "title": "Intro message" },
     "answers": { "bsonType": "array", "title": "Question answers" },
     "status": { "enum": ["pending", "approved", "rejected"], "title": "Application status" },
+    "review_note": { "bsonType": "string", "title": "Review note" },
+    "reject_reason": { "bsonType": "string", "title": "Reject reason" },
+    "reviewer_id": { "bsonType": "string", "title": "Reviewer user id" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "reviewed_at": { "bsonType": "timestamp", "title": "Reviewed at" }
   }

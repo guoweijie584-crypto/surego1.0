@@ -29,6 +29,9 @@ function buildApplication(payload, id = `app_${Date.now()}`) {
     message: payload.message,
     answers: payload.answers || [],
     status: payload.status || (payload.requireApproval ? 'pending' : 'approved'),
+    reviewNote: payload.reviewNote || '',
+    rejectReason: payload.rejectReason || '',
+    reviewerId: payload.reviewerId || '',
     createdAt: payload.createdAt || new Date().toISOString()
   }
 }
@@ -70,21 +73,38 @@ export async function listApplications(activityId) {
   return listLocalApplications(activityId)
 }
 
-function reviewLocalApplication(id, status) {
-  const next = readApplications().map((item) => (item.id === id ? { ...item, status } : item))
-  writeApplications(next)
-  return Promise.resolve(next.find((item) => item.id === id))
+function buildReviewPayload(input = {}) {
+  return {
+    id: input.id,
+    status: input.status,
+    reviewNote: input.reviewNote || '',
+    rejectReason: input.rejectReason || '',
+    reviewerId: input.reviewerId || getCurrentUserId(),
+    reviewedAt: input.reviewedAt || new Date().toISOString()
+  }
 }
 
-export async function reviewApplication(id, status) {
+function reviewLocalApplication(payload) {
+  const review = buildReviewPayload(payload)
+  const next = readApplications().map((item) => (item.id === review.id ? { ...item, ...review } : item))
+  writeApplications(next)
+  const found = next.find((item) => item.id === review.id)
+  if (found) {
+    uni.setStorageSync(`surego_application_${found.activityId}`, found)
+  }
+  return Promise.resolve(found)
+}
+
+export async function reviewApplication(id, status, options = {}) {
+  const review = buildReviewPayload({ id, status, ...options })
   if (USE_UNICLOUD) {
     try {
-      const reviewed = await callSuregoFunction('surego-application', 'review', { id, status })
-      const local = await reviewLocalApplication(id, status)
+      const reviewed = await callSuregoFunction('surego-application', 'review', review)
+      const local = await reviewLocalApplication(review)
       return reviewed || local
     } catch (error) {
-      return reviewLocalApplication(id, status)
+      return reviewLocalApplication(review)
     }
   }
-  return reviewLocalApplication(id, status)
+  return reviewLocalApplication(review)
 }

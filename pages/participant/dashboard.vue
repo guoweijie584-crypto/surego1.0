@@ -55,6 +55,9 @@
           <text class="code-box__label">{{ entryLabel }}</text>
           <text class="code-box__code">{{ entryCode || '等待审核通过后生成' }}</text>
           <text class="code-box__hint">{{ entryHint }}</text>
+          <text v-if="reviewFeedback" class="code-box__feedback" :class="{ 'code-box__feedback--danger': applicationState.key === 'rejected' }">
+            {{ reviewFeedback }}
+          </text>
         </view>
 
         <view class="action-row">
@@ -152,6 +155,14 @@ const applicationState = computed(() => {
   }
 })
 
+const reviewFeedback = computed(() => {
+  const rejectReason = application.value?.rejectReason || activity.value.rejectReason || ''
+  const reviewNote = application.value?.reviewNote || activity.value.reviewNote || ''
+  if (applicationState.value.key === 'rejected') return rejectReason || '局长暂未填写拒绝原因'
+  if (applicationState.value.key === 'approved') return reviewNote
+  return ''
+})
+
 const paymentState = computed(() => {
   if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付', desc: '本局免费参与' }
   if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认占位单' }
@@ -183,7 +194,7 @@ const entryLabel = computed(() => {
 const entryHint = computed(() => {
   if (activity.value.isCreator) return '局长可进入管理台查看审核、签到和消息'
   if (applicationState.value.key === 'pending') return '审核通过后会自动生成凭证'
-  if (applicationState.value.key === 'rejected') return '当前申请未通过，返回详情页查看原因'
+  if (applicationState.value.key === 'rejected') return reviewFeedback.value || '当前申请未通过，返回详情页查看原因'
   if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '先完成支付，再进入签到'
   if (checkin.value) return '凭证已完成核销'
   return '可复制后在现场展示'
@@ -564,6 +575,23 @@ function handleMessageTap(item) {
   font-size: 22rpx;
   font-weight: 800;
   line-height: 1.5;
+}
+
+.code-box__feedback {
+  display: block;
+  margin-top: 16rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 20rpx;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 22rpx;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.code-box__feedback--danger {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .action-row {
