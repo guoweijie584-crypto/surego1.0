@@ -57,6 +57,13 @@
       }
     },
     {
+      "path": "pages/activity/edit",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/manage/dashboard",
       "style": {
         "navigationStyle": "custom",
@@ -100,6 +107,13 @@
     },
     {
       "path": "pages/user/profile",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/user/edit",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": false

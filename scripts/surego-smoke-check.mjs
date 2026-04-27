@@ -15,6 +15,7 @@ const requiredFiles = [
   'common/api/order.js',
   'common/api/message.js',
   'common/api/checkin.js',
+  'common/api/user.js',
   'pages/home/index.vue',
   'pages/discover/index.vue',
   'pages/discover/search.vue',
@@ -22,9 +23,11 @@ const requiredFiles = [
   'pages/calendar/index.vue',
   'pages/messages/index.vue',
   'pages/user/profile.vue',
+  'pages/user/edit.vue',
   'pages/activity/detail.vue',
   'pages/activity/register.vue',
   'pages/activity/create.vue',
+  'pages/activity/edit.vue',
   'pages/manage/dashboard.vue',
   'pages/manage/checkin.vue',
   'pages/participant/dashboard.vue',
@@ -42,9 +45,11 @@ const expectedPages = [
   'pages/calendar/index',
   'pages/messages/index',
   'pages/user/profile',
+  'pages/user/edit',
   'pages/activity/detail',
   'pages/activity/register',
   'pages/activity/create',
+  'pages/activity/edit',
   'pages/manage/dashboard',
   'pages/manage/checkin',
   'pages/participant/dashboard',
@@ -151,6 +156,11 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
     }
   }
+  for (const helper of ['goUserEdit', 'goActivityEdit']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing ${helper}`);
+    }
+  }
 }
 
 const orderPath = path.join(root, 'common/api/order.js');
@@ -159,6 +169,24 @@ if (fs.existsSync(orderPath)) {
   for (const helper of ['ensureOrderForActivity', 'getOrderForActivity', 'updateOrderStatus']) {
     if (!orderSource.includes(helper)) {
       errors.push(`common/api/order.js is missing ${helper}`);
+    }
+  }
+}
+
+const activityApiPath = path.join(root, 'common/api/activity.js');
+if (fs.existsSync(activityApiPath)) {
+  const activitySource = fs.readFileSync(activityApiPath, 'utf8');
+  if (!activitySource.includes('updateActivity(')) {
+    errors.push('common/api/activity.js is missing updateActivity');
+  }
+}
+
+const userApiPath = path.join(root, 'common/api/user.js');
+if (fs.existsSync(userApiPath)) {
+  const userSource = fs.readFileSync(userApiPath, 'utf8');
+  for (const helper of ['getCurrentUser', 'updateCurrentUser']) {
+    if (!userSource.includes(helper)) {
+      errors.push(`common/api/user.js is missing ${helper}`);
     }
   }
 }

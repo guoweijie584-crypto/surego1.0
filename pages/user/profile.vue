@@ -17,16 +17,16 @@
     <scroll-view scroll-y class="profile__scroll">
       <view class="profile__head">
         <view class="profile__avatar-wrap">
-          <image class="profile__avatar" src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
+          <image class="profile__avatar" :src="user.avatar" mode="aspectFill" />
           <view class="profile__glow" />
         </view>
         <view class="profile__identity">
           <view class="profile__name-row">
-            <text class="profile__name">吴哈哈</text>
-            <text class="profile__credit">信用 100</text>
+            <text class="profile__name">{{ user.nickname }}</text>
+            <text class="profile__credit">信用 {{ user.credit }}</text>
           </view>
-          <text class="profile__bio">爱摄影、爱生活的斜杠青年 / ENFP</text>
-          <text class="profile__quote">希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。</text>
+          <text class="profile__bio">{{ user.bio }} / {{ user.mbti }}</text>
+          <text class="profile__quote">{{ user.quote }}</text>
         </view>
       </view>
 
@@ -41,7 +41,7 @@
           <text>{{ item.count }}</text>
           <text>{{ item.label }}</text>
         </view>
-        <view class="stats__edit" @tap="showComingSoon('编辑资料后续迁移')">编辑资料</view>
+        <view class="stats__edit" @tap="goUserEdit">编辑资料</view>
       </view>
 
       <view v-if="activeTab === 'activities'" class="profile__list">
@@ -90,11 +90,20 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
 import { listOrders } from '@/common/api/order.js'
-import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goParticipantDashboard, showComingSoon } from '@/common/utils/route.js'
+import { getCurrentUser } from '@/common/api/user.js'
+import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
+const user = ref({
+  nickname: '吴哈哈',
+  avatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
+  credit: 100,
+  mbti: 'ENFP',
+  bio: '爱摄影、爱生活的斜杠青年',
+  quote: '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。'
+})
 
 const activityList = computed(() => [...myActivities.value.hosting, ...myActivities.value.joined, ...myActivities.value.pending])
 const tabs = computed(() => [
@@ -104,6 +113,7 @@ const tabs = computed(() => [
 ])
 
 onShow(async () => {
+  user.value = await getCurrentUser()
   myActivities.value = await listMyActivities()
   orders.value = await listOrders()
 })

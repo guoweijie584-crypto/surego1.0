@@ -5,7 +5,7 @@
         <uni-icons type="left" size="24" color="#fff" />
       </view>
       <text>局面管理</text>
-      <view class="manage__back" @tap="showComingSoon('编辑活动后续迁移')">
+      <view class="manage__back" @tap="goActivityEdit(activity.id)">
         <uni-icons type="gear-filled" size="22" color="#fff" />
       </view>
     </view>
@@ -79,7 +79,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, goManageCheckin, goMessages, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { goActivityEdit, goBackHome, goManageCheckin, goMessages, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('103'))
 const applications = ref([])

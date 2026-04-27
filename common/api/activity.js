@@ -123,6 +123,36 @@ export function updateActivityStatus(id, status) {
   return Promise.resolve({ id, status })
 }
 
+export function updateActivity(id, form) {
+  const created = readCreatedActivities()
+  const found = created.find((item) => item.id === String(id))
+  if (!found) return Promise.resolve(null)
+
+  const nextActivity = {
+    ...found,
+    title: form.title,
+    category: form.category,
+    date: form.date,
+    dateValue: form.dateValue,
+    time: form.time,
+    endTime: form.endTime,
+    location: form.location,
+    maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
+    hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    requireApproval: Boolean(form.requireApproval),
+    partyMode: form.partyMode,
+    amount: Number(form.amount) || 0,
+    price: form.partyMode === 'free' ? '免费' : String(Number(form.amount) || 0),
+    description: form.description,
+    questions: form.questions || [],
+    image: form.image || found.image,
+    tags: [form.category, form.partyMode]
+  }
+
+  writeCreatedActivities(created.map((item) => (item.id === String(id) ? nextActivity : item)))
+  return Promise.resolve(nextActivity)
+}
+
 export function listMyActivities() {
   const all = [...readCreatedActivities(), ...activities]
   return Promise.resolve({

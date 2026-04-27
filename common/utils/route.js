@@ -61,6 +61,18 @@ export function goUserProfile() {
   })
 }
 
+export function goUserEdit() {
+  uni.navigateTo({
+    url: '/pages/user/edit'
+  })
+}
+
+export function goActivityEdit(id) {
+  uni.navigateTo({
+    url: `/pages/activity/edit?id=${encodeURIComponent(id)}`
+  })
+}
+
 export function goManageDashboard(id) {
   uni.navigateTo({
     url: `/pages/manage/dashboard?id=${encodeURIComponent(id)}`
