@@ -1,8 +1,27 @@
+import { isLoggedIn } from '@/common/api/auth.js'
+
 function buildQuery(params = {}) {
   return Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join('&')
+}
+
+export function goAuthLogin(params = {}) {
+  const query = buildQuery(params)
+  uni.navigateTo({
+    url: `/pages/auth/login${query ? `?${query}` : ''}`
+  })
+}
+
+export function guardLoginAction(nextUrl) {
+  if (isLoggedIn()) {
+    uni.navigateTo({ url: nextUrl })
+    return true
+  }
+
+  goAuthLogin({ redirect: nextUrl })
+  return false
 }
 
 export function goActivityDetail(id) {
@@ -12,15 +31,11 @@ export function goActivityDetail(id) {
 }
 
 export function goActivityRegister(id) {
-  uni.navigateTo({
-    url: `/pages/activity/register?id=${encodeURIComponent(id)}`
-  })
+  guardLoginAction(`/pages/activity/register?id=${encodeURIComponent(id)}`)
 }
 
 export function goActivityCreate() {
-  uni.navigateTo({
-    url: '/pages/activity/create'
-  })
+  guardLoginAction('/pages/activity/create')
 }
 
 export function goDiscover() {
@@ -74,15 +89,11 @@ export function goActivityEdit(id) {
 }
 
 export function goManageDashboard(id) {
-  uni.navigateTo({
-    url: `/pages/manage/dashboard?id=${encodeURIComponent(id)}`
-  })
+  guardLoginAction(`/pages/manage/dashboard?id=${encodeURIComponent(id)}`)
 }
 
 export function goManageCheckin(id) {
-  uni.navigateTo({
-    url: `/pages/manage/checkin?id=${encodeURIComponent(id)}`
-  })
+  guardLoginAction(`/pages/manage/checkin?id=${encodeURIComponent(id)}`)
 }
 
 export function goParticipantDashboard(id) {
@@ -105,9 +116,7 @@ export function goMyActivities() {
 
 export function goPayment(params = {}) {
   const query = buildQuery(params)
-  uni.navigateTo({
-    url: `/pages/payment/index${query ? `?${query}` : ''}`
-  })
+  guardLoginAction(`/pages/payment/index${query ? `?${query}` : ''}`)
 }
 
 export function goSuccess(params = {}) {

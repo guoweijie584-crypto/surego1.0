@@ -106,6 +106,13 @@
       }
     },
     {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/user/profile",
       "style": {
         "navigationStyle": "custom",

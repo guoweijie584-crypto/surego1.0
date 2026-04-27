@@ -26,6 +26,7 @@ const requiredFiles = [
   'pages/discover/city.vue',
   'pages/calendar/index.vue',
   'pages/messages/index.vue',
+  'pages/auth/login.vue',
   'pages/user/profile.vue',
   'pages/user/edit.vue',
   'pages/activity/detail.vue',
@@ -48,6 +49,7 @@ const expectedPages = [
   'pages/discover/city',
   'pages/calendar/index',
   'pages/messages/index',
+  'pages/auth/login',
   'pages/user/profile',
   'pages/user/edit',
   'pages/activity/detail',
@@ -211,6 +213,19 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
     }
   }
+  for (const helper of ['goAuthLogin', 'guardLoginAction']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing ${helper}`);
+    }
+  }
+  for (const guardedHelper of ['goActivityRegister', 'goActivityCreate', 'goManageDashboard', 'goManageCheckin', 'goPayment']) {
+    const helperStart = routeSource.indexOf(`export function ${guardedHelper}`)
+    const helperEnd = routeSource.indexOf('\nexport function ', helperStart + 1)
+    const helperSource = routeSource.slice(helperStart, helperEnd === -1 ? routeSource.length : helperEnd)
+    if (!helperSource.includes('guardLoginAction')) {
+      errors.push(`common/utils/route.js ${guardedHelper} must use guardLoginAction`);
+    }
+  }
 }
 
 const orderPath = path.join(root, 'common/api/order.js');
@@ -298,6 +313,11 @@ const authApiPath = path.join(root, 'common/api/auth.js');
 if (fs.existsSync(authApiPath)) {
   const authSource = fs.readFileSync(authApiPath, 'utf8');
   for (const helper of ['getCurrentUserId', 'getCurrentUserProfile', 'requireLogin']) {
+    if (!authSource.includes(helper)) {
+      errors.push(`common/api/auth.js is missing ${helper}`);
+    }
+  }
+  for (const helper of ['isLoggedIn', 'setMockLogin', 'logout']) {
     if (!authSource.includes(helper)) {
       errors.push(`common/api/auth.js is missing ${helper}`);
     }

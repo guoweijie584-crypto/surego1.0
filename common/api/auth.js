@@ -4,6 +4,7 @@ export const MOCK_USER_ID = 'mock_user'
 
 const UNI_ID_USER_KEY = 'uni-id-pages-userInfo'
 const LOCAL_USER_KEY = 'surego_current_user'
+const MOCK_LOGIN_KEY = 'surego_mock_login'
 
 function readStorage(key) {
   try {
@@ -39,17 +40,25 @@ export function getCurrentUserId() {
   return pickUserId(cloudUser, uniIdUser, localUser)
 }
 
+export function isLoggedIn() {
+  const cloudUser = readCloudUserInfo()
+  const uniIdUser = readStorage(UNI_ID_USER_KEY)
+  const mockLogin = readStorage(MOCK_LOGIN_KEY)
+  return Boolean(cloudUser.uid || cloudUser._id || uniIdUser.uid || uniIdUser._id || mockLogin.uid)
+}
+
 export function getCurrentUserProfile() {
   const cloudUser = readCloudUserInfo()
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const localUser = readStorage(LOCAL_USER_KEY)
-  const uid = pickUserId(cloudUser, uniIdUser, localUser)
+  const mockLogin = readStorage(MOCK_LOGIN_KEY)
+  const uid = pickUserId(cloudUser, uniIdUser, mockLogin, localUser)
 
   return {
     uid,
     userId: uid,
-    nickname: uniIdUser.nickname || uniIdUser.nickName || localUser.nickname || '吴哈哈',
-    avatar: uniIdUser.avatar || uniIdUser.avatar_file?.url || localUser.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
+    nickname: uniIdUser.nickname || uniIdUser.nickName || mockLogin.nickname || localUser.nickname || '吴哈哈',
+    avatar: uniIdUser.avatar || uniIdUser.avatar_file?.url || mockLogin.avatar || localUser.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
     credit: Number(localUser.credit) || 100,
     mbti: localUser.mbti || 'ENFP',
     bio: localUser.bio || '爱摄影、爱生活的斜杠青年',
@@ -59,11 +68,31 @@ export function getCurrentUserProfile() {
 
 export function requireLogin(options = {}) {
   const profile = getCurrentUserProfile()
-  if (USE_UNICLOUD && profile.uid === MOCK_USER_ID && !options.silent) {
+  if (!isLoggedIn() && !options.silent) {
     uni.showToast({
       title: '请先登录',
       icon: 'none'
     })
   }
   return profile
+}
+
+export function setMockLogin(profile = {}) {
+  const next = {
+    uid: profile.uid || profile.userId || MOCK_USER_ID,
+    userId: profile.userId || profile.uid || MOCK_USER_ID,
+    nickname: profile.nickname || '吴哈哈',
+    avatar: profile.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky'
+  }
+  uni.setStorageSync(MOCK_LOGIN_KEY, next)
+  uni.setStorageSync(LOCAL_USER_KEY, {
+    ...readStorage(LOCAL_USER_KEY),
+    ...next
+  })
+  return next
+}
+
+export function logout() {
+  uni.removeStorageSync(MOCK_LOGIN_KEY)
+  uni.removeStorageSync(UNI_ID_USER_KEY)
 }
