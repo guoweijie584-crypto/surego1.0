@@ -11,12 +11,16 @@ const requiredFiles = [
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
   'pages/home/index.vue',
-  'pages/activity/detail.vue'
+  'pages/activity/detail.vue',
+  'pages/activity/register.vue',
+  'pages/status/success.vue'
 ];
 
 const expectedPages = [
   'pages/home/index',
-  'pages/activity/detail'
+  'pages/activity/detail',
+  'pages/activity/register',
+  'pages/status/success'
 ];
 
 const bannedPatterns = [
@@ -64,6 +68,18 @@ for (const file of requiredFiles.filter((item) => item.endsWith('.vue') || item.
   for (const pattern of bannedPatterns) {
     if (pattern.test(source)) {
       errors.push(`${file} contains banned pattern: ${pattern}`);
+    }
+  }
+
+  if (file.endsWith('.vue')) {
+    const match = source.match(/<script setup>([\s\S]*?)<\/script>/);
+    if (match) {
+      const parseableScript = match[1].replace(/^import[^\n]*\n/gm, '');
+      try {
+        new Function(parseableScript);
+      } catch (error) {
+        errors.push(`${file} has invalid script syntax: ${error.message}`);
+      }
     }
   }
 }

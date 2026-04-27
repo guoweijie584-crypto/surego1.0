@@ -219,10 +219,10 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { findActivityById, members } from '@/common/mock/activities.js'
-import { goBackHome, showComingSoon } from '@/common/utils/route.js'
+import { goActivityRegister, goBackHome, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('101'))
 const showShare = ref(false)
@@ -291,6 +291,12 @@ onLoad((query) => {
   activity.value = findActivityById((query && query.id) || '101')
 })
 
+onShareAppMessage(() => ({
+  title: activity.value.title,
+  path: `/pages/activity/detail?id=${activity.value.id}`,
+  imageUrl: activity.value.image
+}))
+
 function padCount(count) {
   return String(count).padStart(2, '0')
 }
@@ -316,7 +322,7 @@ function handlePrimaryAction() {
     showComingSoon('入场凭证下一轮迁移')
     return
   }
-  showComingSoon('报名页下一轮迁移')
+  goActivityRegister(activity.value.id)
 }
 
 function copySharePath() {

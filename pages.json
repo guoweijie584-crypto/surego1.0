@@ -15,6 +15,20 @@
       }
     },
     {
+      "path": "pages/activity/register",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/status/success",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/cloudFunction/cloudFunction",
       "style": {
         "navigationBarTitleText": "Cloud Function",
