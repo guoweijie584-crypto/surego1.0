@@ -19,6 +19,7 @@ const requiredFiles = [
   'common/api/message.js',
   'common/api/checkin.js',
   'common/api/user.js',
+  'scripts/surego-cloud-integration-check.mjs',
   'pages/home/index.vue',
   'pages/discover/index.vue',
   'pages/discover/search.vue',

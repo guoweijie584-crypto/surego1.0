@@ -1,0 +1,123 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+const root = path.resolve(process.cwd())
+
+const modules = [
+  {
+    name: 'activity',
+    api: 'common/api/activity.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js',
+    schema: 'uniCloud-aliyun/database/surego-activities.schema.json',
+    actions: ['list', 'detail', 'create', 'update', 'updateStatus'],
+    apiExports: ['listActivities', 'getActivityDetail', 'createActivity', 'updateActivity', 'updateActivityStatus'],
+    requiredSchemaFields: ['creator_id']
+  },
+  {
+    name: 'application',
+    api: 'common/api/application.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
+    schema: 'uniCloud-aliyun/database/surego-applications.schema.json',
+    actions: ['submit', 'listByActivity', 'review'],
+    apiExports: ['submitApplication', 'listApplications', 'reviewApplication'],
+    requiredSchemaFields: ['activity_id', 'user_id', 'status']
+  },
+  {
+    name: 'order',
+    api: 'common/api/order.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-order/index.js',
+    schema: 'uniCloud-aliyun/database/surego-orders.schema.json',
+    actions: ['create', 'ensureForActivity', 'getForActivity', 'updateStatus', 'markPaid', 'list'],
+    apiExports: ['createOrder', 'ensureOrderForActivity', 'getOrderForActivity', 'updateOrderStatus', 'markOrderPaid', 'listOrders'],
+    requiredSchemaFields: ['activity_id', 'user_id', 'type', 'amount', 'status']
+  },
+  {
+    name: 'message',
+    api: 'common/api/message.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-message/index.js',
+    schema: 'uniCloud-aliyun/database/surego-messages.schema.json',
+    actions: ['create', 'list', 'markRead', 'markAllRead'],
+    apiExports: ['createMessage', 'listMessages', 'markMessageRead', 'markAllMessagesRead'],
+    requiredSchemaFields: ['user_id', 'title', 'content', 'read']
+  },
+  {
+    name: 'checkin',
+    api: 'common/api/checkin.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js',
+    schema: 'uniCloud-aliyun/database/surego-checkins.schema.json',
+    actions: ['createCode', 'confirm', 'listByActivity', 'summary'],
+    apiExports: ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary'],
+    requiredSchemaFields: ['activity_id', 'user_id', 'status']
+  }
+]
+
+const errors = []
+
+function readFile(relativePath) {
+  const absolute = path.join(root, relativePath)
+  if (!fs.existsSync(absolute)) {
+    errors.push(`Missing file: ${relativePath}`)
+    return ''
+  }
+  return fs.readFileSync(absolute, 'utf8')
+}
+
+function readSchema(relativePath) {
+  const source = readFile(relativePath)
+  if (!source) return {}
+  try {
+    return JSON.parse(source)
+  } catch (error) {
+    errors.push(`${relativePath} is not valid JSON: ${error.message}`)
+    return {}
+  }
+}
+
+for (const item of modules) {
+  const apiSource = readFile(item.api)
+  const cloudSource = readFile(item.cloud)
+  const schema = readSchema(item.schema)
+
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
+    if (!apiSource.includes(token)) {
+      errors.push(`${item.api} is missing ${token}`)
+    }
+  }
+
+  for (const apiExport of item.apiExports) {
+    if (!apiSource.includes(apiExport)) {
+      errors.push(`${item.api} is missing ${apiExport}`)
+    }
+  }
+
+  for (const action of item.actions) {
+    if (!cloudSource.includes(`action === '${action}'`)) {
+      errors.push(`${item.cloud} is missing action ${action}`)
+    }
+  }
+
+  if (!cloudSource.includes('code: 0') || !cloudSource.includes('data:')) {
+    errors.push(`${item.cloud} must return { code: 0, data } for successful actions`)
+  }
+
+  for (const field of item.requiredSchemaFields) {
+    if (!(schema.required || []).includes(field)) {
+      errors.push(`${item.schema} must require ${field}`)
+    }
+  }
+}
+
+const authSource = readFile('common/api/auth.js')
+for (const token of ['getCurrentUserId', 'getCurrentUserProfile', 'requireLogin', 'uniCloud.getCurrentUserInfo']) {
+  if (!authSource.includes(token)) {
+    errors.push(`common/api/auth.js is missing ${token}`)
+  }
+}
+
+if (errors.length > 0) {
+  console.error(errors.join('\n'))
+  process.exit(1)
+}
+
+console.log('SureGo cloud integration static check passed.')
+console.log('Manual HBuilderX sequence: login as A -> create activity -> login as B -> apply -> login as A -> review -> login as B -> pay placeholder -> check messages -> check in.')
