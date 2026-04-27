@@ -31,7 +31,7 @@
           <text>¥{{ activity.amount }}</text>
         </view>
 
-        <view class="order-state">
+        <view class="order-state" @tap="order && goOrderDetail(order.id)">
           <text>订单状态</text>
           <text :class="`order-state__badge order-state__badge--${orderStatus}`">{{ orderStatusText }}</text>
         </view>
@@ -46,6 +46,7 @@
         <button class="pay-button" :disabled="isPaying" @tap="handlePay">
           {{ payButtonText }}
         </button>
+        <view v-if="order" class="order-link" @tap="goOrderDetail(order.id)">查看订单详情</view>
         <text class="payment__note">当前阶段不调用真实微信支付，仅写入订单状态用于前端闭环。</text>
       </view>
     </view>
@@ -56,9 +57,9 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { ensureOrderForActivity, markOrderPaid } from '@/common/api/order.js'
+import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, goParticipantDashboard } from '@/common/utils/route.js'
+import { goBackHome, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('102'))
 const order = ref(null)
@@ -75,10 +76,7 @@ const rules = computed(() => {
 })
 const orderStatus = computed(() => order.value?.status || 'pending')
 const orderStatusText = computed(() => {
-  if (orderStatus.value === 'paid') return '已支付'
-  if (orderStatus.value === 'refunded') return '已退款'
-  if (orderStatus.value === 'closed') return '已关闭'
-  return '待支付'
+  return getOrderStatusText(orderStatus.value)
 })
 const payButtonText = computed(() => {
   if (isPaying.value) return '处理中...'
@@ -92,7 +90,9 @@ onLoad(async (query) => {
   order.value = await ensureOrderForActivity({
     activityId: activity.value.id,
     type: activity.value.partyMode,
-    amount: activity.value.amount
+    amount: activity.value.amount,
+    activityTitle: activity.value.title,
+    activityCover: activity.value.image
   })
 })
 
@@ -104,7 +104,8 @@ async function handlePay() {
   }
 
   isPaying.value = true
-  order.value = await markOrderPaid(order.value.id)
+  const paid = await markOrderPaid(order.value.id)
+  order.value = { ...order.value, ...paid }
   uni.showToast({ title: '支付成功', icon: 'none' })
   setTimeout(() => {
     goParticipantDashboard(activity.value.id)
@@ -313,6 +314,19 @@ async function handlePay() {
   background: #0f172a;
   color: #fff;
   font-size: 28rpx;
+  font-weight: 900;
+}
+
+.order-link {
+  display: flex;
+  height: 74rpx;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 23rpx;
   font-weight: 900;
 }
 

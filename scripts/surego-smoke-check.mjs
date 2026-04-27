@@ -37,6 +37,7 @@ const requiredFiles = [
   'pages/manage/dashboard.vue',
   'pages/manage/checkin.vue',
   'pages/participant/dashboard.vue',
+  'pages/order/detail.vue',
   'pages/share/poster.vue',
   'pages/my/activities.vue',
   'pages/payment/index.vue',
@@ -61,6 +62,7 @@ const expectedPages = [
   'pages/manage/dashboard',
   'pages/manage/checkin',
   'pages/participant/dashboard',
+  'pages/order/detail',
   'pages/share/poster',
   'pages/my/activities',
   'pages/payment/index',
@@ -218,6 +220,9 @@ if (fs.existsSync(routePath)) {
   if (!routeSource.includes('goActivityMembers')) {
     errors.push('common/utils/route.js is missing goActivityMembers');
   }
+  if (!routeSource.includes('goOrderDetail')) {
+    errors.push('common/utils/route.js is missing goOrderDetail');
+  }
   for (const helper of ['goSearch', 'goCityPicker', 'goCalendar']) {
     if (!routeSource.includes(helper)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
@@ -246,7 +251,7 @@ if (fs.existsSync(routePath)) {
 const orderPath = path.join(root, 'common/api/order.js');
 if (fs.existsSync(orderPath)) {
   const orderSource = fs.readFileSync(orderPath, 'utf8');
-  for (const helper of ['ensureOrderForActivity', 'getOrderForActivity', 'updateOrderStatus']) {
+  for (const helper of ['ensureOrderForActivity', 'getOrderForActivity', 'getOrderDetail', 'listOrdersByStatus', 'refundOrder', 'closeOrder', 'getOrderStatusText', 'updateOrderStatus']) {
     if (!orderSource.includes(helper)) {
       errors.push(`common/api/order.js is missing ${helper}`);
     }
@@ -254,6 +259,16 @@ if (fs.existsSync(orderPath)) {
   for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
     if (!orderSource.includes(token)) {
       errors.push(`common/api/order.js is missing ${token}`);
+    }
+  }
+}
+
+const orderSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-orders.schema.json');
+if (fs.existsSync(orderSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(orderSchemaPath, 'utf8'));
+  for (const field of ['closed_at', 'refund_note', 'close_reason', 'activity_title', 'activity_cover']) {
+    if (!schema.properties?.[field]) {
+      errors.push(`surego-orders schema is missing ${field}`);
     }
   }
 }
@@ -445,9 +460,33 @@ if (fs.existsSync(orderCloudPath)) {
   if (!source.includes('normalize')) {
     errors.push('surego-order cloud function is missing normalize helpers');
   }
-  for (const action of ["action === 'ensureForActivity'", "action === 'getForActivity'", "action === 'updateStatus'"]) {
+  for (const action of ["action === 'ensureForActivity'", "action === 'getForActivity'", "action === 'getDetail'", "action === 'updateStatus'", "action === 'refund'", "action === 'close'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-order cloud function is missing ${action}`);
+    }
+  }
+}
+
+const participantDashboardPath = path.join(root, 'pages/participant/dashboard.vue');
+if (fs.existsSync(participantDashboardPath)) {
+  const source = fs.readFileSync(participantDashboardPath, 'utf8');
+  if (source.includes("userId === 'mock_user'")) {
+    errors.push('pages/participant/dashboard.vue must not filter by hard-coded mock_user');
+  }
+  if (!source.includes('getCurrentUserId')) {
+    errors.push('pages/participant/dashboard.vue must use getCurrentUserId');
+  }
+  if (!source.includes('goOrderDetail')) {
+    errors.push('pages/participant/dashboard.vue is missing goOrderDetail');
+  }
+}
+
+const userProfilePath = path.join(root, 'pages/user/profile.vue');
+if (fs.existsSync(userProfilePath)) {
+  const source = fs.readFileSync(userProfilePath, 'utf8');
+  for (const token of ['orderFilters', 'filteredOrders', 'goOrderDetail']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/user/profile.vue is missing ${token}`);
     }
   }
 }

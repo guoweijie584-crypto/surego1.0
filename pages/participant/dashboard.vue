@@ -70,6 +70,10 @@
             <text>{{ primaryActionText }}</text>
           </view>
         </view>
+        <view v-if="order" class="order-strip" @tap="goOrderDetail(order.id)">
+          <text>{{ order.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
+          <text>{{ getOrderStatusText(order.status) }} · 查看详情</text>
+        </view>
       </view>
 
       <view class="stats">
@@ -117,12 +121,13 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
+import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
 import { listCheckins, confirmCheckin, createCheckinCode } from '@/common/api/checkin.js'
 import { listMessages } from '@/common/api/message.js'
-import { listOrders } from '@/common/api/order.js'
+import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goActivityDetail, goBackHome, goMessages, goManageDashboard, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { goActivityDetail, goBackHome, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(findActivityById('103'))
@@ -167,6 +172,8 @@ const paymentState = computed(() => {
   if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付', desc: '本局免费参与' }
   if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认占位单' }
   if (order.value.status === 'paid') return { key: 'paid', label: '已支付', desc: `订单号 ${order.value.id}` }
+  if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款', desc: order.value.refundNote || '模拟退款已记录' }
+  if (order.value.status === 'closed') return { key: 'closed', label: '已关闭', desc: order.value.closeReason || '订单已关闭' }
   return { key: 'pending', label: '待支付', desc: '仍可继续确认' }
 })
 
@@ -210,6 +217,7 @@ const primaryActionText = computed(() => {
   if (activity.value.isCreator) return '进入管理台'
   if (applicationState.value.key === 'pending') return '等待审核'
   if (applicationState.value.key === 'rejected') return '返回详情页'
+  if (['refunded', 'closed'].includes(paymentState.value.key)) return '查看订单'
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return '去支付'
   if (checkin.value) return '已完成签到'
   return '模拟签到'
@@ -241,9 +249,10 @@ async function loadState() {
   ])
 
   activity.value = detail
+  const userId = getCurrentUserId()
   application.value = applications.find((item) => item.activityId === String(activityId.value)) || null
-  order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === 'mock_user') || null
-  checkin.value = checkins.find((item) => item.activityId === String(activityId.value) && item.userId === 'mock_user') || null
+  order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
+  checkin.value = checkins.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
   relatedMessages.value = messages.filter((item) => item.activityId === String(activityId.value)).slice(0, 3)
 
   if (activity.value.isCreator || applicationState.value.key === 'approved') {
@@ -302,6 +311,11 @@ async function handlePrimaryAction() {
     return
   }
 
+  if (['refunded', 'closed'].includes(paymentState.value.key) && order.value) {
+    goOrderDetail(order.value.id)
+    return
+  }
+
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') {
     goPayment({
       activityId: activityId.value,
@@ -324,7 +338,7 @@ async function handlePrimaryAction() {
   await confirmCheckin({
     activityId: activityId.value,
     code: entryCode.value,
-    userId: 'mock_user'
+    userId: getCurrentUserId()
   })
   await loadState()
   uni.showToast({ title: '签到成功', icon: 'none' })
@@ -617,6 +631,24 @@ function handleMessageTap(item) {
 .action-row__btn--primary {
   background: #0f172a;
   color: #fff;
+}
+
+.order-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding: 20rpx 22rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.order-strip text:first-child {
+  color: #0f172a;
 }
 
 .stats {

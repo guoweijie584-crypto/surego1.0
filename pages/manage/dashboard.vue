@@ -119,6 +119,25 @@
         </view>
       </view>
     </SuActionSheet>
+
+    <SuActionSheet v-model:show="showTicketSheet" title="票券与保证金">
+      <view class="ticket-sheet">
+        <view class="ticket-summary">
+          <view v-for="item in ticketStats" :key="item.label">
+            <text>{{ item.value }}</text>
+            <text>{{ item.label }}</text>
+          </view>
+        </view>
+        <view v-if="ticketOrders.length === 0" class="ticket-empty">暂无票券订单</view>
+        <view v-for="item in ticketOrders" :key="item.id" class="ticket-order">
+          <view>
+            <text>{{ item.type === 'ticket' ? '门票' : '诚意金' }} ¥{{ item.amount }}</text>
+            <text>{{ item.activityTitle || activity.title }}</text>
+          </view>
+          <text :class="`ticket-order__status ticket-order__status--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
+        </view>
+      </view>
+    </SuActionSheet>
   </view>
 </template>
 
@@ -128,13 +147,16 @@ import { onLoad } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
+import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goActivityEdit, goBackHome, goManageCheckin, goMessages, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { goActivityEdit, goBackHome, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('103'))
 const applications = ref([])
+const ticketOrders = ref([])
 const scrollIntoView = ref('')
 const showReviewSheet = ref(false)
+const showTicketSheet = ref(false)
 const reviewTarget = ref(null)
 const reviewMode = ref('approved')
 const reviewForm = ref({ note: '' })
@@ -159,11 +181,24 @@ const lifecycleActions = [
 
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
 const lifecycleLabel = computed(() => getLifecycleLabel(activity.value.status))
+const ticketStats = computed(() => {
+  const paid = ticketOrders.value.filter((item) => item.status === 'paid')
+  const pending = ticketOrders.value.filter((item) => item.status === 'pending')
+  const refunded = ticketOrders.value.filter((item) => item.status === 'refunded')
+  const amount = paid.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  return [
+    { label: '待支付', value: pending.length },
+    { label: '已支付', value: paid.length },
+    { label: '退款/关闭', value: refunded.length + ticketOrders.value.filter((item) => item.status === 'closed').length },
+    { label: '已收金额', value: `¥${amount}` }
+  ]
+})
 
 onLoad(async (query) => {
   const id = (query && query.id) || '103'
   activity.value = await getActivityDetail(id)
   applications.value = await listApplications(id)
+  ticketOrders.value = await listOrdersByActivity(id)
 })
 
 function getInitial(item) {
@@ -211,11 +246,8 @@ async function handleAction(item) {
       uni.showToast({ title: '本局免费，无需票券', icon: 'none' })
       return
     }
-    goPayment({
-      activityId: activity.value.id,
-      type: activity.value.partyMode,
-      amount: activity.value.amount
-    })
+    ticketOrders.value = await listOrdersByActivity(activity.value.id)
+    showTicketSheet.value = true
     return
   }
 
@@ -640,5 +672,94 @@ async function submitReview() {
   color: #fff;
   font-size: 26rpx;
   font-weight: 900;
+}
+
+.ticket-sheet {
+  padding: 4rpx 0 8rpx;
+}
+
+.ticket-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14rpx;
+}
+
+.ticket-summary view {
+  padding: 22rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.ticket-summary text:first-child {
+  display: block;
+  color: #0f172a;
+  font-size: 32rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.ticket-summary text:last-child {
+  display: block;
+  margin-top: 6rpx;
+  color: #94a3b8;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
+.ticket-empty {
+  padding: 54rpx 0;
+  color: #94a3b8;
+  text-align: center;
+  font-size: 23rpx;
+  font-weight: 900;
+}
+
+.ticket-order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 22rpx 0;
+  border-top: 1rpx solid #f1f5f9;
+}
+
+.ticket-order text:first-child {
+  display: block;
+  color: #0f172a;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.ticket-order text:nth-child(2) {
+  display: block;
+  margin-top: 6rpx;
+  color: #94a3b8;
+  font-size: 20rpx;
+  font-weight: 800;
+}
+
+.ticket-order__status {
+  flex-shrink: 0;
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 19rpx;
+  font-weight: 900;
+}
+
+.ticket-order__status--paid {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ticket-order__status--refunded {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.ticket-order__status--closed {
+  background: #fee2e2;
+  color: #ef4444;
 }
 </style>

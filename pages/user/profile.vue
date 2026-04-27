@@ -69,16 +69,28 @@
       </view>
 
       <view v-if="activeTab === 'orders'" class="profile__list">
-        <view v-if="orders.length === 0" class="empty">
+        <view class="order-filters">
+          <view
+            v-for="item in orderFilters"
+            :key="item.key"
+            class="order-filter"
+            :class="{ 'order-filter--active': activeOrderFilter === item.key }"
+            @tap="activeOrderFilter = item.key"
+          >
+            {{ item.label }}
+          </view>
+        </view>
+        <view v-if="filteredOrders.length === 0" class="empty">
           <uni-icons type="wallet-filled" size="42" color="#cbd5e1" />
           <text>暂无订单</text>
         </view>
-        <view v-for="item in orders" :key="item.id" class="order-card">
+        <view v-for="item in filteredOrders" :key="item.id" class="order-card" @tap="goOrderDetail(item.id)">
           <view>
             <text class="order-card__title">{{ item.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
-            <text class="order-card__meta">¥{{ item.amount }} · {{ item.status }}</text>
+            <text class="order-card__meta">{{ item.activityTitle || 'SureGo 活动' }}</text>
+            <text class="order-card__meta">¥{{ item.amount }} · {{ getOrderStatusText(item.status) }}</text>
           </view>
-          <uni-icons type="wallet-filled" size="22" color="#64748b" />
+          <text class="order-card__badge" :class="`order-card__badge--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
         </view>
       </view>
     </scroll-view>
@@ -89,11 +101,12 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
-import { listOrders } from '@/common/api/order.js'
+import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
-import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
+const activeOrderFilter = ref('all')
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
 const user = ref({
@@ -106,6 +119,17 @@ const user = ref({
 })
 
 const activityList = computed(() => [...myActivities.value.hosting, ...myActivities.value.joined, ...myActivities.value.pending])
+const orderFilters = [
+  { key: 'all', label: '全部' },
+  { key: 'pending', label: '待支付' },
+  { key: 'paid', label: '已支付' },
+  { key: 'refunded', label: '退款' },
+  { key: 'closed', label: '已关闭' }
+]
+const filteredOrders = computed(() => {
+  if (activeOrderFilter.value === 'all') return orders.value
+  return orders.value.filter((item) => item.status === activeOrderFilter.value)
+})
 const tabs = computed(() => [
   { key: 'activities', label: '活动', count: activityList.value.length },
   { key: 'reviews', label: '评价', count: 2 },
@@ -296,6 +320,30 @@ function openActivity(item) {
   padding: 12rpx 34rpx 70rpx;
 }
 
+.order-filters {
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+  padding-bottom: 4rpx;
+  white-space: nowrap;
+}
+
+.order-filter {
+  flex: 0 0 auto;
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #94a3b8;
+  font-size: 22rpx;
+  font-weight: 900;
+  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.05);
+}
+
+.order-filter--active {
+  background: #0f172a;
+  color: #fff;
+}
+
 .profile-card,
 .review-card,
 .order-card {
@@ -363,6 +411,31 @@ function openActivity(item) {
 .order-card {
   align-items: center;
   justify-content: space-between;
+}
+
+.order-card__badge {
+  flex: 0 0 auto;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #fef3c7;
+  color: #d97706;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
+.order-card__badge--paid {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.order-card__badge--refunded {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.order-card__badge--closed {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .empty {
