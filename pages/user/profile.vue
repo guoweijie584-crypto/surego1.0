@@ -44,6 +44,17 @@
         <view class="stats__edit" @tap="goUserEdit">编辑资料</view>
       </view>
 
+      <view v-if="canUseOps" class="ops-entry" @tap="goOpsDashboard">
+        <view class="ops-entry__icon">
+          <uni-icons type="gear-filled" size="22" color="#fff" />
+        </view>
+        <view class="ops-entry__copy">
+          <text class="ops-entry__title">运营控制台</text>
+          <text class="ops-entry__desc">处理举报、活动审核和试运营数据</text>
+        </view>
+        <uni-icons type="right" size="18" color="#94a3b8" />
+      </view>
+
       <view v-if="activeTab === 'activities'" class="profile__list">
         <view v-for="item in activityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
           <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
@@ -103,10 +114,12 @@ import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
-import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { isOpsUser } from '@/common/api/auth.js'
+import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const activeOrderFilter = ref('all')
+const canUseOps = ref(false)
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
 const user = ref({
@@ -137,6 +150,7 @@ const tabs = computed(() => [
 ])
 
 onShow(async () => {
+  canUseOps.value = isOpsUser()
   user.value = await getCurrentUser()
   myActivities.value = await listMyActivities()
   orders.value = await listOrders()
@@ -311,6 +325,51 @@ function openActivity(item) {
   color: #fff;
   font-size: 20rpx;
   font-weight: 900;
+}
+
+.ops-entry {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: 0 34rpx 20rpx;
+  padding: 24rpx;
+  border: 1rpx solid rgba(15, 23, 42, 0.08);
+  border-radius: 28rpx;
+  background: #0f172a;
+  box-shadow: 0 18rpx 42rpx rgba(15, 23, 42, 0.12);
+}
+
+.ops-entry__icon {
+  display: flex;
+  width: 70rpx;
+  height: 70rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  background: #ff6b6b;
+}
+
+.ops-entry__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ops-entry__title,
+.ops-entry__desc {
+  display: block;
+}
+
+.ops-entry__title {
+  color: #fff;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.ops-entry__desc {
+  margin-top: 6rpx;
+  color: #cbd5e1;
+  font-size: 21rpx;
+  font-weight: 800;
 }
 
 .profile__list {

@@ -141,6 +141,20 @@
       }
     },
     {
+      "path": "pages/ops/dashboard",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/ops/reports",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/payment/index",
       "style": {
         "navigationStyle": "custom",

@@ -86,6 +86,15 @@ export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
 }
 
+export function goOpsDashboard() {
+  guardLoginAction('/pages/ops/dashboard')
+}
+
+export function goOpsReports(status = '') {
+  const query = buildQuery({ status })
+  guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`)
+}
+
 export function goActivityEdit(id) {
   uni.navigateTo({
     url: `/pages/activity/edit?id=${encodeURIComponent(id)}`
