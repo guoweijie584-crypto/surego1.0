@@ -3,28 +3,95 @@
 const db = uniCloud.database();
 const collection = db.collection('surego-checkins');
 
+function now() {
+  return Date.now();
+}
+
+function normalizeCheckin(record = {}) {
+  return {
+    id: record._id || record.id,
+    activityId: record.activity_id || record.activityId || '',
+    userId: record.user_id || record.userId || 'mock_user',
+    code: record.code || '',
+    status: record.status || 'checked',
+    checkedAt: record.checked_at || record.checkedAt || now(),
+    createdAt: record.created_at || record.createdAt || record.checked_at || now()
+  };
+}
+
+function normalizeList(result = {}) {
+  return (result.data || []).map(normalizeCheckin);
+}
+
+function buildRecord(payload = {}) {
+  const checkedAt = payload.checkedAt || payload.checked_at || now();
+  return {
+    activity_id: String(payload.activityId || payload.activity_id || ''),
+    user_id: payload.userId || payload.user_id || 'mock_user',
+    code: payload.code || '',
+    status: payload.status || 'checked',
+    checked_at: checkedAt,
+    created_at: payload.createdAt || payload.created_at || checkedAt
+  };
+}
+
+async function getActivityCheckins(activityId) {
+  const result = await collection
+    .where({ activity_id: String(activityId) })
+    .orderBy('checked_at', 'desc')
+    .get();
+  return normalizeList(result);
+}
+
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
 
   if (action === 'createCode') {
     return {
-      code: `SG${String(Date.now()).slice(-6)}`,
-      expiresIn: 300
+      code: 0,
+      data: {
+        activityId: String(payload.activityId || payload.activity_id || ''),
+        code: `SG${String(now()).slice(-6)}`,
+        expiresIn: 300
+      }
     };
   }
 
   if (action === 'confirm') {
-    return collection.add({
-      ...payload,
-      status: 'checked',
-      checked_at: Date.now(),
-      created_at: Date.now()
-    });
+    const record = buildRecord(payload);
+    const result = await collection.add(record);
+    return {
+      code: 0,
+      data: normalizeCheckin({
+        ...record,
+        _id: result.id || result._id
+      })
+    };
   }
 
   if (action === 'listByActivity') {
-    return collection.where({ activity_id: payload.activity_id }).orderBy('checked_at', 'desc').get();
+    const activityId = payload.activityId || payload.activity_id;
+    return {
+      code: 0,
+      data: await getActivityCheckins(activityId)
+    };
+  }
+
+  if (action === 'summary') {
+    const activityId = payload.activityId || payload.activity_id;
+    const totalCount = Number(payload.totalCount || payload.total_count || 0);
+    const items = await getActivityCheckins(activityId);
+    return {
+      code: 0,
+      data: {
+        activityId: String(activityId || ''),
+        checkedCount: items.length,
+        totalCount,
+        pendingCount: Math.max(0, totalCount - items.length),
+        items
+      }
+    };
   }
 
   return {

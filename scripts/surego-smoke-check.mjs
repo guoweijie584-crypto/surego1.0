@@ -195,6 +195,21 @@ if (fs.existsSync(messagePath)) {
   }
 }
 
+const checkinPath = path.join(root, 'common/api/checkin.js');
+if (fs.existsSync(checkinPath)) {
+  const checkinSource = fs.readFileSync(checkinPath, 'utf8');
+  for (const helper of ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary']) {
+    if (!checkinSource.includes(helper)) {
+      errors.push(`common/api/checkin.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
+    if (!checkinSource.includes(token)) {
+      errors.push(`common/api/checkin.js is missing ${token}`);
+    }
+  }
+}
+
 const activityApiPath = path.join(root, 'common/api/activity.js');
 if (fs.existsSync(activityApiPath)) {
   const activitySource = fs.readFileSync(activityApiPath, 'utf8');
@@ -284,6 +299,19 @@ if (fs.existsSync(messageCloudPath)) {
   for (const action of ["action === 'create'", "action === 'list'", "action === 'markRead'", "action === 'markAllRead'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-message cloud function is missing ${action}`);
+    }
+  }
+}
+
+const checkinCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js');
+if (fs.existsSync(checkinCloudPath)) {
+  const source = fs.readFileSync(checkinCloudPath, 'utf8');
+  if (!source.includes('normalize')) {
+    errors.push('surego-checkin cloud function is missing normalize helpers');
+  }
+  for (const action of ["action === 'createCode'", "action === 'confirm'", "action === 'listByActivity'", "action === 'summary'"]) {
+    if (!source.includes(action)) {
+      errors.push(`surego-checkin cloud function is missing ${action}`);
     }
   }
 }
