@@ -20,7 +20,14 @@
         </view>
       </view>
 
-      <button class="login__primary" @tap="handleLogin">授权并继续</button>
+      <button
+        class="login__primary"
+        :class="{ 'login__primary--loading': isLoggingIn }"
+        :disabled="isLoggingIn"
+        @tap="handleLogin"
+      >
+        {{ isLoggingIn ? '授权中...' : '授权并继续' }}
+      </button>
       <view class="login__secondary" @tap="goBack">先逛逛</view>
     </view>
   </view>
@@ -29,31 +36,55 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getCurrentUserProfile, setMockLogin } from '@/common/api/auth.js'
+import { getCurrentUserProfile, loginWithWeixin } from '@/common/api/auth.js'
 
 const redirect = ref('')
 const profile = ref(getCurrentUserProfile())
+const isLoggingIn = ref(false)
 
 onLoad((query = {}) => {
   redirect.value = decodeURIComponent(query.redirect || '')
   profile.value = getCurrentUserProfile()
 })
 
-function handleLogin() {
-  const next = setMockLogin(profile.value)
-  profile.value = {
-    ...profile.value,
-    ...next
+async function handleLogin() {
+  if (isLoggingIn.value) {
+    return
   }
-  uni.showToast({ title: '已授权', icon: 'none' })
 
-  setTimeout(() => {
-    if (redirect.value) {
-      uni.redirectTo({ url: redirect.value })
-      return
+  isLoggingIn.value = true
+  try {
+    const result = await loginWithWeixin(profile.value)
+    profile.value = {
+      ...profile.value,
+      ...(result.user || {})
     }
+    uni.showToast({
+      title: result.mode === 'mock' ? '开发模式已授权' : '授权成功',
+      icon: 'none'
+    })
+
+    setTimeout(() => {
+      isLoggingIn.value = false
+      completeLoginNavigation()
+    }, 280)
+  } catch (error) {
+    isLoggingIn.value = false
+    uni.showToast({ title: '授权失败，请稍后再试', icon: 'none' })
+  }
+}
+
+function completeLoginNavigation() {
+  if (redirect.value) {
+    uni.redirectTo({ url: redirect.value })
+    return
+  }
+  const pages = getCurrentPages()
+  if (pages.length > 1) {
     uni.navigateBack()
-  }, 280)
+    return
+  }
+  uni.reLaunch({ url: '/pages/home/index' })
 }
 
 function goBack() {
@@ -187,6 +218,10 @@ function goBack() {
   align-items: center;
   justify-content: center;
   box-shadow: 0 18rpx 40rpx rgba(255, 107, 107, 0.28);
+}
+
+.login__primary--loading {
+  opacity: 0.72;
 }
 
 .login__secondary {

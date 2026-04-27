@@ -177,6 +177,18 @@ if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('isOpsU
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
 }
 
+const loginSource = read('pages/auth/login.vue')
+if (!loginSource.includes('loginWithWeixin') || loginSource.includes('setMockLogin')) {
+  errors.push('pages/auth/login.vue must use loginWithWeixin facade instead of direct mock login')
+}
+
+const authSource = read('common/api/auth.js')
+for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center']) {
+  if (!authSource.includes(token)) {
+    errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
+  }
+}
+
 const posterSource = read('pages/share/poster.vue')
 for (const token of ['canvas-id="posterCanvas"', 'uni.saveImageToPhotosAlbum', 'open-type="share"']) {
   if (!posterSource.includes(token)) {

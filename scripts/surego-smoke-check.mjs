@@ -452,13 +452,32 @@ if (fs.existsSync(authApiPath)) {
   if (!authSource.includes('saveCurrentUserProfile')) {
     errors.push('common/api/auth.js is missing saveCurrentUserProfile');
   }
+  for (const helper of ['loginWithWeixin', 'loginWithMockFallback', 'persistUniIdSession']) {
+    if (!authSource.includes(helper)) {
+      errors.push(`common/api/auth.js is missing ${helper}`);
+    }
+  }
   if (!authSource.includes('isOpsUser')) {
     errors.push('common/api/auth.js is missing isOpsUser');
   }
-  for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user']) {
+  for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user', 'uni.login', 'uni-id-co', 'user-center']) {
     if (!authSource.includes(token)) {
       errors.push(`common/api/auth.js is missing ${token}`);
     }
+  }
+}
+
+const authLoginPath = path.join(root, 'pages/auth/login.vue');
+if (fs.existsSync(authLoginPath)) {
+  const source = fs.readFileSync(authLoginPath, 'utf8');
+  if (!source.includes('loginWithWeixin')) {
+    errors.push('pages/auth/login.vue must call loginWithWeixin from the auth facade');
+  }
+  if (source.includes('setMockLogin')) {
+    errors.push('pages/auth/login.vue must not directly call setMockLogin');
+  }
+  if (!source.includes('isLoggingIn')) {
+    errors.push('pages/auth/login.vue must prevent duplicate login taps with isLoggingIn');
   }
 }
 

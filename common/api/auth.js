@@ -3,6 +3,8 @@ import { USE_UNICLOUD } from '@/common/config/runtime.js'
 export const MOCK_USER_ID = 'mock_user'
 
 const UNI_ID_USER_KEY = 'uni-id-pages-userInfo'
+const UNI_ID_TOKEN_KEY = 'uni_id_token'
+const UNI_ID_TOKEN_EXPIRED_KEY = 'uni_id_token_expired'
 const LOCAL_USER_KEY = 'surego_current_user'
 const MOCK_LOGIN_KEY = 'surego_mock_login'
 const OPS_ROLES = ['admin', 'operator']
@@ -32,6 +34,53 @@ function pickUserId(...items) {
     if (id) return String(id)
   }
   return MOCK_USER_ID
+}
+
+function pickToken(payload = {}) {
+  return payload?.newToken?.token || payload?.token || payload?.uniIdToken || ''
+}
+
+function pickTokenExpired(payload = {}) {
+  return payload?.newToken?.tokenExpired || payload?.tokenExpired || payload?.uniIdTokenExpired || 0
+}
+
+function normalizeUniIdUser(payload = {}, fallback = {}) {
+  const user = payload.userInfo || payload.user || payload
+  const uid = pickUserId(
+    { uid: payload.uid, _id: payload.uid },
+    user,
+    fallback
+  )
+  return {
+    uid,
+    _id: uid,
+    userId: uid,
+    nickname: user.nickname || user.nickName || user.username || fallback.nickname || '吴哈哈',
+    avatar: user.avatar || user.avatar_file?.url || fallback.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
+    role: user.role || user.roles || fallback.role || []
+  }
+}
+
+function requestWeixinLoginCode() {
+  return new Promise((resolve, reject) => {
+    if (typeof uni.login !== 'function') {
+      reject(new Error('uni.login is unavailable'))
+      return
+    }
+    uni.login({
+      provider: 'weixin',
+      success(res = {}) {
+        if (res.code) {
+          resolve(res.code)
+          return
+        }
+        reject(new Error(res.errMsg || 'Weixin login code is empty'))
+      },
+      fail(error) {
+        reject(error)
+      }
+    })
+  })
 }
 
 export function getCurrentUserId() {
@@ -110,6 +159,93 @@ export function setMockLogin(profile = {}) {
   return next
 }
 
+export function persistUniIdSession(payload = {}, fallbackProfile = {}) {
+  const token = pickToken(payload)
+  const tokenExpired = pickTokenExpired(payload)
+  const userInfo = normalizeUniIdUser(payload, fallbackProfile)
+
+  if (token) {
+    uni.setStorageSync(UNI_ID_TOKEN_KEY, token)
+  }
+  if (tokenExpired) {
+    uni.setStorageSync(UNI_ID_TOKEN_EXPIRED_KEY, tokenExpired)
+  }
+  uni.setStorageSync(UNI_ID_USER_KEY, userInfo)
+  uni.setStorageSync(LOCAL_USER_KEY, {
+    ...readStorage(LOCAL_USER_KEY),
+    ...userInfo
+  })
+  return userInfo
+}
+
+async function loginWithUniIdCo(code, profile = {}) {
+  if (typeof uniCloud === 'undefined' || typeof uniCloud.importObject !== 'function') {
+    throw new Error('uni-id-co unavailable')
+  }
+  const uniIdCo = uniCloud.importObject('uni-id-co', { customUI: true })
+  const result = await uniIdCo.loginByWeixin({ code })
+  const user = persistUniIdSession(result, profile)
+  return {
+    mode: 'uni-id-co',
+    uid: user.uid,
+    user,
+    raw: result
+  }
+}
+
+async function loginWithUserCenter(code, profile = {}) {
+  if (typeof uniCloud === 'undefined' || typeof uniCloud.callFunction !== 'function') {
+    throw new Error('user-center unavailable')
+  }
+  const response = await uniCloud.callFunction({
+    name: 'user-center',
+    data: {
+      action: 'loginByWeixin',
+      params: { code }
+    }
+  })
+  const result = response?.result || {}
+  if (result.code && result.code !== 0) {
+    throw new Error(result.message || result.errMsg || result.code)
+  }
+  const user = persistUniIdSession(result, profile)
+  return {
+    mode: 'user-center',
+    uid: user.uid,
+    user,
+    raw: result
+  }
+}
+
+export function loginWithMockFallback(profile = {}) {
+  const user = setMockLogin(profile)
+  return Promise.resolve({
+    mode: 'mock',
+    uid: user.uid,
+    user,
+    raw: user
+  })
+}
+
+export async function loginWithWeixin(profile = {}) {
+  let code = ''
+  try {
+    code = await requestWeixinLoginCode()
+  } catch (error) {
+    return loginWithMockFallback(profile)
+  }
+
+  try {
+    return await loginWithUniIdCo(code, profile)
+  } catch (error) {
+    try {
+      return await loginWithUserCenter(code, profile)
+    } catch (fallbackError) {
+      return loginWithMockFallback(profile)
+    }
+  }
+}
+
 export function saveCurrentUserProfile(profile = {}) {
   const current = getCurrentUserProfile()
   const next = {
@@ -128,4 +264,6 @@ export function saveCurrentUserProfile(profile = {}) {
 export function logout() {
   uni.removeStorageSync(MOCK_LOGIN_KEY)
   uni.removeStorageSync(UNI_ID_USER_KEY)
+  uni.removeStorageSync(UNI_ID_TOKEN_KEY)
+  uni.setStorageSync(UNI_ID_TOKEN_EXPIRED_KEY, 0)
 }

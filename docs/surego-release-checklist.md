@@ -1,5 +1,12 @@
 # SureGo 试运营发布检查清单
 
+## uni-id login bridge
+
+- SureGo login now tries `uni.login` + `uni-id-co.loginByWeixin` first.
+- If `uni-id-co` is not uploaded or configured, it falls back to the legacy `user-center` cloud function.
+- If both cloud paths fail, it falls back to local mock login so local development and demos still run.
+- Before real cloud verification, upload/configure `uni-id-co` and confirm `uni_id_token`, `uni_id_token_expired`, and `uni-id-pages-userInfo` are written after login.
+
 ## 发布前静态检查
 
 - 运行 `node scripts\surego-smoke-check.mjs`，确认业务路由、云函数骨架、schema 和禁用 API 检查通过。
