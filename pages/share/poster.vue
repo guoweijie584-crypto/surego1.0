@@ -77,24 +77,33 @@
         </view>
         <view class="action-panel__button" @tap="savePosterPreview">
           <uni-icons type="download" size="20" color="#0f172a" />
-          <text>保存海报预览</text>
+          <text>{{ isGenerating ? '生成中...' : '保存海报图片' }}</text>
         </view>
       </view>
     </scroll-view>
+
+    <canvas canvas-id="posterCanvas" id="posterCanvas" class="poster-canvas" />
   </view>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { findActivityById } from '@/common/mock/activities.js'
 import { goActivityDetail } from '@/common/utils/route.js'
+import { buildActivityPosterCopy, buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activityId = ref('101')
 const activity = ref(findActivityById('101'))
+const posterImage = ref('')
+const isGenerating = ref(false)
 
-const sharePath = computed(() => `/pages/activity/detail?id=${activity.value.id}`)
+const posterWidth = 750
+const posterHeight = 1180
+
+const sharePath = computed(() => buildActivitySharePath(activity.value))
+const posterCopy = computed(() => buildActivityPosterCopy(activity.value))
 
 const modeLabel = computed(() => {
   if (activity.value.partyMode === 'sincerity') return `诚意金 ¥${activity.value.amount}`
@@ -110,13 +119,11 @@ const seatsLeftText = computed(() => {
 onLoad(async (query) => {
   activityId.value = (query && query.id) || '101'
   activity.value = await getActivityDetail(activityId.value)
+  await nextTick()
+  generatePosterImage()
 })
 
-onShareAppMessage(() => ({
-  title: activity.value.title,
-  path: sharePath.value,
-  imageUrl: activity.value.image
-}))
+onShareAppMessage(() => buildActivitySharePayload(activity.value, posterImage.value || activity.value.image))
 
 function copySharePath() {
   uni.setClipboardData({
@@ -127,10 +134,141 @@ function copySharePath() {
   })
 }
 
-function savePosterPreview() {
-  uni.showToast({
-    title: '海报预览已生成，保存图片将在 canvas 阶段接入',
-    icon: 'none'
+function getCanvasCoverPath() {
+  return new Promise((resolve) => {
+    if (!activity.value.image) {
+      resolve('')
+      return
+    }
+    uni.getImageInfo({
+      src: activity.value.image,
+      success: (result) => resolve(result.path || ''),
+      fail: () => resolve('')
+    })
+  })
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 2) {
+  const chars = String(text || '').split('')
+  let line = ''
+  let lineCount = 0
+  for (let i = 0; i < chars.length; i += 1) {
+    const testLine = `${line}${chars[i]}`
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(line, x, y + lineCount * lineHeight)
+      line = chars[i]
+      lineCount += 1
+      if (lineCount >= maxLines) return
+    } else {
+      line = testLine
+    }
+  }
+  if (line && lineCount < maxLines) {
+    ctx.fillText(line, x, y + lineCount * lineHeight)
+  }
+}
+
+async function generatePosterImage() {
+  if (isGenerating.value) return posterImage.value
+  isGenerating.value = true
+  try {
+    const ctx = uni.createCanvasContext('posterCanvas')
+    const copy = posterCopy.value
+    const coverPath = await getCanvasCoverPath()
+
+    ctx.setFillStyle('#f0f4f8')
+    ctx.fillRect(0, 0, posterWidth, posterHeight)
+    ctx.setFillStyle('#ffffff')
+    ctx.fillRect(38, 34, 674, 1112)
+
+    ctx.setFillStyle('#0f172a')
+    ctx.fillRect(38, 34, 674, 470)
+    if (coverPath) {
+      ctx.drawImage(coverPath, 38, 34, 674, 470)
+      ctx.setFillStyle('rgba(15, 23, 42, 0.42)')
+      ctx.fillRect(38, 34, 674, 470)
+    }
+
+    ctx.setFillStyle('#ffffff')
+    ctx.setFontSize(28)
+    ctx.fillText(copy.brand, 74, 92)
+    ctx.setFontSize(22)
+    ctx.fillText(copy.slogan, 74, 126)
+
+    ctx.setFillStyle(activity.value.partyMode === 'ticket' ? '#8b5cf6' : activity.value.partyMode === 'sincerity' ? '#ef4444' : '#22c55e')
+    ctx.fillRect(496, 420, 176, 46)
+    ctx.setFillStyle('#ffffff')
+    ctx.setFontSize(22)
+    ctx.fillText(copy.mode, 514, 451)
+
+    ctx.setFillStyle('#0f172a')
+    ctx.setFontSize(42)
+    drawWrappedText(ctx, activity.value.title, 74, 580, 602, 56, 3)
+
+    ctx.setFillStyle('#64748b')
+    ctx.setFontSize(26)
+    ctx.fillText(copy.time, 74, 772)
+    drawWrappedText(ctx, copy.location, 74, 820, 600, 34, 1)
+
+    ctx.setFillStyle('#f8fafc')
+    ctx.fillRect(74, 878, 602, 112)
+    ctx.setFillStyle('#0f172a')
+    ctx.setFontSize(32)
+    ctx.fillText(String(activity.value.participantCount || 0), 118, 932)
+    ctx.fillText(seatsLeftText.value, 314, 932)
+    ctx.fillText(String(activity.value.likeCount || 0), 510, 932)
+    ctx.setFillStyle('#94a3b8')
+    ctx.setFontSize(18)
+    ctx.fillText('已上车', 112, 966)
+    ctx.fillText('剩余名额', 296, 966)
+    ctx.fillText('心动', 510, 966)
+
+    ctx.setFillStyle('#f1f5f9')
+    ctx.fillRect(74, 1026, 104, 104)
+    ctx.setFillStyle('#0f172a')
+    ctx.setFontSize(26)
+    ctx.fillText('SG', 110, 1088)
+    ctx.setFontSize(24)
+    ctx.fillText(copy.qrHint, 202, 1066)
+    ctx.setFillStyle('#94a3b8')
+    ctx.setFontSize(20)
+    drawWrappedText(ctx, copy.path, 202, 1102, 450, 26, 1)
+
+    return await new Promise((resolve, reject) => {
+      ctx.draw(false, () => {
+        uni.canvasToTempFilePath({
+          canvasId: 'posterCanvas',
+          width: posterWidth,
+          height: posterHeight,
+          destWidth: posterWidth,
+          destHeight: posterHeight,
+          success: (result) => {
+            posterImage.value = result.tempFilePath
+            resolve(result.tempFilePath)
+          },
+          fail: reject
+        })
+      })
+    })
+  } catch (error) {
+    uni.showToast({ title: '海报生成失败，可先转发或复制路径', icon: 'none' })
+    return ''
+  } finally {
+    isGenerating.value = false
+  }
+}
+
+async function savePosterPreview() {
+  const filePath = posterImage.value || await generatePosterImage()
+  if (!filePath) return
+  uni.saveImageToPhotosAlbum({
+    filePath,
+    success() {
+      uni.showToast({ title: '海报已保存', icon: 'none' })
+    },
+    fail() {
+      uni.showToast({ title: '保存失败，可先转发或复制路径', icon: 'none' })
+    }
   })
 }
 </script>
@@ -173,6 +311,14 @@ function savePosterPreview() {
 
 .poster__scroll {
   height: 100vh;
+}
+
+.poster-canvas {
+  position: fixed;
+  left: -9999rpx;
+  top: -9999rpx;
+  width: 750px;
+  height: 1180px;
 }
 
 .poster-card {
