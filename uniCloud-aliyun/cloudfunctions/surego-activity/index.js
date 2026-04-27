@@ -22,6 +22,10 @@ function normalizeActivity(item = {}) {
     ...item,
     id: item.id || item._id,
     status: normalizeStatus(item.status),
+    moderationStatus: item.moderation_status || item.moderationStatus || 'visible',
+    moderationNote: item.moderation_note || item.moderationNote || '',
+    moderatedAt: item.moderated_at || item.moderatedAt || '',
+    moderatedBy: item.moderated_by || item.moderatedBy || '',
     createdAt: item.createdAt || item.created_at,
     updatedAt: item.updatedAt || item.updated_at
   };

@@ -1,0 +1,24 @@
+{
+  "bsonType": "object",
+  "required": ["activity_id", "reporter_id", "status", "reason"],
+  "permission": {
+    "read": "auth.uid != null",
+    "create": "auth.uid != null",
+    "update": "auth.role.indexOf('admin') > -1 || auth.role.indexOf('operator') > -1",
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Report id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "activity_title": { "bsonType": "string", "title": "Activity title" },
+    "reporter_id": { "bsonType": "string", "title": "Reporter user id" },
+    "reason": { "bsonType": "string", "title": "Report reason" },
+    "note": { "bsonType": "string", "title": "Reporter note" },
+    "status": { "enum": ["pending", "resolved", "rejected"], "title": "Report status" },
+    "review_note": { "bsonType": "string", "title": "Operator review note" },
+    "handled_by": { "bsonType": "string", "title": "Operator user id" },
+    "handled_at": { "bsonType": "timestamp", "title": "Handled at" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
+  }
+}

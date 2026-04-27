@@ -5,6 +5,7 @@ export const MOCK_USER_ID = 'mock_user'
 const UNI_ID_USER_KEY = 'uni-id-pages-userInfo'
 const LOCAL_USER_KEY = 'surego_current_user'
 const MOCK_LOGIN_KEY = 'surego_mock_login'
+const OPS_ROLES = ['admin', 'operator']
 
 function readStorage(key) {
   try {
@@ -45,6 +46,23 @@ export function isLoggedIn() {
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const mockLogin = readStorage(MOCK_LOGIN_KEY)
   return Boolean(cloudUser.uid || cloudUser._id || uniIdUser.uid || uniIdUser._id || mockLogin.uid)
+}
+
+function getUserRoles(...items) {
+  return items.flatMap((item) => {
+    const role = item?.role || item?.roles || item?.permission || item?.permissions || []
+    return Array.isArray(role) ? role : [role]
+  }).filter(Boolean).map(String)
+}
+
+export function isOpsUser() {
+  const cloudUser = readCloudUserInfo()
+  const uniIdUser = readStorage(UNI_ID_USER_KEY)
+  const localUser = readStorage(LOCAL_USER_KEY)
+  const mockLogin = readStorage(MOCK_LOGIN_KEY)
+  const uid = pickUserId(cloudUser, uniIdUser, mockLogin, localUser)
+  if (uid === MOCK_USER_ID) return true
+  return getUserRoles(cloudUser, uniIdUser, mockLogin, localUser).some((role) => OPS_ROLES.includes(role))
 }
 
 export function getCurrentUserProfile() {

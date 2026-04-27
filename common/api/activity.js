@@ -4,6 +4,7 @@ import { callSuregoFunction } from '@/common/api/cloud.js'
 import { getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
+const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
@@ -27,11 +28,17 @@ function normalizeApplicationStatus(status = 'not_applied') {
 
 export function normalizeActivityRecord(item = {}) {
   const legacyStatus = item.applicationStatus || item.application_status || item.status
+  const moderationStatus = item.moderationStatus || item.moderation_status || 'visible'
   return {
     ...item,
     status: normalizeActivityStatus(item.status),
     lifecycleStatus: normalizeActivityStatus(item.lifecycleStatus || item.status),
     applicationStatus: normalizeApplicationStatus(legacyStatus),
+    moderationStatus,
+    moderation_status: moderationStatus,
+    moderationNote: item.moderationNote || item.moderation_note || '',
+    moderatedAt: item.moderatedAt || item.moderated_at || '',
+    moderatedBy: item.moderatedBy || item.moderated_by || '',
     creatorId: item.creatorId || item.creator_id || '',
     creator_id: item.creator_id || item.creatorId || ''
   }
@@ -39,6 +46,19 @@ export function normalizeActivityRecord(item = {}) {
 
 function readCreatedActivities() {
   return uni.getStorageSync(STORAGE_KEY) || []
+}
+
+function readModerationStatuses() {
+  return uni.getStorageSync(MODERATION_STATUS_KEY) || {}
+}
+
+function applyModerationOverlay(item = {}) {
+  const overlays = readModerationStatuses()
+  const overlay = overlays[String(item.id || item._id)] || {}
+  return normalizeActivityRecord({
+    ...item,
+    ...overlay
+  })
 }
 
 function writeCreatedActivities(items) {
@@ -84,7 +104,7 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
 }
 
 function listLocalActivities() {
-  return Promise.resolve([...readCreatedActivities(), ...activities].map(normalizeActivityRecord))
+  return Promise.resolve([...readCreatedActivities(), ...activities].map(applyModerationOverlay))
 }
 
 export async function listActivities() {
@@ -162,7 +182,7 @@ export async function getCityActivityStats() {
 function getLocalActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
-  return Promise.resolve(normalizeActivityRecord(found || findActivityById(id)))
+  return Promise.resolve(applyModerationOverlay(found || findActivityById(id)))
 }
 
 export async function getActivityDetail(id) {

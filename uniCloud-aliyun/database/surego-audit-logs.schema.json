@@ -1,0 +1,19 @@
+{
+  "bsonType": "object",
+  "required": ["operator_id", "action", "target_type", "target_id"],
+  "permission": {
+    "read": "auth.role.indexOf('admin') > -1 || auth.role.indexOf('operator') > -1",
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Audit log id" },
+    "operator_id": { "bsonType": "string", "title": "Operator user id" },
+    "action": { "bsonType": "string", "title": "Action" },
+    "target_type": { "bsonType": "string", "title": "Target type" },
+    "target_id": { "bsonType": "string", "title": "Target id" },
+    "note": { "bsonType": "string", "title": "Note" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" }
+  }
+}
