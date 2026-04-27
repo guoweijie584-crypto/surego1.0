@@ -77,9 +77,7 @@ export function goUserProfile() {
 }
 
 export function goUserEdit() {
-  uni.navigateTo({
-    url: '/pages/user/edit'
-  })
+  guardLoginAction('/pages/user/edit')
 }
 
 export function goActivityEdit(id) {

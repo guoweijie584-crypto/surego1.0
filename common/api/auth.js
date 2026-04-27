@@ -92,6 +92,21 @@ export function setMockLogin(profile = {}) {
   return next
 }
 
+export function saveCurrentUserProfile(profile = {}) {
+  const current = getCurrentUserProfile()
+  const next = {
+    ...current,
+    ...profile,
+    uid: profile.uid || profile.userId || current.uid,
+    userId: profile.userId || profile.uid || current.userId
+  }
+  uni.setStorageSync(LOCAL_USER_KEY, next)
+  if (isLoggedIn()) {
+    setMockLogin(next)
+  }
+  return next
+}
+
 export function logout() {
   uni.removeStorageSync(MOCK_LOGIN_KEY)
   uni.removeStorageSync(UNI_ID_USER_KEY)

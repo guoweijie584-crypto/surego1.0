@@ -218,7 +218,7 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
     }
   }
-  for (const guardedHelper of ['goActivityRegister', 'goActivityCreate', 'goManageDashboard', 'goManageCheckin', 'goPayment']) {
+  for (const guardedHelper of ['goActivityRegister', 'goActivityCreate', 'goUserEdit', 'goManageDashboard', 'goManageCheckin', 'goPayment']) {
     const helperStart = routeSource.indexOf(`export function ${guardedHelper}`)
     const helperEnd = routeSource.indexOf('\nexport function ', helperStart + 1)
     const helperSource = routeSource.slice(helperStart, helperEnd === -1 ? routeSource.length : helperEnd)
@@ -284,9 +284,14 @@ if (fs.existsSync(activityApiPath)) {
 const userApiPath = path.join(root, 'common/api/user.js');
 if (fs.existsSync(userApiPath)) {
   const userSource = fs.readFileSync(userApiPath, 'utf8');
-  for (const helper of ['getCurrentUser', 'updateCurrentUser']) {
+  for (const helper of ['getCurrentUser', 'updateCurrentUser', 'syncCurrentUserProfile']) {
     if (!userSource.includes(helper)) {
       errors.push(`common/api/user.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction', 'setMockLogin']) {
+    if (!userSource.includes(token)) {
+      errors.push(`common/api/user.js is missing ${token}`);
     }
   }
 }
@@ -321,6 +326,9 @@ if (fs.existsSync(authApiPath)) {
     if (!authSource.includes(helper)) {
       errors.push(`common/api/auth.js is missing ${helper}`);
     }
+  }
+  if (!authSource.includes('saveCurrentUserProfile')) {
+    errors.push('common/api/auth.js is missing saveCurrentUserProfile');
   }
   for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user']) {
     if (!authSource.includes(token)) {
