@@ -16,6 +16,9 @@ const requiredFiles = [
   'common/api/message.js',
   'common/api/checkin.js',
   'pages/home/index.vue',
+  'pages/discover/index.vue',
+  'pages/messages/index.vue',
+  'pages/user/profile.vue',
   'pages/activity/detail.vue',
   'pages/activity/register.vue',
   'pages/activity/create.vue',
@@ -27,6 +30,9 @@ const requiredFiles = [
 
 const expectedPages = [
   'pages/home/index',
+  'pages/discover/index',
+  'pages/messages/index',
+  'pages/user/profile',
   'pages/activity/detail',
   'pages/activity/register',
   'pages/activity/create',
@@ -103,6 +109,16 @@ if (fs.existsSync(pagesPath)) {
     }
   } catch (error) {
     errors.push(`pages.json is not valid JSON: ${error.message}`);
+  }
+}
+
+const dockPath = path.join(root, 'components/surego/SuBottomDock.vue');
+if (fs.existsSync(dockPath)) {
+  const dockSource = fs.readFileSync(dockPath, 'utf8');
+  for (const staleKey of ["key: 'calendar'", "key: 'message'", "key: 'profile'"]) {
+    if (dockSource.includes(staleKey)) {
+      errors.push(`SuBottomDock.vue still contains stale bottom nav item: ${staleKey}`);
+    }
   }
 }
 

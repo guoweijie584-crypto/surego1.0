@@ -8,6 +8,13 @@
       }
     },
     {
+      "path": "pages/discover/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/activity/detail",
       "style": {
         "navigationStyle": "custom",
@@ -37,6 +44,20 @@
     },
     {
       "path": "pages/my/activities",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/messages/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/user/profile",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": false

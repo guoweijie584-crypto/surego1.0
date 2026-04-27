@@ -41,15 +41,12 @@
         </view>
       </view>
     </scroll-view>
-
-    <SuBottomDock active="profile" />
   </view>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listMyActivities } from '@/common/api/activity.js'
 import { goActivityCreate, goActivityDetail, goManageDashboard } from '@/common/utils/route.js'
 

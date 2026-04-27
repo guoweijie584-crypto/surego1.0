@@ -23,6 +23,24 @@ export function goActivityCreate() {
   })
 }
 
+export function goDiscover() {
+  uni.navigateTo({
+    url: '/pages/discover/index'
+  })
+}
+
+export function goMessages() {
+  uni.navigateTo({
+    url: '/pages/messages/index'
+  })
+}
+
+export function goUserProfile() {
+  uni.navigateTo({
+    url: '/pages/user/profile'
+  })
+}
+
 export function goManageDashboard(id) {
   uni.navigateTo({
     url: `/pages/manage/dashboard?id=${encodeURIComponent(id)}`

@@ -1,16 +1,20 @@
 <template>
   <view class="home su-page">
     <view class="home__top">
-      <view>
-        <text class="home__eyebrow">SUREGO</text>
-        <text class="home__title">成行</text>
+      <view class="home__brand" @tap="goUserProfile">
+        <image class="home__avatar" src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
+        <view>
+          <text class="home__eyebrow">SUREGO</text>
+          <text class="home__title">成行</text>
+        </view>
       </view>
       <view class="home__actions">
         <view class="home__icon" @tap="showComingSoon('搜索页后续迁移')">
           <uni-icons type="search" size="22" color="#111827" />
         </view>
-        <view class="home__icon" @tap="showComingSoon('通知页后续迁移')">
+        <view class="home__icon" @tap="goMessages">
           <uni-icons type="notification-filled" size="22" color="#111827" />
+          <view class="home__notice-dot" />
         </view>
       </view>
     </view>
@@ -52,7 +56,7 @@
     <view class="home__section">
       <view class="home__section-head">
         <text class="home__section-title">我的局</text>
-        <text class="home__section-link" @tap="showComingSoon('我的活动后续迁移')">全部</text>
+        <text class="home__section-link" @tap="goMyActivities">全部</text>
       </view>
       <scroll-view scroll-x class="home__mine-scroll" :show-scrollbar="false">
         <view class="home__mine-list">
@@ -111,7 +115,7 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivities, listMyActivities } from '@/common/api/activity.js'
-import { goActivityDetail, showComingSoon } from '@/common/utils/route.js'
+import { goActivityDetail, goMessages, goMyActivities, goUserProfile, showComingSoon } from '@/common/utils/route.js'
 
 const allActivities = ref([])
 const myGroups = ref({
@@ -157,6 +161,21 @@ function getDaysLabel(id) {
   padding: 18rpx 40rpx 34rpx;
 }
 
+.home__brand {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.home__avatar {
+  width: 86rpx;
+  height: 86rpx;
+  border: 6rpx solid #fff;
+  border-radius: 50%;
+  background: #f1f5f9;
+  box-shadow: 0 16rpx 36rpx rgba(15, 23, 42, 0.12);
+}
+
 .home__eyebrow {
   display: block;
   color: #94a3b8;
@@ -180,6 +199,7 @@ function getDaysLabel(id) {
 }
 
 .home__icon {
+  position: relative;
   display: flex;
   width: 76rpx;
   height: 76rpx;
@@ -189,6 +209,17 @@ function getDaysLabel(id) {
   border-radius: 26rpx;
   background: #fff;
   box-shadow: 0 16rpx 36rpx rgba(15, 23, 42, 0.06);
+}
+
+.home__notice-dot {
+  position: absolute;
+  top: 18rpx;
+  right: 18rpx;
+  width: 13rpx;
+  height: 13rpx;
+  border: 4rpx solid #fff;
+  border-radius: 50%;
+  background: #ff5e7e;
 }
 
 .home__section {
