@@ -1,43 +1,75 @@
 <script>
-  import checkUpdate from '@/uni_modules/uni-upgrade-center-app/utils/check-update';
-  export default {
-    onLaunch: async function() {
-      console.log('App Launch')
-		// #ifdef MP-WEIXIN
-		uniCloud.initSecureNetworkByWeixin()
-		// #endif
-      checkUpdate() //更新升级
-    },
-    mounted() {
-      // #ifdef H5
-      //const VConsole = require('@/common/js/vconsole.min.js')
-      //new VConsole()
-      // #endif
-    },
-    onShow: function() {
-      console.log('App Show')
-    },
-    onHide: function() {
-      console.log('App Hide')
+export default {
+  onLaunch() {
+    console.log('SureGo Launch')
+    // #ifdef MP-WEIXIN
+    if (typeof uniCloud !== 'undefined' && uniCloud.initSecureNetworkByWeixin) {
+      uniCloud.initSecureNetworkByWeixin()
     }
+    // #endif
+  },
+  onShow() {
+    console.log('SureGo Show')
+  },
+  onHide() {
+    console.log('SureGo Hide')
   }
+}
 </script>
 
 <style>
-  /*每个页面公共css */
-  /* #ifndef APP-NVUE */
-  view {
-    box-sizing: border-box;
-  }
+/* #ifndef APP-NVUE */
+page {
+  min-height: 100%;
+  background: #f8f9f9;
+  color: #1f2937;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
 
-  @font-face {
-    font-family: "iconfont";
-    src: url('https://at.alicdn.com/t/font_2354462_s00xh8caffp.ttf');
-  }
+view,
+scroll-view,
+swiper,
+button,
+input,
+textarea,
+image,
+text {
+  box-sizing: border-box;
+}
 
-  .ico {
-    font-family: iconfont;
-  }
+button {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  line-height: 1;
+  background: transparent;
+}
 
-  /* #endif */
+button::after {
+  border: 0;
+}
+
+.su-page {
+  min-height: 100vh;
+  background: #f8f9f9;
+}
+
+.su-safe-bottom {
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.su-line-1 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.su-line-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+/* #endif */
 </style>
