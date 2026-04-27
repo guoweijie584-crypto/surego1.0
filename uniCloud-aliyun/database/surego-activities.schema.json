@@ -1,6 +1,6 @@
 {
   "bsonType": "object",
-  "required": ["title", "category", "date", "time", "location", "party_mode", "status"],
+  "required": ["title", "category", "date", "time", "location", "party_mode", "status", "creator_id"],
   "permission": {
     "read": true,
     "create": "auth.uid != null",

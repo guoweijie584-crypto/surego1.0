@@ -2,9 +2,9 @@
   "bsonType": "object",
   "required": ["activity_id", "user_id", "status"],
   "permission": {
-    "read": "auth.uid != null",
+    "read": "doc.user_id == auth.uid",
     "create": "auth.uid != null",
-    "update": "auth.uid != null",
+    "update": false,
     "delete": false
   },
   "properties": {

@@ -113,6 +113,52 @@ for (const file of expectedSchemas) {
   }
 }
 
+const expectedSchemaPermissions = {
+  'uniCloud-aliyun/database/surego-activities.schema.json': {
+    required: 'creator_id',
+    read: true,
+    create: 'auth.uid != null',
+    update: 'doc.creator_id == auth.uid'
+  },
+  'uniCloud-aliyun/database/surego-applications.schema.json': {
+    read: 'doc.user_id == auth.uid',
+    create: 'auth.uid != null',
+    update: 'doc.user_id == auth.uid'
+  },
+  'uniCloud-aliyun/database/surego-orders.schema.json': {
+    read: 'doc.user_id == auth.uid',
+    create: 'auth.uid != null',
+    update: false
+  },
+  'uniCloud-aliyun/database/surego-messages.schema.json': {
+    read: 'doc.user_id == auth.uid',
+    update: 'doc.user_id == auth.uid'
+  },
+  'uniCloud-aliyun/database/surego-checkins.schema.json': {
+    read: 'doc.user_id == auth.uid',
+    create: 'auth.uid != null',
+    update: false
+  }
+};
+
+for (const [file, expected] of Object.entries(expectedSchemaPermissions)) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const schema = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+  const permission = schema.permission || {};
+  for (const [key, value] of Object.entries(expected)) {
+    if (key === 'required') {
+      if (!(schema.required || []).includes(value)) {
+        errors.push(`${file} must require ${value}`);
+      }
+      continue;
+    }
+    if (permission[key] !== value) {
+      errors.push(`${file} permission.${key} must be ${JSON.stringify(value)}`);
+    }
+  }
+}
+
 const pagesPath = path.join(root, 'pages.json');
 if (fs.existsSync(pagesPath)) {
   const source = fs.readFileSync(pagesPath, 'utf8');
