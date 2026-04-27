@@ -31,6 +31,11 @@
           <text>¥{{ activity.amount }}</text>
         </view>
 
+        <view class="order-state">
+          <text>订单状态</text>
+          <text :class="`order-state__badge order-state__badge--${orderStatus}`">{{ orderStatusText }}</text>
+        </view>
+
         <view class="rule-list">
           <view v-for="item in rules" :key="item" class="rule">
             <uni-icons type="checkmarkempty" size="16" color="#22c55e" />
@@ -39,7 +44,7 @@
         </view>
 
         <button class="pay-button" :disabled="isPaying" @tap="handlePay">
-          {{ isPaying ? '处理中...' : '确认支付占位' }}
+          {{ payButtonText }}
         </button>
         <text class="payment__note">当前阶段不调用真实微信支付，仅写入订单状态用于前端闭环。</text>
       </view>
@@ -51,11 +56,12 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { createOrder, markOrderPaid } from '@/common/api/order.js'
+import { ensureOrderForActivity, markOrderPaid } from '@/common/api/order.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, goSuccess } from '@/common/utils/route.js'
+import { goBackHome, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('102'))
+const order = ref(null)
 const isPaying = ref(false)
 
 const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票支付' : '诚意金支付'))
@@ -64,29 +70,45 @@ const modeDesc = computed(() => {
   return '签到后全额退回，爽约将扣除诚意金。'
 })
 const rules = computed(() => {
-  if (activity.value.partyMode === 'ticket') return ['门票支付成功后获得入场凭证', '活动取消时进入退款流程', '支付能力将在下一阶段接入']
-  return ['签到后诚意金全额退回', '活动开始前可查看入场凭证', '支付能力将在下一阶段接入']
+  if (activity.value.partyMode === 'ticket') return ['门票支付成功后获得入场凭证', '活动取消时进入退款流程', '本次为模拟支付，不调用微信支付']
+  return ['签到后诚意金全额退回', '活动开始前可查看入场凭证', '本次为模拟支付，不调用微信支付']
+})
+const orderStatus = computed(() => order.value?.status || 'pending')
+const orderStatusText = computed(() => {
+  if (orderStatus.value === 'paid') return '已支付'
+  if (orderStatus.value === 'refunded') return '已退款'
+  if (orderStatus.value === 'closed') return '已关闭'
+  return '待支付'
+})
+const payButtonText = computed(() => {
+  if (isPaying.value) return '处理中...'
+  if (orderStatus.value === 'paid') return '查看入场凭证'
+  return '确认模拟支付'
 })
 
 onLoad(async (query) => {
   const id = (query && query.activityId) || '102'
   activity.value = await getActivityDetail(id)
-})
-
-async function handlePay() {
-  if (isPaying.value) return
-  isPaying.value = true
-  const order = await createOrder({
+  order.value = await ensureOrderForActivity({
     activityId: activity.value.id,
     type: activity.value.partyMode,
     amount: activity.value.amount
   })
-  await markOrderPaid(order.id)
-  goSuccess({
-    type: 'PAYMENT',
-    activityId: activity.value.id,
-    requireApproval: activity.value.requireApproval ? '1' : '0'
-  })
+})
+
+async function handlePay() {
+  if (isPaying.value) return
+  if (orderStatus.value === 'paid') {
+    goParticipantDashboard(activity.value.id)
+    return
+  }
+
+  isPaying.value = true
+  order.value = await markOrderPaid(order.value.id)
+  uni.showToast({ title: '支付成功', icon: 'none' })
+  setTimeout(() => {
+    goParticipantDashboard(activity.value.id)
+  }, 260)
 }
 </script>
 
@@ -228,6 +250,41 @@ async function handlePay() {
   font-size: 56rpx;
   font-style: italic;
   font-weight: 900;
+}
+
+.order-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 22rpx;
+  padding: 22rpx 26rpx;
+  border-radius: 26rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 23rpx;
+  font-weight: 900;
+}
+
+.order-state__badge {
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.order-state__badge--paid {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.order-state__badge--refunded {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.order-state__badge--closed {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .rule-list {

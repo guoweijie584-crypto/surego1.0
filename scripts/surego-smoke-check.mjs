@@ -153,6 +153,16 @@ if (fs.existsSync(routePath)) {
   }
 }
 
+const orderPath = path.join(root, 'common/api/order.js');
+if (fs.existsSync(orderPath)) {
+  const orderSource = fs.readFileSync(orderPath, 'utf8');
+  for (const helper of ['ensureOrderForActivity', 'getOrderForActivity', 'updateOrderStatus']) {
+    if (!orderSource.includes(helper)) {
+      errors.push(`common/api/order.js is missing ${helper}`);
+    }
+  }
+}
+
 for (const file of [...requiredFiles, ...expectedCloudFunctions].filter((item) => item.endsWith('.vue') || item.endsWith('.js'))) {
   const absolute = path.join(root, file);
   if (!fs.existsSync(absolute)) continue;
