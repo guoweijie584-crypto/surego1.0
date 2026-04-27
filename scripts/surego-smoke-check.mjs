@@ -180,6 +180,21 @@ if (fs.existsSync(orderPath)) {
   }
 }
 
+const messagePath = path.join(root, 'common/api/message.js');
+if (fs.existsSync(messagePath)) {
+  const messageSource = fs.readFileSync(messagePath, 'utf8');
+  for (const helper of ['createMessage', 'listMessages', 'markMessageRead', 'markAllMessagesRead']) {
+    if (!messageSource.includes(helper)) {
+      errors.push(`common/api/message.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
+    if (!messageSource.includes(token)) {
+      errors.push(`common/api/message.js is missing ${token}`);
+    }
+  }
+}
+
 const activityApiPath = path.join(root, 'common/api/activity.js');
 if (fs.existsSync(activityApiPath)) {
   const activitySource = fs.readFileSync(activityApiPath, 'utf8');
@@ -256,6 +271,19 @@ if (fs.existsSync(orderCloudPath)) {
   for (const action of ["action === 'ensureForActivity'", "action === 'getForActivity'", "action === 'updateStatus'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-order cloud function is missing ${action}`);
+    }
+  }
+}
+
+const messageCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-message/index.js');
+if (fs.existsSync(messageCloudPath)) {
+  const source = fs.readFileSync(messageCloudPath, 'utf8');
+  if (!source.includes('normalize')) {
+    errors.push('surego-message cloud function is missing normalize helpers');
+  }
+  for (const action of ["action === 'create'", "action === 'list'", "action === 'markRead'", "action === 'markAllRead'"]) {
+    if (!source.includes(action)) {
+      errors.push(`surego-message cloud function is missing ${action}`);
     }
   }
 }

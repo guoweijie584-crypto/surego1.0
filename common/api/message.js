@@ -1,22 +1,28 @@
+import { USE_UNICLOUD } from '@/common/config/runtime.js'
+import { callSuregoFunction } from '@/common/api/cloud.js'
+
 const STORAGE_KEY = 'surego_messages'
+const CURRENT_USER_ID = 'mock_user'
 
 const defaultMessages = [
   {
     id: 'msg_default_apply',
     type: 'application',
     title: '新的加入申请',
-    content: '申请加入你的「周末飞盘组」活动。',
+    content: '有人申请加入你的活动，去管理页看看吧。',
     sender: '张伟',
     activityId: '103',
+    userId: CURRENT_USER_ID,
     read: false,
-    createdAt: '2 分前'
+    createdAt: '2 分钟前'
   },
   {
     id: 'msg_default_start',
     type: 'activity',
     title: '活动即将开始',
-    content: '你订阅的「碳酸泡泡艺术展」将在 30 分钟后开始。',
+    content: '你报名的活动将在 30 分钟后开始。',
     activityId: '102',
+    userId: CURRENT_USER_ID,
     read: false,
     createdAt: '1 小时前'
   },
@@ -26,6 +32,7 @@ const defaultMessages = [
     title: '系统更新提示',
     content: '成行活动管理能力已进入小程序迁移阶段。',
     activityId: '',
+    userId: CURRENT_USER_ID,
     read: true,
     createdAt: '昨天'
   }
@@ -39,37 +46,99 @@ function writeMessages(items) {
   uni.setStorageSync(STORAGE_KEY, items)
 }
 
-export function createMessage(payload) {
-  const items = readMessages()
-  const message = {
-    id: `msg_${Date.now()}`,
+function getSeedMessages() {
+  return defaultMessages.map((item) => ({ ...item }))
+}
+
+function buildMessage(payload) {
+  return {
+    id: payload.id || `msg_${Date.now()}`,
+    userId: payload.userId || CURRENT_USER_ID,
     type: payload.type || 'system',
     title: payload.title,
     content: payload.content,
+    sender: payload.sender || '',
     activityId: payload.activityId || '',
-    read: false,
-    createdAt: new Date().toISOString()
+    read: Boolean(payload.read),
+    createdAt: payload.createdAt || new Date().toISOString()
   }
+}
+
+function createLocalMessage(payload) {
+  const items = readMessages()
+  const message = buildMessage(payload)
 
   writeMessages([message, ...items])
   return Promise.resolve(message)
 }
 
-export function listMessages() {
-  const items = readMessages()
-  return Promise.resolve(items.length ? items : defaultMessages)
+export async function createMessage(payload) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-message', 'create', buildMessage(payload))
+    } catch (error) {
+      return createLocalMessage(payload)
+    }
+  }
+  return createLocalMessage(payload)
 }
 
-export function markMessageRead(id) {
+function listLocalMessages(userId = CURRENT_USER_ID) {
   const items = readMessages()
-  const next = (items.length ? items : defaultMessages).map((item) => (item.id === id ? { ...item, read: true } : item))
+  const source = items.length ? items : getSeedMessages()
+  return Promise.resolve(source.filter((item) => !item.userId || item.userId === userId))
+}
+
+export async function listMessages(userId = CURRENT_USER_ID) {
+  if (USE_UNICLOUD) {
+    try {
+      const items = await callSuregoFunction('surego-message', 'list', { userId })
+      return items.length ? items : getSeedMessages()
+    } catch (error) {
+      return listLocalMessages(userId)
+    }
+  }
+  return listLocalMessages(userId)
+}
+
+function markLocalMessageRead(id) {
+  const items = readMessages()
+  const source = items.length ? items : getSeedMessages()
+  const next = source.map((item) => (item.id === id ? { ...item, read: true } : item))
   writeMessages(next)
-  return Promise.resolve(next.find((item) => item.id === id))
+  return Promise.resolve(next.find((item) => item.id === id) || null)
 }
 
-export function markAllMessagesRead() {
+export async function markMessageRead(id) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-message', 'markRead', { id })
+    } catch (error) {
+      return markLocalMessageRead(id)
+    }
+  }
+  return markLocalMessageRead(id)
+}
+
+function markAllLocalMessagesRead(userId = CURRENT_USER_ID) {
   const items = readMessages()
-  const next = (items.length ? items : defaultMessages).map((item) => ({ ...item, read: true }))
+  const source = items.length ? items : getSeedMessages()
+  const next = source.map((item) => (
+    !item.userId || item.userId === userId
+      ? { ...item, read: true }
+      : item
+  ))
   writeMessages(next)
   return Promise.resolve(next)
+}
+
+export async function markAllMessagesRead(userId = CURRENT_USER_ID) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-message', 'markAllRead', { userId })
+    } catch (error) {
+      return markAllLocalMessagesRead(userId)
+    }
+  }
+  return markAllLocalMessagesRead(userId)
 }
