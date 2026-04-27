@@ -167,47 +167,6 @@
         "navigationStyle": "custom",
         "enablePullDownRefresh": false
       }
-    },
-    {
-      "path": "pages/cloudFunction/cloudFunction",
-      "style": {
-        "navigationBarTitleText": "Cloud Function",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "pages/cloudObject/cloudObject",
-      "style": {
-        "navigationBarTitleText": "Cloud Object",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "pages/storage/storage",
-      "style": {
-        "navigationBarTitleText": "Storage",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "pages/clientDB/clientDB",
-      "style": {
-        "navigationBarTitleText": "clientDB",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "pages/schema2code/schema2code",
-      "style": {
-        "navigationBarTitleText": "schema2code",
-        "enablePullDownRefresh": false
-      }
-    },
-    {
-      "path": "uni_modules/uni-id-pages/pages/login/login-withoutpwd",
-      "style": {
-        "navigationBarTitleText": "Login"
-      }
     }
   ],
   "globalStyle": {

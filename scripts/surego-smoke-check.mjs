@@ -75,6 +75,15 @@ const expectedPages = [
   'pages/status/success'
 ];
 
+const staleDemoPages = [
+  'pages/cloudFunction/cloudFunction',
+  'pages/cloudObject/cloudObject',
+  'pages/storage/storage',
+  'pages/clientDB/clientDB',
+  'pages/schema2code/schema2code',
+  'uni_modules/uni-id-pages/pages/login/login-withoutpwd'
+];
+
 const expectedSchemas = [
   'uniCloud-aliyun/database/surego-activities.schema.json',
   'uniCloud-aliyun/database/surego-applications.schema.json',
@@ -194,6 +203,11 @@ if (fs.existsSync(pagesPath)) {
     for (const page of expectedPages) {
       if (!pagePaths.has(page)) {
         errors.push(`Missing route in pages.json: ${page}`);
+      }
+    }
+    for (const page of staleDemoPages) {
+      if (pagePaths.has(page)) {
+        errors.push(`Remove stale demo route from pages.json: ${page}`);
       }
     }
     if ((config.pages || [])[0]?.path !== 'pages/home/index') {
