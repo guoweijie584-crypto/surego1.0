@@ -48,6 +48,15 @@ const modules = [
     actions: ['createCode', 'confirm', 'listByActivity', 'summary'],
     apiExports: ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary'],
     requiredSchemaFields: ['activity_id', 'user_id', 'status']
+  },
+  {
+    name: 'moderation',
+    api: 'common/api/moderation.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js',
+    schema: 'uniCloud-aliyun/database/surego-reports.schema.json',
+    actions: ['createReport', 'listReports', 'updateReportStatus', 'listOpsActivities', 'moderateActivity', 'getOpsStats'],
+    apiExports: ['createReport', 'listReports', 'updateReportStatus', 'listOpsActivities', 'moderateActivity', 'getOpsStats'],
+    requiredSchemaFields: ['activity_id', 'reporter_id', 'status']
   }
 ]
 

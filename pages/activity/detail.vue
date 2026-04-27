@@ -47,6 +47,10 @@
             <view class="hero-card__status-dot" :class="statusClass" />
             <text>{{ statusText }}</text>
           </view>
+          <view v-if="activity.moderationStatus && activity.moderationStatus !== 'visible'" class="hero-card__moderation" :class="`hero-card__moderation--${activity.moderationStatus}`">
+            <text>{{ moderationStatusText }}</text>
+            <text v-if="activity.moderationNote">{{ activity.moderationNote }}</text>
+          </view>
         </view>
       </view>
 
@@ -185,7 +189,7 @@
 
     <SuActionSheet v-model="showMore" title="更多操作 / MORE">
       <view class="more-list">
-        <view class="more-list__item more-list__item--danger" @tap="toastAndClose('举报已提交')">
+        <view class="more-list__item more-list__item--danger" @tap="submitActivityReport">
           <uni-icons type="flag" size="20" color="#ef4444" />
           <text>举报该活动</text>
         </view>
@@ -222,6 +226,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
+import { createReport } from '@/common/api/moderation.js'
 import { activities, members } from '@/common/mock/activities.js'
 import { goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
@@ -265,6 +270,15 @@ const statusText = computed(() => {
 })
 
 const bottomStatusText = computed(() => statusText.value)
+
+const moderationStatusText = computed(() => {
+  const labels = {
+    approved: '运营已通过',
+    rejected: '运营已驳回',
+    hidden: '运营已下架'
+  }
+  return labels[activity.value.moderationStatus] || '运营处理中'
+})
 
 const statusClass = computed(() => {
   if (activity.value.applicationStatus === 'pending') return 'is-pending'
@@ -337,6 +351,17 @@ function copySharePath() {
 function openPoster() {
   showShare.value = false
   goSharePoster(activity.value.id)
+}
+
+async function submitActivityReport() {
+  await createReport({
+    activityId: activity.value.id,
+    activityTitle: activity.value.title,
+    reason: 'content',
+    note: '用户从活动详情提交举报'
+  })
+  showMore.value = false
+  uni.showToast({ title: '举报已提交', icon: 'none' })
 }
 
 function toastAndClose(title) {
@@ -508,6 +533,30 @@ function toastAndClose(title) {
   color: #15803d;
   font-size: 21rpx;
   font-weight: 900;
+}
+
+.hero-card__moderation {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.hero-card__moderation--approved {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.hero-card__moderation--rejected,
+.hero-card__moderation--hidden {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .hero-card__status-dot,

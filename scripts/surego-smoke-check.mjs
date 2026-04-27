@@ -20,6 +20,7 @@ const requiredFiles = [
   'common/api/message.js',
   'common/api/checkin.js',
   'common/api/user.js',
+  'common/api/moderation.js',
   'scripts/surego-cloud-integration-check.mjs',
   'pages/home/index.vue',
   'pages/discover/index.vue',
@@ -30,6 +31,8 @@ const requiredFiles = [
   'pages/auth/login.vue',
   'pages/user/profile.vue',
   'pages/user/edit.vue',
+  'pages/ops/dashboard.vue',
+  'pages/ops/reports.vue',
   'pages/activity/detail.vue',
   'pages/activity/members.vue',
   'pages/activity/register.vue',
@@ -55,6 +58,8 @@ const expectedPages = [
   'pages/auth/login',
   'pages/user/profile',
   'pages/user/edit',
+  'pages/ops/dashboard',
+  'pages/ops/reports',
   'pages/activity/detail',
   'pages/activity/members',
   'pages/activity/register',
@@ -75,7 +80,9 @@ const expectedSchemas = [
   'uniCloud-aliyun/database/surego-applications.schema.json',
   'uniCloud-aliyun/database/surego-orders.schema.json',
   'uniCloud-aliyun/database/surego-messages.schema.json',
-  'uniCloud-aliyun/database/surego-checkins.schema.json'
+  'uniCloud-aliyun/database/surego-checkins.schema.json',
+  'uniCloud-aliyun/database/surego-reports.schema.json',
+  'uniCloud-aliyun/database/surego-audit-logs.schema.json'
 ];
 
 const expectedCloudFunctions = [
@@ -83,7 +90,8 @@ const expectedCloudFunctions = [
   'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-order/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-message/index.js',
-  'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js'
+  'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js'
 ];
 
 const bannedPatterns = [
@@ -234,6 +242,11 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
     }
   }
+  for (const helper of ['goOpsDashboard', 'goOpsReports']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing ${helper}`);
+    }
+  }
   for (const helper of ['goAuthLogin', 'guardLoginAction']) {
     if (!routeSource.includes(helper)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
@@ -280,6 +293,45 @@ if (fs.existsSync(orderSchemaPath)) {
   for (const field of ['closed_at', 'refund_note', 'close_reason', 'activity_title', 'activity_cover']) {
     if (!schema.properties?.[field]) {
       errors.push(`surego-orders schema is missing ${field}`);
+    }
+  }
+}
+
+const moderationApiPath = path.join(root, 'common/api/moderation.js');
+if (fs.existsSync(moderationApiPath)) {
+  const moderationSource = fs.readFileSync(moderationApiPath, 'utf8');
+  for (const helper of ['createReport', 'listReports', 'updateReportStatus', 'listOpsActivities', 'moderateActivity', 'getOpsStats']) {
+    if (!moderationSource.includes(helper)) {
+      errors.push(`common/api/moderation.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js']) {
+    if (!moderationSource.includes(token)) {
+      errors.push(`common/api/moderation.js is missing ${token}`);
+    }
+  }
+}
+
+const activityModerationSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-activities.schema.json');
+if (fs.existsSync(activityModerationSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(activityModerationSchemaPath, 'utf8'));
+  for (const field of ['moderation_status', 'moderation_note', 'moderated_at', 'moderated_by']) {
+    if (!schema.properties?.[field]) {
+      errors.push(`surego-activities schema is missing ${field}`);
+    }
+  }
+}
+
+for (const [file, fields] of Object.entries({
+  'uniCloud-aliyun/database/surego-reports.schema.json': ['activity_id', 'reporter_id', 'status', 'reason'],
+  'uniCloud-aliyun/database/surego-audit-logs.schema.json': ['operator_id', 'action', 'target_type', 'target_id']
+})) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const schema = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+  for (const field of fields) {
+    if (!(schema.required || []).includes(field)) {
+      errors.push(`${file} must require ${field}`);
     }
   }
 }
@@ -386,6 +438,9 @@ if (fs.existsSync(authApiPath)) {
   if (!authSource.includes('saveCurrentUserProfile')) {
     errors.push('common/api/auth.js is missing saveCurrentUserProfile');
   }
+  if (!authSource.includes('isOpsUser')) {
+    errors.push('common/api/auth.js is missing isOpsUser');
+  }
   for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user']) {
     if (!authSource.includes(token)) {
       errors.push(`common/api/auth.js is missing ${token}`);
@@ -414,7 +469,7 @@ if (fs.existsSync(applicationApiPath)) {
   }
 }
 
-for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js']) {
+for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js', 'common/api/moderation.js']) {
   const absolute = path.join(root, apiFile);
   if (!fs.existsSync(absolute)) continue;
   const source = fs.readFileSync(absolute, 'utf8');
@@ -570,6 +625,47 @@ if (fs.existsSync(activityDetailPath)) {
   for (const token of ['buildActivitySharePayload', 'buildActivitySharePath']) {
     if (!source.includes(token)) {
       errors.push(`pages/activity/detail.vue is missing ${token}`);
+    }
+  }
+  for (const token of ['createReport', 'submitActivityReport']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/detail.vue is missing ${token}`);
+    }
+  }
+  if (source.includes("toastAndClose('举报已提交')") || source.includes("toastAndClose('涓炬姤宸叉彁浜?)")) {
+    errors.push('pages/activity/detail.vue report action must create a moderation report instead of toast-only feedback');
+  }
+}
+
+const opsDashboardPath = path.join(root, 'pages/ops/dashboard.vue');
+if (fs.existsSync(opsDashboardPath)) {
+  const source = fs.readFileSync(opsDashboardPath, 'utf8');
+  for (const token of ['getOpsStats', 'listOpsActivities', 'moderateActivity', 'goOpsReports']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/ops/dashboard.vue is missing ${token}`);
+    }
+  }
+}
+
+const opsReportsPath = path.join(root, 'pages/ops/reports.vue');
+if (fs.existsSync(opsReportsPath)) {
+  const source = fs.readFileSync(opsReportsPath, 'utf8');
+  for (const token of ['listReports', 'updateReportStatus', 'reportFilters', 'reviewNote']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/ops/reports.vue is missing ${token}`);
+    }
+  }
+}
+
+const moderationCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js');
+if (fs.existsSync(moderationCloudPath)) {
+  const source = fs.readFileSync(moderationCloudPath, 'utf8');
+  if (!source.includes('normalize')) {
+    errors.push('surego-moderation cloud function is missing normalize helpers');
+  }
+  for (const action of ["action === 'createReport'", "action === 'listReports'", "action === 'updateReportStatus'", "action === 'listOpsActivities'", "action === 'moderateActivity'", "action === 'getOpsStats'"]) {
+    if (!source.includes(action)) {
+      errors.push(`surego-moderation cloud function is missing ${action}`);
     }
   }
 }
