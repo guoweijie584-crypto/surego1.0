@@ -13,6 +13,7 @@ const requiredFiles = [
   'common/config/runtime.js',
   'common/api/auth.js',
   'common/api/cloud.js',
+  'common/utils/share.js',
   'common/api/activity.js',
   'common/api/application.js',
   'common/api/order.js',
@@ -244,6 +245,16 @@ if (fs.existsSync(routePath)) {
     const helperSource = routeSource.slice(helperStart, helperEnd === -1 ? routeSource.length : helperEnd)
     if (!helperSource.includes('guardLoginAction')) {
       errors.push(`common/utils/route.js ${guardedHelper} must use guardLoginAction`);
+    }
+  }
+}
+
+const shareUtilPath = path.join(root, 'common/utils/share.js');
+if (fs.existsSync(shareUtilPath)) {
+  const source = fs.readFileSync(shareUtilPath, 'utf8');
+  for (const helper of ['buildActivitySharePath', 'buildActivityShareTitle', 'buildActivitySharePayload', 'buildActivityPosterCopy']) {
+    if (!source.includes(helper)) {
+      errors.push(`common/utils/share.js is missing ${helper}`);
     }
   }
 }
@@ -550,6 +561,29 @@ if (fs.existsSync(participantCheckinPath)) {
   }
   if (source.includes('listCheckins(activityId.value)')) {
     errors.push('pages/participant/dashboard.vue should use getCheckinForUser instead of scanning all checkins');
+  }
+}
+
+const activityDetailPath = path.join(root, 'pages/activity/detail.vue');
+if (fs.existsSync(activityDetailPath)) {
+  const source = fs.readFileSync(activityDetailPath, 'utf8');
+  for (const token of ['buildActivitySharePayload', 'buildActivitySharePath']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/detail.vue is missing ${token}`);
+    }
+  }
+}
+
+const posterPagePath = path.join(root, 'pages/share/poster.vue');
+if (fs.existsSync(posterPagePath)) {
+  const source = fs.readFileSync(posterPagePath, 'utf8');
+  for (const token of ['canvas-id="posterCanvas"', 'generatePosterImage', 'uni.canvasToTempFilePath', 'uni.saveImageToPhotosAlbum', 'buildActivitySharePayload', 'buildActivityPosterCopy']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/share/poster.vue is missing ${token}`);
+    }
+  }
+  if (source.includes('canvas 阶段接入')) {
+    errors.push('pages/share/poster.vue still contains canvas placeholder copy');
   }
 }
 
