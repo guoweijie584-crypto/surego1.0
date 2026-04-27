@@ -106,6 +106,10 @@ export function goParticipantDashboard(id) {
   })
 }
 
+export function goOrderDetail(id) {
+  guardLoginAction(`/pages/order/detail?id=${encodeURIComponent(id)}`)
+}
+
 export function goSharePoster(id) {
   uni.navigateTo({
     url: `/pages/share/poster?id=${encodeURIComponent(id)}`

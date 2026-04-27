@@ -92,6 +92,13 @@
       }
     },
     {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/share/poster",
       "style": {
         "navigationStyle": "custom",
