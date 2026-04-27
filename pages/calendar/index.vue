@@ -53,8 +53,8 @@
               <text class="su-line-1">{{ getShortLocation(item.location) }}</text>
             </view>
           </view>
-          <view class="calendar-card__status" :class="{ 'calendar-card__status--joined': item.status === 'approved' }">
-            {{ item.status === 'approved' ? '已加入' : item.isCreator ? '主办' : '查看' }}
+          <view class="calendar-card__status" :class="{ 'calendar-card__status--joined': item.applicationStatus === 'approved' }">
+            {{ item.applicationStatus === 'approved' ? '已加入' : item.isCreator ? '主办' : '查看' }}
           </view>
         </view>
 
@@ -85,11 +85,11 @@ onLoad(async (options = {}) => {
 })
 
 function openActivity(item) {
-  if (item.isCreator || item.status === 'hosting') {
+  if (item.isCreator) {
     goManageDashboard(item.id)
     return
   }
-  if (item.status === 'approved') {
+  if (item.applicationStatus === 'approved') {
     goParticipantDashboard(item.id)
     return
   }

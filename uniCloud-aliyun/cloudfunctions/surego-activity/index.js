@@ -3,10 +3,25 @@
 const db = uniCloud.database();
 const collection = db.collection('surego-activities');
 
+const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'];
+const legacyStatusMap = {
+  hosting: 'recruiting',
+  not_applied: 'recruiting',
+  pending: 'recruiting',
+  approved: 'recruiting',
+  rejected: 'recruiting'
+};
+
+function normalizeStatus(status = 'recruiting') {
+  const mapped = legacyStatusMap[status] || status;
+  return lifecycleStatuses.includes(mapped) ? mapped : 'recruiting';
+}
+
 function normalizeActivity(item = {}) {
   return {
     ...item,
     id: item.id || item._id,
+    status: normalizeStatus(item.status),
     createdAt: item.createdAt || item.created_at,
     updatedAt: item.updatedAt || item.updated_at
   };
@@ -45,7 +60,7 @@ exports.main = async (event) => {
   if (action === 'create') {
     const activity = withoutEmptyId({
       ...payload,
-      status: payload.status || 'hosting',
+      status: normalizeStatus(payload.status),
       created_at: Date.now(),
       updated_at: Date.now()
     });
@@ -78,14 +93,14 @@ exports.main = async (event) => {
 
   if (action === 'updateStatus') {
     await collection.doc(payload.id).update({
-      status: payload.status,
+      status: normalizeStatus(payload.status),
       updated_at: Date.now()
     });
     return {
       code: 0,
       data: {
         id: payload.id,
-        status: payload.status
+        status: normalizeStatus(payload.status)
       }
     };
   }

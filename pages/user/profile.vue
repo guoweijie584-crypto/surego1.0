@@ -119,11 +119,11 @@ onShow(async () => {
 })
 
 function openActivity(item) {
-  if (item.isCreator || item.status === 'hosting') {
+  if (item.isCreator) {
     goManageDashboard(item.id)
     return
   }
-  if (item.status === 'approved') {
+  if (item.applicationStatus === 'approved') {
     goParticipantDashboard(item.id)
     return
   }

@@ -232,7 +232,7 @@ const selectedMember = ref(null)
 
 const visibleMembers = computed(() => members.slice(0, Math.min(activity.value.participantCount, members.length)))
 const isLeader = computed(() => activity.value.isCreator)
-const isJoined = computed(() => activity.value.status === 'approved' || isLeader.value)
+const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
@@ -257,23 +257,25 @@ const seatsLeftText = computed(() => {
 
 const statusText = computed(() => {
   if (isLeader.value) return '作为局长管理中'
-  if (activity.value.status === 'approved') return '已获得准入'
-  if (activity.value.status === 'pending') return '申请审核中'
+  if (activity.value.applicationStatus === 'approved') return '已获得准入'
+  if (activity.value.applicationStatus === 'pending') return '申请审核中'
+  if (activity.value.applicationStatus === 'rejected') return '申请未通过'
   return '开放申请中'
 })
 
 const bottomStatusText = computed(() => statusText.value)
 
 const statusClass = computed(() => {
-  if (activity.value.status === 'pending') return 'is-pending'
-  if (activity.value.status === 'rejected') return 'is-rejected'
+  if (activity.value.applicationStatus === 'pending') return 'is-pending'
+  if (activity.value.applicationStatus === 'rejected') return 'is-rejected'
   return 'is-ready'
 })
 
 const primaryButtonText = computed(() => {
   if (isLeader.value) return '局面中心'
   if (isJoined.value) return '入场凭证'
-  if (activity.value.status === 'pending') return '审核中'
+  if (activity.value.applicationStatus === 'pending') return '审核中'
+  if (activity.value.applicationStatus === 'rejected') return '未通过'
   return '申请入局'
 })
 
@@ -284,7 +286,7 @@ const primaryIcon = computed(() => {
 })
 
 const primaryButtonClass = computed(() => ({
-  'bottom-bar__button--disabled': activity.value.status === 'pending',
+  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending',
   'bottom-bar__button--leader': isLeader.value
 }))
 
@@ -314,7 +316,7 @@ function selectMember(member) {
 }
 
 function handlePrimaryAction() {
-  if (activity.value.status === 'pending') return
+  if (activity.value.applicationStatus === 'pending') return
   if (isLeader.value) {
     goManageDashboard(activity.value.id)
     return

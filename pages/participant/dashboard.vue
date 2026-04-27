@@ -137,9 +137,9 @@ const modeLabel = computed(() => {
 
 const applicationState = computed(() => {
   if (activity.value.isCreator) return { key: 'leader', label: '局长模式' }
-  if (activity.value.status === 'approved') return { key: 'approved', label: '已通过' }
-  if (activity.value.status === 'pending') return { key: 'pending', label: '审核中' }
-  if (activity.value.status === 'rejected') return { key: 'rejected', label: '未通过' }
+  if (activity.value.applicationStatus === 'approved') return { key: 'approved', label: '已通过' }
+  if (activity.value.applicationStatus === 'pending') return { key: 'pending', label: '审核中' }
+  if (activity.value.applicationStatus === 'rejected') return { key: 'rejected', label: '未通过' }
   if (!application.value) return { key: 'none', label: '未报名' }
   return {
     key: application.value.status,
@@ -161,7 +161,7 @@ const paymentState = computed(() => {
 
 const checkinState = computed(() => {
   if (activity.value.isCreator) return { key: 'leader', label: '可管理签到', desc: '局长可直接进入管理台' }
-  if (activity.value.status === 'pending' || applicationState.value.key === 'pending') {
+  if (activity.value.applicationStatus === 'pending' || applicationState.value.key === 'pending') {
     return { key: 'waiting', label: '等待审核', desc: '通过后生成入场凭证' }
   }
   if (checkin.value) return { key: 'done', label: '已签到', desc: `签到时间 ${checkin.value.checkedAt}` }

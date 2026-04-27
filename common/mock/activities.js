@@ -159,5 +159,5 @@ export function getFeaturedActivities() {
 }
 
 export function getUserActivities() {
-  return activities.filter((activity) => activity.isCreator || activity.status === 'approved')
+  return activities.filter((activity) => activity.isCreator || activity.applicationStatus === 'approved' || activity.status === 'approved')
 }

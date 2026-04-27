@@ -5,6 +5,38 @@ import { getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 
+export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
+export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
+
+const legacyActivityStatusMap = {
+  hosting: 'recruiting',
+  not_applied: 'recruiting',
+  pending: 'recruiting',
+  approved: 'recruiting',
+  rejected: 'recruiting'
+}
+
+export function normalizeActivityStatus(status = 'recruiting') {
+  const mapped = legacyActivityStatusMap[status] || status
+  return ACTIVITY_LIFECYCLE_STATUSES.includes(mapped) ? mapped : 'recruiting'
+}
+
+function normalizeApplicationStatus(status = 'not_applied') {
+  return APPLICATION_STATUSES.includes(status) ? status : 'not_applied'
+}
+
+export function normalizeActivityRecord(item = {}) {
+  const legacyStatus = item.applicationStatus || item.application_status || item.status
+  return {
+    ...item,
+    status: normalizeActivityStatus(item.status),
+    lifecycleStatus: normalizeActivityStatus(item.lifecycleStatus || item.status),
+    applicationStatus: normalizeApplicationStatus(legacyStatus),
+    creatorId: item.creatorId || item.creator_id || '',
+    creator_id: item.creator_id || item.creatorId || ''
+  }
+}
+
 function readCreatedActivities() {
   return uni.getStorageSync(STORAGE_KEY) || []
 }
@@ -40,7 +72,9 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     amount: Number(form.amount) || 0,
     requireApproval: Boolean(form.requireApproval),
     isCreator: form.isCreator !== undefined ? Boolean(form.isCreator) : true,
-    status: form.status || 'hosting',
+    status: normalizeActivityStatus(form.status || 'recruiting'),
+    lifecycleStatus: normalizeActivityStatus(form.status || 'recruiting'),
+    applicationStatus: normalizeApplicationStatus(form.applicationStatus || 'not_applied'),
     viewCount: Number(form.viewCount) || 0,
     likeCount: Number(form.likeCount) || 0,
     description: form.description,
@@ -50,13 +84,14 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
 }
 
 function listLocalActivities() {
-  return Promise.resolve([...readCreatedActivities(), ...activities])
+  return Promise.resolve([...readCreatedActivities(), ...activities].map(normalizeActivityRecord))
 }
 
 export async function listActivities() {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-activity', 'list', { limit: 50 })
+      const result = await callSuregoFunction('surego-activity', 'list', { limit: 50 })
+      return result.map(normalizeActivityRecord)
     } catch (error) {
       return listLocalActivities()
     }
@@ -127,14 +162,14 @@ export async function getCityActivityStats() {
 function getLocalActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
-  return Promise.resolve(found || findActivityById(id))
+  return Promise.resolve(normalizeActivityRecord(found || findActivityById(id)))
 }
 
 export async function getActivityDetail(id) {
   if (USE_UNICLOUD && !String(id).startsWith('local_')) {
     try {
       const detail = await callSuregoFunction('surego-activity', 'detail', { id })
-      return detail || findActivityById(id)
+      return normalizeActivityRecord(detail || findActivityById(id))
     } catch (error) {
       return getLocalActivityDetail(id)
     }
@@ -166,18 +201,19 @@ function updateLocalActivityStatus(id, status) {
   const created = readCreatedActivities()
   const next = created.map((item) => (item.id === String(id) ? { ...item, status } : item))
   writeCreatedActivities(next)
-  return Promise.resolve({ id, status })
+  return Promise.resolve({ id, status: normalizeActivityStatus(status) })
 }
 
 export async function updateActivityStatus(id, status) {
+  const nextStatus = normalizeActivityStatus(status)
   if (USE_UNICLOUD && !String(id).startsWith('local_')) {
     try {
-      return await callSuregoFunction('surego-activity', 'updateStatus', { id, status })
+      return await callSuregoFunction('surego-activity', 'updateStatus', { id, status: nextStatus })
     } catch (error) {
-      return updateLocalActivityStatus(id, status)
+      return updateLocalActivityStatus(id, nextStatus)
     }
   }
-  return updateLocalActivityStatus(id, status)
+  return updateLocalActivityStatus(id, nextStatus)
 }
 
 function updateLocalActivity(id, form) {
@@ -203,6 +239,8 @@ function updateLocalActivity(id, form) {
     description: form.description,
     questions: form.questions || [],
     image: form.image || found.image,
+    status: normalizeActivityStatus(form.status || found.status),
+    lifecycleStatus: normalizeActivityStatus(form.status || found.status),
     tags: [form.category, form.partyMode]
   }
 
@@ -224,8 +262,8 @@ export async function updateActivity(id, form) {
 export async function listMyActivities() {
   const all = await listActivities()
   return Promise.resolve({
-    hosting: all.filter((item) => item.isCreator || item.status === 'hosting'),
-    joined: all.filter((item) => item.status === 'approved'),
-    pending: all.filter((item) => item.status === 'pending' || uni.getStorageSync(`surego_application_${item.id}`))
+    hosting: all.filter((item) => item.isCreator),
+    joined: all.filter((item) => item.applicationStatus === 'approved'),
+    pending: all.filter((item) => item.applicationStatus === 'pending' || uni.getStorageSync(`surego_application_${item.id}`))
   })
 }

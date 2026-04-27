@@ -75,8 +75,8 @@ onShow(async () => {
 })
 
 function getBadge(item) {
-  if (item.isCreator || item.status === 'hosting') return '局长'
-  if (item.status === 'approved') return '已加入'
+  if (item.isCreator) return '局长'
+  if (item.applicationStatus === 'approved') return '已加入'
   return '审核中'
 }
 
@@ -87,11 +87,11 @@ function getMode(item) {
 }
 
 function openActivity(item) {
-  if (item.isCreator || item.status === 'hosting') {
+  if (item.isCreator) {
     goManageDashboard(item.id)
     return
   }
-  if (item.status === 'approved') {
+  if (item.applicationStatus === 'approved') {
     goParticipantDashboard(item.id)
     return
   }

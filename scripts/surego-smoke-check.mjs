@@ -279,6 +279,11 @@ if (fs.existsSync(activityApiPath)) {
   if (!activitySource.includes('updateActivity(')) {
     errors.push('common/api/activity.js is missing updateActivity');
   }
+  for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus']) {
+    if (!activitySource.includes(helper)) {
+      errors.push(`common/api/activity.js is missing ${helper}`);
+    }
+  }
 }
 
 const userApiPath = path.join(root, 'common/api/user.js');
@@ -378,6 +383,12 @@ if (fs.existsSync(activityCloudPath)) {
   if (!source.includes("action === 'update'")) {
     errors.push('surego-activity cloud function is missing update action');
   }
+  if (!source.includes('normalizeStatus')) {
+    errors.push('surego-activity cloud function is missing normalizeStatus');
+  }
+  if (source.includes("status: payload.status || 'hosting'")) {
+    errors.push('surego-activity cloud function still defaults to legacy hosting status');
+  }
 }
 
 const orderCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-order/index.js');
@@ -446,6 +457,17 @@ for (const file of [...requiredFiles, ...expectedCloudFunctions].filter((item) =
       new Function(source);
     } catch (error) {
       errors.push(`${file} has invalid cloud function syntax: ${error.message}`);
+    }
+  }
+}
+
+const lifecycleSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-activities.schema.json');
+if (fs.existsSync(lifecycleSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(lifecycleSchemaPath, 'utf8'));
+  const enumValues = schema.properties?.status?.enum || [];
+  for (const status of ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']) {
+    if (!enumValues.includes(status)) {
+      errors.push(`surego-activities status enum is missing ${status}`);
     }
   }
 }
