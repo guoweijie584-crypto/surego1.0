@@ -10,6 +10,8 @@ const requiredFiles = [
   'components/surego/SuActivityCard.vue',
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
+  'common/config/runtime.js',
+  'common/api/cloud.js',
   'common/api/activity.js',
   'common/api/application.js',
   'common/api/order.js',
@@ -191,6 +193,55 @@ if (fs.existsSync(userApiPath)) {
   }
 }
 
+const runtimePath = path.join(root, 'common/config/runtime.js');
+if (fs.existsSync(runtimePath)) {
+  const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
+  if (!runtimeSource.includes('USE_UNICLOUD')) {
+    errors.push('common/config/runtime.js is missing USE_UNICLOUD');
+  }
+}
+
+const cloudApiPath = path.join(root, 'common/api/cloud.js');
+if (fs.existsSync(cloudApiPath)) {
+  const cloudSource = fs.readFileSync(cloudApiPath, 'utf8');
+  for (const token of ['callSuregoFunction', 'uniCloud.callFunction']) {
+    if (!cloudSource.includes(token)) {
+      errors.push(`common/api/cloud.js is missing ${token}`);
+    }
+  }
+}
+
+for (const apiFile of ['common/api/activity.js', 'common/api/application.js']) {
+  const absolute = path.join(root, apiFile);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
+    if (!source.includes(token)) {
+      errors.push(`${apiFile} is missing ${token}`);
+    }
+  }
+}
+
+for (const cloudFile of [
+  'uniCloud-aliyun/cloudfunctions/surego-activity/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-application/index.js'
+]) {
+  const absolute = path.join(root, cloudFile);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('normalize')) {
+    errors.push(`${cloudFile} is missing normalize helpers`);
+  }
+}
+
+const activityCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js');
+if (fs.existsSync(activityCloudPath)) {
+  const source = fs.readFileSync(activityCloudPath, 'utf8');
+  if (!source.includes("action === 'update'")) {
+    errors.push('surego-activity cloud function is missing update action');
+  }
+}
+
 for (const file of [...requiredFiles, ...expectedCloudFunctions].filter((item) => item.endsWith('.vue') || item.endsWith('.js'))) {
   const absolute = path.join(root, file);
   if (!fs.existsSync(absolute)) continue;
@@ -219,6 +270,15 @@ for (const file of [...requiredFiles, ...expectedCloudFunctions].filter((item) =
     } catch (error) {
       errors.push(`${file} has invalid cloud function syntax: ${error.message}`);
     }
+  }
+}
+
+for (const file of requiredFiles.filter((item) => item.endsWith('.vue') && item.startsWith('pages/'))) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (source.includes('uniCloud.callFunction')) {
+    errors.push(`${file} must use common/api facade instead of uniCloud.callFunction`);
   }
 }
 

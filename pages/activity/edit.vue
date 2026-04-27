@@ -142,9 +142,10 @@ const partyModes = [
 ]
 
 const activityId = ref('')
+const sourceActivity = ref(null)
 const categoryIndex = ref(0)
 const isSaving = ref(false)
-const isEditable = computed(() => String(activityId.value).startsWith('local_'))
+const isEditable = computed(() => String(activityId.value).startsWith('local_') || Boolean(sourceActivity.value?.isCreator))
 const form = reactive({
   title: '',
   category: categories[0],
@@ -173,6 +174,7 @@ const saveButtonText = computed(() => {
 onLoad(async (query = {}) => {
   activityId.value = query.id || ''
   const activity = await getActivityDetail(activityId.value)
+  sourceActivity.value = activity
   Object.assign(form, {
     title: activity.title || '',
     category: activity.category || categories[0],

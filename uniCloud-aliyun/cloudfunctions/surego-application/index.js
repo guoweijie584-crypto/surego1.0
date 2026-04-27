@@ -3,27 +3,75 @@
 const db = uniCloud.database();
 const collection = db.collection('surego-applications');
 
+function normalizeApplication(item = {}) {
+  return {
+    ...item,
+    id: item.id || item._id,
+    activityId: item.activityId || item.activity_id,
+    userId: item.userId || item.user_id,
+    createdAt: item.createdAt || item.created_at,
+    reviewedAt: item.reviewedAt || item.reviewed_at
+  };
+}
+
+function normalizeList(result) {
+  return (result.data || []).map(normalizeApplication);
+}
+
+function buildRecord(payload) {
+  const record = {
+    ...payload,
+    activityId: String(payload.activityId || payload.activity_id),
+    activity_id: String(payload.activityId || payload.activity_id),
+    userId: payload.userId || payload.user_id || 'mock_user',
+    user_id: payload.userId || payload.user_id || 'mock_user'
+  };
+  if (!record.id) delete record.id;
+  return record;
+}
+
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
 
   if (action === 'submit') {
-    return collection.add({
+    const application = buildRecord({
       ...payload,
       status: payload.status || 'pending',
       created_at: Date.now()
     });
+    const result = await collection.add(application);
+    return {
+      code: 0,
+      data: normalizeApplication({
+        ...application,
+        id: result.id
+      })
+    };
   }
 
   if (action === 'listByActivity') {
-    return collection.where({ activity_id: payload.activity_id }).orderBy('created_at', 'desc').get();
+    const activityId = String(payload.activityId || payload.activity_id);
+    const result = await collection.where({ activityId }).orderBy('created_at', 'desc').get();
+    return {
+      code: 0,
+      data: normalizeList(result)
+    };
   }
 
   if (action === 'review') {
-    return collection.doc(payload.id).update({
+    await collection.doc(payload.id).update({
       status: payload.status,
       reviewed_at: Date.now()
     });
+    return {
+      code: 0,
+      data: normalizeApplication({
+        id: payload.id,
+        status: payload.status,
+        reviewed_at: Date.now()
+      })
+    };
   }
 
   return {

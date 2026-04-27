@@ -1,4 +1,6 @@
 import { activities, findActivityById } from '@/common/mock/activities.js'
+import { USE_UNICLOUD } from '@/common/config/runtime.js'
+import { callSuregoFunction } from '@/common/api/cloud.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 
@@ -10,8 +12,51 @@ function writeCreatedActivities(items) {
   uni.setStorageSync(STORAGE_KEY, items)
 }
 
-export function listActivities() {
+function buildActivityFromForm(form, id = `local_${Date.now()}`) {
+  return {
+    id,
+    title: form.title,
+    organizer: form.organizer || '吴哈哈',
+    organizerAvatar: form.organizerAvatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
+    image: form.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',
+    category: form.category,
+    date: form.date,
+    dateValue: form.dateValue,
+    dayOfWeek: form.dayOfWeek || '',
+    time: form.time,
+    endTime: form.endTime,
+    location: form.location,
+    distance: form.distance || '0.6',
+    participantCount: Number(form.participantCount) || 1,
+    maxParticipants: Number(form.maxParticipants) || 10,
+    hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    partyMode: form.partyMode,
+    price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
+    amount: Number(form.amount) || 0,
+    requireApproval: Boolean(form.requireApproval),
+    isCreator: form.isCreator !== undefined ? Boolean(form.isCreator) : true,
+    status: form.status || 'hosting',
+    viewCount: Number(form.viewCount) || 0,
+    likeCount: Number(form.likeCount) || 0,
+    description: form.description,
+    questions: form.questions || [],
+    tags: form.tags || [form.category, form.partyMode]
+  }
+}
+
+function listLocalActivities() {
   return Promise.resolve([...readCreatedActivities(), ...activities])
+}
+
+export async function listActivities() {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-activity', 'list', { limit: 50 })
+    } catch (error) {
+      return listLocalActivities()
+    }
+  }
+  return listLocalActivities()
 }
 
 export async function searchActivities(keyword = '') {
@@ -74,56 +119,63 @@ export async function getCityActivityStats() {
   ]
 }
 
-export function getActivityDetail(id) {
+function getLocalActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
   return Promise.resolve(found || findActivityById(id))
 }
 
-export function createActivity(form) {
-  const created = readCreatedActivities()
-  const now = Date.now()
-  const activity = {
-    id: `local_${now}`,
-    title: form.title,
-    organizer: '吴哈哈',
-    organizerAvatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
-    image: form.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',
-    category: form.category,
-    date: form.date,
-    dayOfWeek: form.dayOfWeek || '',
-    time: form.time,
-    endTime: form.endTime,
-    location: form.location,
-    distance: '0.6',
-    participantCount: 1,
-    maxParticipants: Number(form.maxParticipants) || 10,
-    hasParticipantLimit: Boolean(form.hasParticipantLimit),
-    partyMode: form.partyMode,
-    price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
-    amount: Number(form.amount) || 0,
-    requireApproval: Boolean(form.requireApproval),
-    isCreator: true,
-    status: 'hosting',
-    viewCount: 0,
-    likeCount: 0,
-    description: form.description,
-    questions: form.questions || [],
-    tags: [form.category, form.partyMode]
+export async function getActivityDetail(id) {
+  if (USE_UNICLOUD && !String(id).startsWith('local_')) {
+    try {
+      const detail = await callSuregoFunction('surego-activity', 'detail', { id })
+      return detail || findActivityById(id)
+    } catch (error) {
+      return getLocalActivityDetail(id)
+    }
   }
+  return getLocalActivityDetail(id)
+}
+
+function createLocalActivity(form) {
+  const created = readCreatedActivities()
+  const activity = buildActivityFromForm(form)
 
   writeCreatedActivities([activity, ...created])
   return Promise.resolve(activity)
 }
 
-export function updateActivityStatus(id, status) {
+export async function createActivity(form) {
+  const activity = buildActivityFromForm(form, '')
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-activity', 'create', activity)
+    } catch (error) {
+      return createLocalActivity(form)
+    }
+  }
+  return createLocalActivity(form)
+}
+
+function updateLocalActivityStatus(id, status) {
   const created = readCreatedActivities()
   const next = created.map((item) => (item.id === String(id) ? { ...item, status } : item))
   writeCreatedActivities(next)
   return Promise.resolve({ id, status })
 }
 
-export function updateActivity(id, form) {
+export async function updateActivityStatus(id, status) {
+  if (USE_UNICLOUD && !String(id).startsWith('local_')) {
+    try {
+      return await callSuregoFunction('surego-activity', 'updateStatus', { id, status })
+    } catch (error) {
+      return updateLocalActivityStatus(id, status)
+    }
+  }
+  return updateLocalActivityStatus(id, status)
+}
+
+function updateLocalActivity(id, form) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
   if (!found) return Promise.resolve(null)
@@ -153,8 +205,19 @@ export function updateActivity(id, form) {
   return Promise.resolve(nextActivity)
 }
 
-export function listMyActivities() {
-  const all = [...readCreatedActivities(), ...activities]
+export async function updateActivity(id, form) {
+  if (USE_UNICLOUD && !String(id).startsWith('local_')) {
+    try {
+      return await callSuregoFunction('surego-activity', 'update', { id, ...form })
+    } catch (error) {
+      return updateLocalActivity(id, form)
+    }
+  }
+  return updateLocalActivity(id, form)
+}
+
+export async function listMyActivities() {
+  const all = await listActivities()
   return Promise.resolve({
     hosting: all.filter((item) => item.isCreator || item.status === 'hosting'),
     joined: all.filter((item) => item.status === 'approved'),
