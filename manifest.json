@@ -1,7 +1,8 @@
 {
-    "name" : "surgo1.0",
+    "name" : "SureGo",
     "appid" : "__UNI__2271050",
     "description" : "应用描述",
+    "releaseDescription" : "SureGo 试运营小程序",
     "versionName" : "1.0.0",
     "versionCode" : "100",
     "transformPx" : false,
