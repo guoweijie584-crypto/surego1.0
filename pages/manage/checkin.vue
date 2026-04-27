@@ -95,7 +95,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
-import { confirmCheckin, createCheckinCode, getCheckinSummary } from '@/common/api/checkin.js'
+import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode } from '@/common/api/checkin.js'
 import { findActivityById, members } from '@/common/mock/activities.js'
 import { goManageDashboard } from '@/common/utils/route.js'
 
@@ -105,6 +105,10 @@ const applications = ref([])
 const checkins = ref([])
 const checkinCode = ref('')
 const codeInput = ref('')
+const checkinSourceOptions = {
+  manual: { source: 'manual' },
+  scan: { source: 'scan' }
+}
 
 const participantList = computed(() => {
   const baseMembers = members.slice(0, Math.max(1, Math.min(activity.value.participantCount, members.length))).map((item) => ({
@@ -145,6 +149,7 @@ const participantList = computed(() => {
 
 const checkedCount = computed(() => participantList.value.filter((item) => item.checked).length)
 const pendingCount = computed(() => Math.max(0, participantList.value.length - checkedCount.value))
+const nextCheckablePerson = computed(() => participantList.value.find((item) => !item.checked && item.status !== 'pending') || null)
 
 onLoad(async (query) => {
   activityId.value = (query && query.id) || '103'
@@ -183,42 +188,55 @@ async function toggleCheckin(person) {
     return
   }
 
-  await confirmPerson(person, checkinCode.value)
+  await confirmPerson(person, checkinCode.value, checkinSourceOptions.manual.source)
 }
 
 async function confirmByCode() {
   const code = codeInput.value.trim()
-  if (!code) {
-    uni.showToast({ title: '请输入核销码', icon: 'none' })
+  if (!isValidCheckinCode(code)) {
+    uni.showToast({ title: '请输入 SG 开头核销码', icon: 'none' })
     return
   }
 
-  const target = participantList.value.find((item) => !item.checked && item.status !== 'pending')
+  const target = nextCheckablePerson.value
   if (!target) {
     uni.showToast({ title: '暂无待签到成员', icon: 'none' })
     return
   }
 
-  await confirmPerson(target, code)
+  await confirmPerson(target, code, checkinSourceOptions.manual.source)
   codeInput.value = ''
 }
 
 async function simulateScan() {
+  if (!nextCheckablePerson.value) {
+    uni.showToast({ title: '暂无待签到成员', icon: 'none' })
+    return
+  }
   codeInput.value = checkinCode.value
-  await confirmByCode()
+  await confirmPerson(nextCheckablePerson.value, checkinCode.value, checkinSourceOptions.scan.source)
 }
 
-async function confirmPerson(person, code) {
+async function confirmPerson(person, code, source = 'manual') {
   if (person.status === 'pending') {
     uni.showToast({ title: '待审核成员不能签到', icon: 'none' })
     return
   }
 
-  await confirmCheckin({
+  if (person.checked) {
+    uni.showToast({ title: '该成员已签到', icon: 'none' })
+    return
+  }
+
+  const result = await confirmCheckin({
     activityId: activityId.value,
     userId: person.userId,
-    code
+    code,
+    source,
+    remark: source === 'scan' ? '局长模拟扫码核销' : '局长手动输入核销',
+    checkedBy: 'leader'
   })
+  if (!result) return
   await loadState()
   uni.showToast({ title: `${person.name} 已签到`, icon: 'none' })
 }
