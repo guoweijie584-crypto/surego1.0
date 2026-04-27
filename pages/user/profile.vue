@@ -5,7 +5,7 @@
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view class="profile__nav-actions">
-        <view class="profile__nav-btn" @tap="showComingSoon('日历页后续迁移')">
+        <view class="profile__nav-btn" @tap="goCalendar()">
           <uni-icons type="calendar" size="20" color="#111827" />
         </view>
         <view class="profile__nav-btn" @tap="goMessages">
@@ -90,7 +90,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
 import { listOrders } from '@/common/api/order.js'
-import { goActivityDetail, goBackHome, goManageDashboard, goMessages, goParticipantDashboard, showComingSoon } from '@/common/utils/route.js'
+import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goParticipantDashboard, showComingSoon } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const myActivities = ref({ hosting: [], joined: [], pending: [] })

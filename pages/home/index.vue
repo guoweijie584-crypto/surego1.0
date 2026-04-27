@@ -9,7 +9,7 @@
         </view>
       </view>
       <view class="home__actions">
-        <view class="home__icon" @tap="showComingSoon('搜索页后续迁移')">
+        <view class="home__icon" @tap="goSearch()">
           <uni-icons type="search" size="22" color="#111827" />
         </view>
         <view class="home__icon" @tap="goMessages">
@@ -115,7 +115,7 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivities, listMyActivities } from '@/common/api/activity.js'
-import { goActivityDetail, goMessages, goMyActivities, goUserProfile, showComingSoon } from '@/common/utils/route.js'
+import { goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const allActivities = ref([])
 const myGroups = ref({

@@ -17,6 +17,9 @@ const requiredFiles = [
   'common/api/checkin.js',
   'pages/home/index.vue',
   'pages/discover/index.vue',
+  'pages/discover/search.vue',
+  'pages/discover/city.vue',
+  'pages/calendar/index.vue',
   'pages/messages/index.vue',
   'pages/user/profile.vue',
   'pages/activity/detail.vue',
@@ -34,6 +37,9 @@ const requiredFiles = [
 const expectedPages = [
   'pages/home/index',
   'pages/discover/index',
+  'pages/discover/search',
+  'pages/discover/city',
+  'pages/calendar/index',
   'pages/messages/index',
   'pages/user/profile',
   'pages/activity/detail',
@@ -139,6 +145,11 @@ if (fs.existsSync(routePath)) {
   }
   if (!routeSource.includes('goSharePoster')) {
     errors.push('common/utils/route.js is missing goSharePoster');
+  }
+  for (const helper of ['goSearch', 'goCityPicker', 'goCalendar']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing ${helper}`);
+    }
   }
 }
 

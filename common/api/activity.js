@@ -14,6 +14,66 @@ export function listActivities() {
   return Promise.resolve([...readCreatedActivities(), ...activities])
 }
 
+export async function searchActivities(keyword = '') {
+  const query = String(keyword || '').trim().toLowerCase()
+  const all = await listActivities()
+  if (!query) return all
+
+  return all.filter((item) => {
+    const haystack = [
+      item.title,
+      item.organizer,
+      item.category,
+      item.location,
+      item.description,
+      ...(item.tags || [])
+    ].join(' ').toLowerCase()
+    return haystack.includes(query)
+  })
+}
+
+export async function listActivitiesByCategory(category = '全部') {
+  const all = await listActivities()
+  if (!category || category === '全部') return all
+  return all.filter((item) => item.category === category)
+}
+
+export async function listActivitiesByCity(city = '杭州') {
+  const all = await listActivities()
+  if (!city || city === '杭州') return all
+  return all.filter((item) => (item.location || '').includes(city))
+}
+
+export async function listActivitiesByDate(date = '') {
+  const all = await listActivities()
+  if (!date) return all
+  return all.filter((item) => item.date === date)
+}
+
+export async function getActivityCalendar() {
+  const all = await listActivities()
+  return all.reduce((groups, item) => {
+    const key = item.date || '待定'
+    const found = groups.find((group) => group.date === key)
+    if (found) {
+      found.items.push(item)
+    } else {
+      groups.push({ date: key, dayOfWeek: item.dayOfWeek || '', items: [item] })
+    }
+    return groups
+  }, [])
+}
+
+export async function getCityActivityStats() {
+  const all = await listActivities()
+  return [
+    { name: '杭州', count: all.length, desc: '西湖、武林、滨江正在成行' },
+    { name: '上海', count: all.filter((item) => (item.location || '').includes('上海')).length, desc: '周末展览与城市漫游' },
+    { name: '南京', count: all.filter((item) => (item.location || '').includes('南京')).length, desc: '咖啡、徒步、夜游小局' },
+    { name: '北京', count: all.filter((item) => (item.location || '').includes('北京')).length, desc: '读书会与运动局预热' }
+  ]
+}
+
 export function getActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))

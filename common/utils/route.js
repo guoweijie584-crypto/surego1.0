@@ -29,6 +29,26 @@ export function goDiscover() {
   })
 }
 
+export function goSearch(keyword = '') {
+  const query = buildQuery({ keyword })
+  uni.navigateTo({
+    url: `/pages/discover/search${query ? `?${query}` : ''}`
+  })
+}
+
+export function goCityPicker() {
+  uni.navigateTo({
+    url: '/pages/discover/city'
+  })
+}
+
+export function goCalendar(date = '') {
+  const query = buildQuery({ date })
+  uni.navigateTo({
+    url: `/pages/calendar/index${query ? `?${query}` : ''}`
+  })
+}
+
 export function goMessages() {
   uni.navigateTo({
     url: '/pages/messages/index'

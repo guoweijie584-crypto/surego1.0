@@ -1,0 +1,223 @@
+<template>
+  <view class="city su-page">
+    <view class="city__nav">
+      <view class="city__back" @tap="goBackHome">
+        <uni-icons type="left" size="24" color="#111827" />
+      </view>
+      <view>
+        <text class="city__eyebrow">CITY</text>
+        <text class="city__title">选择城市</text>
+      </view>
+    </view>
+
+    <scroll-view scroll-y class="city__scroll">
+      <view class="city__current">
+        <view>
+          <text class="city__label">当前城市</text>
+          <text class="city__current-name">{{ selectedCity }}</text>
+        </view>
+        <view class="city__locate" @tap="selectCity('杭州')">
+          <uni-icons type="location-filled" size="18" color="#fff" />
+          <text>杭州</text>
+        </view>
+      </view>
+
+      <view class="city__section">
+        <view class="city__section-head">
+          <text>热门城市</text>
+          <text>LOCAL PICKS</text>
+        </view>
+        <view class="city__grid">
+          <view
+            v-for="item in cities"
+            :key="item.name"
+            class="city-card"
+            :class="{ 'city-card--active': selectedCity === item.name }"
+            @tap="selectCity(item.name)"
+          >
+            <view>
+              <text class="city-card__name">{{ item.name }}</text>
+              <text class="city-card__desc">{{ item.desc }}</text>
+            </view>
+            <text class="city-card__count">{{ item.count }} 个局</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { getCityActivityStats } from '@/common/api/activity.js'
+import { goBackHome } from '@/common/utils/route.js'
+
+const CITY_KEY = 'surego_selected_city'
+const selectedCity = ref('杭州')
+const cities = ref([])
+
+onShow(async () => {
+  selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  cities.value = await getCityActivityStats()
+})
+
+function selectCity(city) {
+  selectedCity.value = city
+  uni.setStorageSync(CITY_KEY, city)
+  uni.showToast({ title: `已切换到${city}`, icon: 'none' })
+  setTimeout(() => {
+    const pages = getCurrentPages()
+    if (pages.length > 1) {
+      uni.navigateBack()
+    } else {
+      uni.redirectTo({ url: '/pages/discover/index' })
+    }
+  }, 260)
+}
+</script>
+
+<style scoped>
+.city {
+  min-height: 100vh;
+  background: #f8f9f9;
+}
+
+.city__nav {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  padding: 58rpx 40rpx 26rpx;
+}
+
+.city__back {
+  display: flex;
+  width: 78rpx;
+  height: 78rpx;
+  flex: 0 0 78rpx;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid #f1f5f9;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.06);
+}
+
+.city__eyebrow,
+.city__label,
+.city__section-head text:last-child {
+  color: #94a3b8;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
+.city__title {
+  display: block;
+  margin-top: 4rpx;
+  color: #111827;
+  font-size: 48rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.city__scroll {
+  height: calc(100vh - 162rpx);
+}
+
+.city__current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 10rpx 40rpx 36rpx;
+  padding: 32rpx;
+  border-radius: 38rpx;
+  background: #111827;
+  color: #fff;
+  box-shadow: 0 22rpx 52rpx rgba(15, 23, 42, 0.16);
+}
+
+.city__current-name {
+  display: block;
+  margin-top: 8rpx;
+  color: #fff;
+  font-size: 42rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.city__locate {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 999rpx;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.city__section {
+  padding: 0 40rpx 70rpx;
+}
+
+.city__section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22rpx;
+}
+
+.city__section-head text:first-child {
+  color: #111827;
+  font-size: 34rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.city__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.city-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 28rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05);
+}
+
+.city-card--active {
+  border-color: rgba(255, 107, 107, 0.45);
+  background: #fff5f5;
+}
+
+.city-card__name {
+  display: block;
+  color: #111827;
+  font-size: 32rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.city-card__desc {
+  display: block;
+  margin-top: 10rpx;
+  color: #94a3b8;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.city-card__count {
+  flex: 0 0 auto;
+  color: #ff6b6b;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+</style>
