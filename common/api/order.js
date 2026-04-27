@@ -1,3 +1,6 @@
+import { USE_UNICLOUD } from '@/common/config/runtime.js'
+import { callSuregoFunction } from '@/common/api/cloud.js'
+
 const STORAGE_KEY = 'surego_orders'
 const CURRENT_USER_ID = 'mock_user'
 
@@ -22,7 +25,7 @@ function buildOrder(payload, status = 'pending') {
   }
 }
 
-export function createOrder(payload) {
+function createLocalOrder(payload) {
   const items = readOrders()
   const order = buildOrder(payload)
 
@@ -30,12 +33,34 @@ export function createOrder(payload) {
   return Promise.resolve(order)
 }
 
-export function getOrderForActivity(activityId, userId = CURRENT_USER_ID) {
+export async function createOrder(payload) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-order', 'create', buildOrder(payload))
+    } catch (error) {
+      return createLocalOrder(payload)
+    }
+  }
+  return createLocalOrder(payload)
+}
+
+function getLocalOrderForActivity(activityId, userId = CURRENT_USER_ID) {
   const order = readOrders().find((item) => item.activityId === String(activityId) && item.userId === userId)
   return Promise.resolve(order || null)
 }
 
-export function ensureOrderForActivity(payload) {
+export async function getOrderForActivity(activityId, userId = CURRENT_USER_ID) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
+    } catch (error) {
+      return getLocalOrderForActivity(activityId, userId)
+    }
+  }
+  return getLocalOrderForActivity(activityId, userId)
+}
+
+function ensureLocalOrderForActivity(payload) {
   const items = readOrders()
   const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === (payload.userId || CURRENT_USER_ID))
   if (found) {
@@ -49,10 +74,21 @@ export function ensureOrderForActivity(payload) {
     return Promise.resolve(nextOrder)
   }
 
-  return createOrder(payload)
+  return createLocalOrder(payload)
 }
 
-export function updateOrderStatus(id, status) {
+export async function ensureOrderForActivity(payload) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload))
+    } catch (error) {
+      return ensureLocalOrderForActivity(payload)
+    }
+  }
+  return ensureLocalOrderForActivity(payload)
+}
+
+function updateLocalOrderStatus(id, status) {
   const allowed = ['pending', 'paid', 'refunded', 'closed']
   const nextStatus = allowed.includes(status) ? status : 'pending'
   const next = readOrders().map((item) => (
@@ -64,10 +100,32 @@ export function updateOrderStatus(id, status) {
   return Promise.resolve(next.find((item) => item.id === id) || null)
 }
 
+export async function updateOrderStatus(id, status) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-order', 'updateStatus', { id, status })
+    } catch (error) {
+      return updateLocalOrderStatus(id, status)
+    }
+  }
+  return updateLocalOrderStatus(id, status)
+}
+
 export function markOrderPaid(id) {
   return updateOrderStatus(id, 'paid')
 }
 
-export function listOrders() {
+function listLocalOrders() {
   return Promise.resolve(readOrders())
+}
+
+export async function listOrders(userId = CURRENT_USER_ID) {
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
+    } catch (error) {
+      return listLocalOrders()
+    }
+  }
+  return listLocalOrders()
 }

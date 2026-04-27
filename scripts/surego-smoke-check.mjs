@@ -173,6 +173,11 @@ if (fs.existsSync(orderPath)) {
       errors.push(`common/api/order.js is missing ${helper}`);
     }
   }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction']) {
+    if (!orderSource.includes(token)) {
+      errors.push(`common/api/order.js is missing ${token}`);
+    }
+  }
 }
 
 const activityApiPath = path.join(root, 'common/api/activity.js');
@@ -239,6 +244,19 @@ if (fs.existsSync(activityCloudPath)) {
   const source = fs.readFileSync(activityCloudPath, 'utf8');
   if (!source.includes("action === 'update'")) {
     errors.push('surego-activity cloud function is missing update action');
+  }
+}
+
+const orderCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-order/index.js');
+if (fs.existsSync(orderCloudPath)) {
+  const source = fs.readFileSync(orderCloudPath, 'utf8');
+  if (!source.includes('normalize')) {
+    errors.push('surego-order cloud function is missing normalize helpers');
+  }
+  for (const action of ["action === 'ensureForActivity'", "action === 'getForActivity'", "action === 'updateStatus'"]) {
+    if (!source.includes(action)) {
+      errors.push(`surego-order cloud function is missing ${action}`);
+    }
   }
 }
 
