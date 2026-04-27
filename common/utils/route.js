@@ -30,6 +30,12 @@ export function goActivityDetail(id) {
   })
 }
 
+export function goActivityMembers(id) {
+  uni.navigateTo({
+    url: `/pages/activity/members?id=${encodeURIComponent(id)}`
+  })
+}
+
 export function goActivityRegister(id) {
   guardLoginAction(`/pages/activity/register?id=${encodeURIComponent(id)}`)
 }

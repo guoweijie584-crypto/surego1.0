@@ -79,7 +79,7 @@
             <text class="detail-card__title">已确认成员</text>
             <text class="detail-card__sub">CONFIRMED MEMBERS</text>
           </view>
-          <text class="detail-card__link" @tap="showComingSoon('成员列表后续迁移')">查看全部</text>
+          <text class="detail-card__link" @tap="goActivityMembers(activity.id)">查看全部</text>
         </view>
         <view class="member-grid">
           <view v-for="member in visibleMembers" :key="member.id" class="member" @tap="selectMember(member)">
@@ -223,7 +223,7 @@ import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { activities, members } from '@/common/mock/activities.js'
-import { goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
+import { goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(activities[0])
 const showShare = ref(false)

@@ -30,6 +30,7 @@ const requiredFiles = [
   'pages/user/profile.vue',
   'pages/user/edit.vue',
   'pages/activity/detail.vue',
+  'pages/activity/members.vue',
   'pages/activity/register.vue',
   'pages/activity/create.vue',
   'pages/activity/edit.vue',
@@ -53,6 +54,7 @@ const expectedPages = [
   'pages/user/profile',
   'pages/user/edit',
   'pages/activity/detail',
+  'pages/activity/members',
   'pages/activity/register',
   'pages/activity/create',
   'pages/activity/edit',
@@ -212,6 +214,9 @@ if (fs.existsSync(routePath)) {
   }
   if (!routeSource.includes('goSharePoster')) {
     errors.push('common/utils/route.js is missing goSharePoster');
+  }
+  if (!routeSource.includes('goActivityMembers')) {
+    errors.push('common/utils/route.js is missing goActivityMembers');
   }
   for (const helper of ['goSearch', 'goCityPicker', 'goCalendar']) {
     if (!routeSource.includes(helper)) {

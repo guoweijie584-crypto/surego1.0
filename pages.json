@@ -43,6 +43,13 @@
       }
     },
     {
+      "path": "pages/activity/members",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/activity/register",
       "style": {
         "navigationStyle": "custom",
