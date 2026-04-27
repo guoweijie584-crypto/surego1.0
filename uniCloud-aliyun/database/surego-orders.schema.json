@@ -14,8 +14,13 @@
     "type": { "enum": ["sincerity", "ticket"], "title": "Order type" },
     "amount": { "bsonType": "double", "title": "Amount" },
     "status": { "enum": ["pending", "paid", "refunded", "closed"], "title": "Payment status" },
+    "activity_title": { "bsonType": "string", "title": "Activity title" },
+    "activity_cover": { "bsonType": "string", "title": "Activity cover" },
+    "refund_note": { "bsonType": "string", "title": "Refund note" },
+    "close_reason": { "bsonType": "string", "title": "Close reason" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "paid_at": { "bsonType": "timestamp", "title": "Paid at" },
-    "refunded_at": { "bsonType": "timestamp", "title": "Refunded at" }
+    "refunded_at": { "bsonType": "timestamp", "title": "Refunded at" },
+    "closed_at": { "bsonType": "timestamp", "title": "Closed at" }
   }
 }
