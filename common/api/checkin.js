@@ -35,3 +35,14 @@ export function confirmCheckin(payload) {
 export function listCheckins(activityId) {
   return Promise.resolve(readCheckins().filter((item) => item.activityId === String(activityId)))
 }
+
+export function getCheckinSummary(activityId, totalCount = 0) {
+  const items = readCheckins().filter((item) => item.activityId === String(activityId))
+  return Promise.resolve({
+    activityId: String(activityId),
+    checkedCount: items.length,
+    totalCount,
+    pendingCount: Math.max(0, Number(totalCount) - items.length),
+    items
+  })
+}

@@ -43,7 +43,21 @@
       }
     },
     {
+      "path": "pages/manage/checkin",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/participant/dashboard",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/share/poster",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": false

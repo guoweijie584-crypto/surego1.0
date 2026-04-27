@@ -47,9 +47,21 @@ export function goManageDashboard(id) {
   })
 }
 
+export function goManageCheckin(id) {
+  uni.navigateTo({
+    url: `/pages/manage/checkin?id=${encodeURIComponent(id)}`
+  })
+}
+
 export function goParticipantDashboard(id) {
   uni.navigateTo({
     url: `/pages/participant/dashboard?id=${encodeURIComponent(id)}`
+  })
+}
+
+export function goSharePoster(id) {
+  uni.navigateTo({
+    url: `/pages/share/poster?id=${encodeURIComponent(id)}`
   })
 }
 

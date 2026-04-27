@@ -79,7 +79,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, goMessages, goParticipantDashboard, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { goBackHome, goManageCheckin, goMessages, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(findActivityById('103'))
 const applications = ref([])
@@ -118,7 +118,7 @@ async function handleAction(item) {
   }
 
   if (item.key === 'checkin') {
-    goParticipantDashboard(activity.value.id)
+    goManageCheckin(activity.value.id)
     return
   }
 

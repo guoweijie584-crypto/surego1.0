@@ -168,7 +168,7 @@
           </view>
           <text>复制链接</text>
         </view>
-        <view class="sheet-item" @tap="showComingSoon('海报页后续迁移')">
+        <view class="sheet-item" @tap="openPoster">
           <view class="sheet-item__icon sheet-item__icon--blue">
             <uni-icons type="image" size="28" color="#fff" />
           </view>
@@ -223,7 +223,7 @@ import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { activities, members } from '@/common/mock/activities.js'
-import { goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, showComingSoon } from '@/common/utils/route.js'
+import { goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 
 const activity = ref(activities[0])
 const showShare = ref(false)
@@ -333,6 +333,11 @@ function copySharePath() {
       showShare.value = false
     }
   })
+}
+
+function openPoster() {
+  showShare.value = false
+  goSharePoster(activity.value.id)
 }
 
 function toastAndClose(title) {

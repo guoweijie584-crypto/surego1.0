@@ -23,7 +23,9 @@ const requiredFiles = [
   'pages/activity/register.vue',
   'pages/activity/create.vue',
   'pages/manage/dashboard.vue',
+  'pages/manage/checkin.vue',
   'pages/participant/dashboard.vue',
+  'pages/share/poster.vue',
   'pages/my/activities.vue',
   'pages/payment/index.vue',
   'pages/status/success.vue'
@@ -38,7 +40,9 @@ const expectedPages = [
   'pages/activity/register',
   'pages/activity/create',
   'pages/manage/dashboard',
+  'pages/manage/checkin',
   'pages/participant/dashboard',
+  'pages/share/poster',
   'pages/my/activities',
   'pages/payment/index',
   'pages/status/success'
@@ -129,6 +133,12 @@ if (fs.existsSync(routePath)) {
   const routeSource = fs.readFileSync(routePath, 'utf8');
   if (!routeSource.includes('goParticipantDashboard')) {
     errors.push('common/utils/route.js is missing goParticipantDashboard');
+  }
+  if (!routeSource.includes('goManageCheckin')) {
+    errors.push('common/utils/route.js is missing goManageCheckin');
+  }
+  if (!routeSource.includes('goSharePoster')) {
+    errors.push('common/utils/route.js is missing goSharePoster');
   }
 }
 
