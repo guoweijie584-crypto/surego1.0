@@ -1,0 +1,19 @@
+{
+  "bsonType": "object",
+  "required": ["activity_id", "user_id", "status"],
+  "permission": {
+    "read": "auth.uid != null",
+    "create": "auth.uid != null",
+    "update": "auth.uid != null",
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Check-in id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "user_id": { "bsonType": "string", "title": "User id" },
+    "code": { "bsonType": "string", "title": "Check-in code" },
+    "status": { "enum": ["pending", "checked", "expired"], "title": "Check-in status" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "checked_at": { "bsonType": "timestamp", "title": "Checked at" }
+  }
+}

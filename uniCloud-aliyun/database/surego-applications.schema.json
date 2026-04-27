@@ -1,0 +1,22 @@
+{
+  "bsonType": "object",
+  "required": ["activity_id", "user_id", "status"],
+  "permission": {
+    "read": "auth.uid != null",
+    "create": "auth.uid != null",
+    "update": "auth.uid != null",
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Application id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "user_id": { "bsonType": "string", "title": "Applicant user id" },
+    "gender": { "enum": ["male", "female", ""], "title": "Gender" },
+    "mbti": { "bsonType": "string", "title": "MBTI" },
+    "message": { "bsonType": "string", "title": "Intro message" },
+    "answers": { "bsonType": "array", "title": "Question answers" },
+    "status": { "enum": ["pending", "approved", "rejected"], "title": "Application status" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "reviewed_at": { "bsonType": "timestamp", "title": "Reviewed at" }
+  }
+}

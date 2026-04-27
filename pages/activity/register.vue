@@ -48,7 +48,7 @@
             <picker mode="selector" :range="mbtiOptions" :value="mbtiIndex" @change="handleMbtiChange">
               <view class="select">
                 <text>{{ selectedMbti || '请选择' }}</text>
-                <uni-icons type="down" size="14" color="rgba(255,255,255,.45)" />
+                <uni-icons type="arrowdown" size="14" color="rgba(255,255,255,.45)" />
               </view>
             </picker>
           </view>
@@ -109,10 +109,12 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { findActivityById } from '@/common/mock/activities.js'
-import { goBackHome, goSuccess } from '@/common/utils/route.js'
+import { getActivityDetail } from '@/common/api/activity.js'
+import { submitApplication } from '@/common/api/application.js'
+import { activities } from '@/common/mock/activities.js'
+import { goBackHome, goPayment, goSuccess } from '@/common/utils/route.js'
 
-const activity = ref(findActivityById('101'))
+const activity = ref(activities[0])
 const gender = ref('')
 const mbtiIndex = ref(0)
 const message = ref('')
@@ -174,8 +176,8 @@ const canSubmit = computed(() => {
   return gender.value && message.value.trim().length > 0 && requiredAnswersDone.value
 })
 
-onLoad((query) => {
-  activity.value = findActivityById((query && query.id) || '101')
+onLoad(async (query) => {
+  activity.value = await getActivityDetail((query && query.id) || '101')
   answers.value = (activity.value.questions || []).map(() => '')
 })
 
@@ -189,7 +191,7 @@ function handleAnswerInput(index, event) {
   answers.value = next
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!canSubmit.value || isSubmitting.value) return
 
   isSubmitting.value = true
@@ -205,12 +207,20 @@ function handleSubmit() {
     requireApproval: activity.value.requireApproval
   }
 
-  uni.setStorageSync(`surego_application_${activity.value.id}`, application)
+  await submitApplication(application)
 
   setTimeout(() => {
-    const type = activity.value.partyMode === 'free' ? 'JOIN' : 'PAYMENT'
+    if (activity.value.partyMode !== 'free') {
+      goPayment({
+        activityId: activity.value.id,
+        type: activity.value.partyMode,
+        amount: activity.value.amount,
+        requireApproval: activity.value.requireApproval ? '1' : '0'
+      })
+      return
+    }
     goSuccess({
-      type,
+      type: 'JOIN',
       activityId: activity.value.id,
       requireApproval: activity.value.requireApproval ? '1' : '0'
     })

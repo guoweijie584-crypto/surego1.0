@@ -106,15 +106,28 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
-import { activities, getFeaturedActivities, getUserActivities } from '@/common/mock/activities.js'
+import { listActivities, listMyActivities } from '@/common/api/activity.js'
 import { goActivityDetail, showComingSoon } from '@/common/utils/route.js'
 
-const featuredActivities = computed(() => getFeaturedActivities())
-const userActivities = computed(() => getUserActivities())
-const recommendedActivities = computed(() => activities)
+const allActivities = ref([])
+const myGroups = ref({
+  hosting: [],
+  joined: [],
+  pending: []
+})
+
+const featuredActivities = computed(() => allActivities.value.filter((item) => item.image).slice(0, 3))
+const userActivities = computed(() => [...myGroups.value.hosting, ...myGroups.value.joined].slice(0, 4))
+const recommendedActivities = computed(() => allActivities.value)
+
+onShow(async () => {
+  allActivities.value = await listActivities()
+  myGroups.value = await listMyActivities()
+})
 
 function getShortLocation(location) {
   return (location || '').split(' 路 ')[0] || location

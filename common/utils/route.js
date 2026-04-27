@@ -1,3 +1,10 @@
+function buildQuery(params = {}) {
+  return Object.entries(params)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join('&')
+}
+
 export function goActivityDetail(id) {
   uni.navigateTo({
     url: `/pages/activity/detail?id=${encodeURIComponent(id)}`
@@ -10,12 +17,33 @@ export function goActivityRegister(id) {
   })
 }
 
-export function goSuccess(params = {}) {
-  const query = Object.entries(params)
-    .filter(([, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-    .join('&')
+export function goActivityCreate() {
+  uni.navigateTo({
+    url: '/pages/activity/create'
+  })
+}
 
+export function goManageDashboard(id) {
+  uni.navigateTo({
+    url: `/pages/manage/dashboard?id=${encodeURIComponent(id)}`
+  })
+}
+
+export function goMyActivities() {
+  uni.navigateTo({
+    url: '/pages/my/activities'
+  })
+}
+
+export function goPayment(params = {}) {
+  const query = buildQuery(params)
+  uni.navigateTo({
+    url: `/pages/payment/index${query ? `?${query}` : ''}`
+  })
+}
+
+export function goSuccess(params = {}) {
+  const query = buildQuery(params)
   uni.redirectTo({
     url: `/pages/status/success${query ? `?${query}` : ''}`
   })

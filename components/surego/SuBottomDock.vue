@@ -24,17 +24,21 @@ const props = defineProps({
 })
 
 const items = [
-  { key: 'home', label: '发现', icon: 'home-filled', url: '/pages/home/index' },
+  { key: 'home', label: '发现', icon: 'home-filled', url: '/pages/home/index', mode: 'reLaunch' },
   { key: 'calendar', label: '日历', icon: 'calendar' },
-  { key: 'create', label: '发起', icon: 'plusempty' },
+  { key: 'create', label: '发起', icon: 'plusempty', url: '/pages/activity/create' },
   { key: 'message', label: '消息', icon: 'chatboxes' },
-  { key: 'profile', label: '我的', icon: 'person-filled' }
+  { key: 'profile', label: '我的', icon: 'person-filled', url: '/pages/my/activities' }
 ]
 
 function handleTap(item) {
   if (item.key === props.active) return
   if (item.url) {
-    uni.reLaunch({ url: item.url })
+    if (item.mode === 'reLaunch') {
+      uni.reLaunch({ url: item.url })
+      return
+    }
+    uni.navigateTo({ url: item.url })
     return
   }
   showComingSoon(`${item.label}页后续迁移`)

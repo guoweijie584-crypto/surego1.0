@@ -1,0 +1,21 @@
+{
+  "bsonType": "object",
+  "required": ["activity_id", "user_id", "type", "amount", "status"],
+  "permission": {
+    "read": "auth.uid != null",
+    "create": "auth.uid != null",
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Order id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "user_id": { "bsonType": "string", "title": "User id" },
+    "type": { "enum": ["sincerity", "ticket"], "title": "Order type" },
+    "amount": { "bsonType": "double", "title": "Amount" },
+    "status": { "enum": ["pending", "paid", "refunded", "closed"], "title": "Payment status" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "paid_at": { "bsonType": "timestamp", "title": "Paid at" },
+    "refunded_at": { "bsonType": "timestamp", "title": "Refunded at" }
+  }
+}

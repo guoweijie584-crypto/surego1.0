@@ -123,7 +123,7 @@
             <view><text>03</text></view>
           </view>
         </view>
-        <view class="command-card__button" @tap="showComingSoon('活动管理页下一轮迁移')">
+        <view class="command-card__button" @tap="handlePrimaryAction">
           <text>进入局面管理中心</text>
         </view>
       </view>
@@ -221,10 +221,11 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
-import { findActivityById, members } from '@/common/mock/activities.js'
-import { goActivityRegister, goBackHome, showComingSoon } from '@/common/utils/route.js'
+import { getActivityDetail } from '@/common/api/activity.js'
+import { activities, members } from '@/common/mock/activities.js'
+import { goActivityRegister, goBackHome, goManageDashboard, showComingSoon } from '@/common/utils/route.js'
 
-const activity = ref(findActivityById('101'))
+const activity = ref(activities[0])
 const showShare = ref(false)
 const showMore = ref(false)
 const selectedMember = ref(null)
@@ -287,8 +288,8 @@ const primaryButtonClass = computed(() => ({
   'bottom-bar__button--leader': isLeader.value
 }))
 
-onLoad((query) => {
-  activity.value = findActivityById((query && query.id) || '101')
+onLoad(async (query) => {
+  activity.value = await getActivityDetail((query && query.id) || '101')
 })
 
 onShareAppMessage(() => ({
@@ -315,7 +316,7 @@ function selectMember(member) {
 function handlePrimaryAction() {
   if (activity.value.status === 'pending') return
   if (isLeader.value) {
-    showComingSoon('活动管理页下一轮迁移')
+    goManageDashboard(activity.value.id)
     return
   }
   if (isJoined.value) {

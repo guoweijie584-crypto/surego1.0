@@ -1,0 +1,20 @@
+{
+  "bsonType": "object",
+  "required": ["user_id", "title", "content", "read"],
+  "permission": {
+    "read": "doc.user_id == auth.uid",
+    "create": false,
+    "update": "doc.user_id == auth.uid",
+    "delete": "doc.user_id == auth.uid"
+  },
+  "properties": {
+    "_id": { "description": "Message id" },
+    "user_id": { "bsonType": "string", "title": "Recipient user id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "type": { "bsonType": "string", "title": "Message type" },
+    "title": { "bsonType": "string", "title": "Title" },
+    "content": { "bsonType": "string", "title": "Content" },
+    "read": { "bsonType": "bool", "title": "Read state" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" }
+  }
+}

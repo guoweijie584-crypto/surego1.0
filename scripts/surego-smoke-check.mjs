@@ -10,9 +10,18 @@ const requiredFiles = [
   'components/surego/SuActivityCard.vue',
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
+  'common/api/activity.js',
+  'common/api/application.js',
+  'common/api/order.js',
+  'common/api/message.js',
+  'common/api/checkin.js',
   'pages/home/index.vue',
   'pages/activity/detail.vue',
   'pages/activity/register.vue',
+  'pages/activity/create.vue',
+  'pages/manage/dashboard.vue',
+  'pages/my/activities.vue',
+  'pages/payment/index.vue',
   'pages/status/success.vue'
 ];
 
@@ -20,7 +29,27 @@ const expectedPages = [
   'pages/home/index',
   'pages/activity/detail',
   'pages/activity/register',
+  'pages/activity/create',
+  'pages/manage/dashboard',
+  'pages/my/activities',
+  'pages/payment/index',
   'pages/status/success'
+];
+
+const expectedSchemas = [
+  'uniCloud-aliyun/database/surego-activities.schema.json',
+  'uniCloud-aliyun/database/surego-applications.schema.json',
+  'uniCloud-aliyun/database/surego-orders.schema.json',
+  'uniCloud-aliyun/database/surego-messages.schema.json',
+  'uniCloud-aliyun/database/surego-checkins.schema.json'
+];
+
+const expectedCloudFunctions = [
+  'uniCloud-aliyun/cloudfunctions/surego-activity/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-order/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-message/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js'
 ];
 
 const bannedPatterns = [
@@ -39,6 +68,22 @@ const errors = [];
 for (const file of requiredFiles) {
   if (!fs.existsSync(path.join(root, file))) {
     errors.push(`Missing required file: ${file}`);
+  }
+}
+
+for (const file of [...expectedSchemas, ...expectedCloudFunctions]) {
+  if (!fs.existsSync(path.join(root, file))) {
+    errors.push(`Missing backend scaffold file: ${file}`);
+  }
+}
+
+for (const file of expectedSchemas) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  try {
+    JSON.parse(fs.readFileSync(absolute, 'utf8'));
+  } catch (error) {
+    errors.push(`${file} is not valid JSON: ${error.message}`);
   }
 }
 
@@ -61,7 +106,7 @@ if (fs.existsSync(pagesPath)) {
   }
 }
 
-for (const file of requiredFiles.filter((item) => item.endsWith('.vue') || item.endsWith('.js'))) {
+for (const file of [...requiredFiles, ...expectedCloudFunctions].filter((item) => item.endsWith('.vue') || item.endsWith('.js'))) {
   const absolute = path.join(root, file);
   if (!fs.existsSync(absolute)) continue;
   const source = fs.readFileSync(absolute, 'utf8');
@@ -80,6 +125,14 @@ for (const file of requiredFiles.filter((item) => item.endsWith('.vue') || item.
       } catch (error) {
         errors.push(`${file} has invalid script syntax: ${error.message}`);
       }
+    }
+  }
+
+  if (expectedCloudFunctions.includes(file)) {
+    try {
+      new Function(source);
+    } catch (error) {
+      errors.push(`${file} has invalid cloud function syntax: ${error.message}`);
     }
   }
 }

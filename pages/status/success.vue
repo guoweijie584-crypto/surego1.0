@@ -38,7 +38,7 @@
           <uni-icons type="home-filled" size="20" color="#0f172a" />
           <text>回到首页</text>
         </view>
-        <view v-if="activity" class="success__button" @tap="goActivityDetail(activity.id)">
+        <view v-if="activity" class="success__button" @tap="openNext">
           <uni-icons type="staff-filled" size="20" color="#fff" />
           <text>{{ detailButtonText }}</text>
         </view>
@@ -54,12 +54,14 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { findActivityById } from '@/common/mock/activities.js'
-import { goActivityDetail, goBackHome } from '@/common/utils/route.js'
+import { getActivityDetail } from '@/common/api/activity.js'
+import { activities } from '@/common/mock/activities.js'
+import { goActivityDetail, goBackHome, goManageDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
 const requireApproval = ref(false)
+const currentActivity = ref(activities[0])
 
 const dots = [
   { id: 1, color: '#ff5e7e', top: '8rpx', left: '148rpx' },
@@ -72,7 +74,7 @@ const dots = [
   { id: 8, color: '#8b5cf6', top: '18rpx', left: '236rpx' }
 ]
 
-const activity = computed(() => findActivityById(activityId.value))
+const activity = computed(() => currentActivity.value)
 const isPayment = computed(() => type.value === 'PAYMENT')
 const isCreate = computed(() => type.value === 'CREATE')
 
@@ -97,11 +99,20 @@ const detailButtonText = computed(() => {
   return '查看活动详情'
 })
 
-onLoad((query) => {
+onLoad(async (query) => {
   type.value = (query && query.type) || 'JOIN'
   activityId.value = (query && query.activityId) || '101'
   requireApproval.value = Boolean(query && query.requireApproval === '1')
+  currentActivity.value = await getActivityDetail(activityId.value)
 })
+
+function openNext() {
+  if (isCreate.value) {
+    goManageDashboard(activity.value.id)
+    return
+  }
+  goActivityDetail(activity.value.id)
+}
 </script>
 
 <style scoped>
