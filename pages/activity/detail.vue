@@ -224,6 +224,7 @@ import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { activities, members } from '@/common/mock/activities.js'
 import { goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
+import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activity = ref(activities[0])
 const showShare = ref(false)
@@ -294,11 +295,7 @@ onLoad(async (query) => {
   activity.value = await getActivityDetail((query && query.id) || '101')
 })
 
-onShareAppMessage(() => ({
-  title: activity.value.title,
-  path: `/pages/activity/detail?id=${activity.value.id}`,
-  imageUrl: activity.value.image
-}))
+onShareAppMessage(() => buildActivitySharePayload(activity.value))
 
 function padCount(count) {
   return String(count).padStart(2, '0')
@@ -330,7 +327,7 @@ function handlePrimaryAction() {
 
 function copySharePath() {
   uni.setClipboardData({
-    data: `/pages/activity/detail?id=${activity.value.id}`,
+    data: buildActivitySharePath(activity.value),
     success() {
       showShare.value = false
     }
