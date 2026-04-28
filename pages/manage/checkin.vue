@@ -96,12 +96,14 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode } from '@/common/api/checkin.js'
-import { findActivityById, members } from '@/common/mock/activities.js'
+import { listActivityMembers } from '@/common/api/member.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goManageDashboard } from '@/common/utils/route.js'
 
 const activityId = ref('103')
-const activity = ref(findActivityById('103'))
+const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
+const memberProfiles = ref([])
 const checkins = ref([])
 const checkinCode = ref('')
 const codeInput = ref('')
@@ -111,8 +113,8 @@ const checkinSourceOptions = {
 }
 
 const participantList = computed(() => {
-  const baseMembers = members.slice(0, Math.max(1, Math.min(activity.value.participantCount, members.length))).map((item) => ({
-    userId: item.id,
+  const baseMembers = memberProfiles.value.map((item) => ({
+    userId: item.userId || item.id,
     name: item.name,
     avatar: item.avatar,
     status: 'approved',
@@ -134,7 +136,7 @@ const participantList = computed(() => {
     .filter((item) => !knownIds.has(item.userId))
     .map((item, index) => ({
       userId: item.userId,
-      name: item.userId === 'mock_user' ? '当前用户' : `现场用户 ${index + 1}`,
+      name: item.nickname || `现场用户 ${index + 1}`,
       avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${item.userId}`,
       status: 'approved',
       note: '已通过入场凭证签到'
@@ -163,6 +165,7 @@ onShow(async () => {
 async function loadState() {
   activity.value = await getActivityDetail(activityId.value)
   applications.value = await listApplications(activityId.value)
+  memberProfiles.value = await listActivityMembers(activityId.value)
   const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
   checkins.value = summary.items || []
   if (!checkinCode.value) {
@@ -209,6 +212,24 @@ async function confirmByCode() {
 }
 
 async function simulateScan() {
+  if (typeof uni.scanCode === 'function') {
+    uni.scanCode({
+      onlyFromCamera: false,
+      success: async (result) => {
+        codeInput.value = result.result || checkinCode.value
+        await confirmByCode()
+      },
+      fail: async () => {
+        await confirmNextByScan()
+      }
+    })
+    return
+  }
+
+  await confirmNextByScan()
+}
+
+async function confirmNextByScan() {
   if (!nextCheckablePerson.value) {
     uni.showToast({ title: '暂无待签到成员', icon: 'none' })
     return

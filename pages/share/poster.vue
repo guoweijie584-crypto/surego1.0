@@ -88,14 +88,14 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { findActivityById } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goActivityDetail } from '@/common/utils/route.js'
 import { buildActivityPosterCopy, buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activityId = ref('101')
-const activity = ref(findActivityById('101'))
+const activity = ref(createEmptyActivity('101'))
 const posterImage = ref('')
 const isGenerating = ref(false)
 
@@ -124,6 +124,7 @@ onLoad(async (query) => {
 })
 
 onShareAppMessage(() => buildActivitySharePayload(activity.value, posterImage.value || activity.value.image))
+onShareTimeline(() => buildActivitySharePayload(activity.value, posterImage.value || activity.value.image))
 
 function copySharePath() {
   uni.setClipboardData({

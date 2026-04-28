@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile, saveCurrentUserProfile, setMockLogin } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_current_user'
@@ -51,10 +51,40 @@ export async function getCurrentUser() {
       const user = await callSuregoFunction('surego-user', 'profile', { userId: getCurrentUserId() })
       return user ? writeLocalUser(user) : readLocalUser()
     } catch (error) {
-      return readLocalUser()
+      return handleSuregoCloudError(error, readLocalUser)
     }
   }
   return readLocalUser()
+}
+
+function buildLocalUserProfiles(ids) {
+  return ids.map((id) => ({
+    uid: id,
+    userId: id,
+    nickname: id === getCurrentUserId() ? getCurrentUserProfile().nickname : `用户 ${id.slice(-4)}`,
+    avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(id)}`
+  }))
+}
+
+export async function getUserProfiles(userIds = []) {
+  const ids = Array.from(new Set(userIds.map(String).filter(Boolean)))
+  if (!ids.length) return []
+  if (USE_UNICLOUD) {
+    try {
+      return await callSuregoFunction('surego-user', 'getProfiles', { userIds: ids })
+    } catch (error) {
+      return handleSuregoCloudError(error, () => buildLocalUserProfiles(ids))
+    }
+  }
+  return ids.map((id) => {
+    const current = getCurrentUserProfile()
+    return {
+      uid: id,
+      userId: id,
+      nickname: id === current.userId || id === current.uid ? current.nickname : `用户 ${id.slice(-4)}`,
+      avatar: id === current.userId || id === current.uid ? current.avatar : `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(id)}`
+    }
+  })
 }
 
 export async function updateCurrentUser(payload) {
@@ -64,7 +94,7 @@ export async function updateCurrentUser(payload) {
       const user = await callSuregoFunction('surego-user', 'updateProfile', next)
       return user ? writeLocalUser(user) : next
     } catch (error) {
-      return next
+      return handleSuregoCloudError(error, () => next)
     }
   }
   return next

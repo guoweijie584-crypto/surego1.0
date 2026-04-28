@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_orders'
@@ -84,7 +84,7 @@ export async function createOrder(payload) {
     try {
       return await callSuregoFunction('surego-order', 'create', buildOrder(payload))
     } catch (error) {
-      return createLocalOrder(payload)
+      return handleSuregoCloudError(error, () => createLocalOrder(payload))
     }
   }
   return createLocalOrder(payload)
@@ -100,7 +100,7 @@ export async function getOrderForActivity(activityId, userId = getCurrentUserId(
     try {
       return await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
     } catch (error) {
-      return getLocalOrderForActivity(activityId, userId)
+      return handleSuregoCloudError(error, () => getLocalOrderForActivity(activityId, userId))
     }
   }
   return getLocalOrderForActivity(activityId, userId)
@@ -130,7 +130,7 @@ export async function ensureOrderForActivity(payload) {
     try {
       return await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload))
     } catch (error) {
-      return ensureLocalOrderForActivity(payload)
+      return handleSuregoCloudError(error, () => ensureLocalOrderForActivity(payload))
     }
   }
   return ensureLocalOrderForActivity(payload)
@@ -163,7 +163,7 @@ export async function updateOrderStatus(id, status, options = {}) {
     try {
       return await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options })
     } catch (error) {
-      return updateLocalOrderStatus(id, status, options)
+      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, status, options))
     }
   }
   return updateLocalOrderStatus(id, status, options)
@@ -178,7 +178,7 @@ export async function refundOrder(id, refundNote = '模拟退款已记录') {
     try {
       return await callSuregoFunction('surego-order', 'refund', { id, refundNote })
     } catch (error) {
-      return updateLocalOrderStatus(id, 'refunded', { refundNote })
+      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'refunded', { refundNote }))
     }
   }
   return updateLocalOrderStatus(id, 'refunded', { refundNote })
@@ -189,7 +189,7 @@ export async function closeOrder(id, closeReason = '订单已关闭') {
     try {
       return await callSuregoFunction('surego-order', 'close', { id, closeReason })
     } catch (error) {
-      return updateLocalOrderStatus(id, 'closed', { closeReason })
+      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'closed', { closeReason }))
     }
   }
   return updateLocalOrderStatus(id, 'closed', { closeReason })
@@ -205,7 +205,7 @@ export async function getOrderDetail(id) {
     try {
       return await callSuregoFunction('surego-order', 'getDetail', { id })
     } catch (error) {
-      return getLocalOrderDetail(id)
+      return handleSuregoCloudError(error, () => getLocalOrderDetail(id))
     }
   }
   return getLocalOrderDetail(id)
@@ -220,7 +220,7 @@ export async function listOrders(userId = getCurrentUserId()) {
     try {
       return await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
     } catch (error) {
-      return listLocalOrders(userId)
+      return handleSuregoCloudError(error, () => listLocalOrders(userId))
     }
   }
   return listLocalOrders(userId)
@@ -241,7 +241,7 @@ export async function listOrdersByActivity(activityId) {
     try {
       return await callSuregoFunction('surego-order', 'listByActivity', { activityId, limit: 100 })
     } catch (error) {
-      return listLocalOrdersByActivity(activityId)
+      return handleSuregoCloudError(error, () => listLocalOrdersByActivity(activityId))
     }
   }
   return listLocalOrdersByActivity(activityId)

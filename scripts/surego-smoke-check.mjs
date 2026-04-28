@@ -20,6 +20,8 @@ const requiredFiles = [
   'common/api/message.js',
   'common/api/checkin.js',
   'common/api/user.js',
+  'common/api/upload.js',
+  'common/api/member.js',
   'common/api/moderation.js',
   'scripts/surego-cloud-integration-check.mjs',
   'pages/home/index.vue',
@@ -91,7 +93,8 @@ const expectedSchemas = [
   'uniCloud-aliyun/database/surego-messages.schema.json',
   'uniCloud-aliyun/database/surego-checkins.schema.json',
   'uniCloud-aliyun/database/surego-reports.schema.json',
-  'uniCloud-aliyun/database/surego-audit-logs.schema.json'
+  'uniCloud-aliyun/database/surego-audit-logs.schema.json',
+  'uniCloud-aliyun/database/surego-users.schema.json'
 ];
 
 const expectedCloudFunctions = [
@@ -100,7 +103,8 @@ const expectedCloudFunctions = [
   'uniCloud-aliyun/cloudfunctions/surego-order/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-message/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js',
-  'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js'
+  'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-user/index.js'
 ];
 
 const bannedPatterns = [
@@ -418,20 +422,22 @@ if (fs.existsSync(userApiPath)) {
   }
 }
 
-const runtimePath = path.join(root, 'common/config/runtime.js');
-if (fs.existsSync(runtimePath)) {
-  const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
-  if (!runtimeSource.includes('USE_UNICLOUD')) {
-    errors.push('common/config/runtime.js is missing USE_UNICLOUD');
-  }
-}
-
 const cloudApiPath = path.join(root, 'common/api/cloud.js');
 if (fs.existsSync(cloudApiPath)) {
   const cloudSource = fs.readFileSync(cloudApiPath, 'utf8');
-  for (const token of ['callSuregoFunction', 'uniCloud.callFunction']) {
+  for (const token of ['callSuregoFunction', 'uniCloud.callFunction', 'uni_id_token', 'getCurrentUserId', 'uniIdToken']) {
     if (!cloudSource.includes(token)) {
       errors.push(`common/api/cloud.js is missing ${token}`);
+    }
+  }
+}
+
+const runtimePath = path.join(root, 'common/config/runtime.js');
+if (fs.existsSync(runtimePath)) {
+  const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
+  for (const token of ['USE_UNICLOUD', 'ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
+    if (!runtimeSource.includes(token)) {
+      errors.push(`common/config/runtime.js is missing ${token}`);
     }
   }
 }
@@ -502,7 +508,7 @@ if (fs.existsSync(applicationApiPath)) {
   }
 }
 
-for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js', 'common/api/moderation.js']) {
+for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js', 'common/api/moderation.js', 'common/api/member.js']) {
   const absolute = path.join(root, apiFile);
   if (!fs.existsSync(absolute)) continue;
   const source = fs.readFileSync(absolute, 'utf8');
@@ -511,6 +517,40 @@ for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'c
   }
   if (source.includes('CURRENT_USER_ID')) {
     errors.push(`${apiFile} must not define a local CURRENT_USER_ID`);
+  }
+}
+
+const uploadApiPath = path.join(root, 'common/api/upload.js');
+if (fs.existsSync(uploadApiPath)) {
+  const uploadSource = fs.readFileSync(uploadApiPath, 'utf8');
+  for (const token of ['chooseAndUploadImage', 'uploadImageFile', 'uni.chooseImage', 'uniCloud.uploadFile', 'ALLOW_MOCK_FALLBACK']) {
+    if (!uploadSource.includes(token)) {
+      errors.push(`common/api/upload.js is missing ${token}`);
+    }
+  }
+}
+
+for (const page of expectedPages) {
+  const absolute = path.join(root, `${page}.vue`);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (source.includes('@/common/mock/activities.js')) {
+    errors.push(`${page}.vue must not directly import common/mock/activities.js`);
+  }
+  if (source.includes('tempFilePaths[0]')) {
+    errors.push(`${page}.vue must not store tempFilePaths[0] directly; use common/api/upload.js`);
+  }
+}
+
+for (const cloudFile of expectedCloudFunctions) {
+  const absolute = path.join(root, cloudFile);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (source.includes("|| 'mock_user'") || source.includes("|| \"mock_user\"")) {
+    errors.push(`${cloudFile} must not default write paths to mock_user`);
+  }
+  if (!source.includes('resolveUserContext')) {
+    errors.push(`${cloudFile} is missing resolveUserContext auth helper`);
   }
 }
 

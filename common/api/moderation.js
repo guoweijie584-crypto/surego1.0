@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, isOpsUser } from '@/common/api/auth.js'
 import { listActivities } from '@/common/api/activity.js'
 import { listOrdersByActivity } from '@/common/api/order.js'
@@ -126,7 +126,7 @@ export async function createReport(payload = {}) {
         reporterId: payload.reporterId || getCurrentUserId()
       }))
     } catch (error) {
-      return createLocalReport(payload)
+      return handleSuregoCloudError(error, () => createLocalReport(payload))
     }
   }
   return createLocalReport(payload)
@@ -144,7 +144,7 @@ export async function listReports(status = 'all') {
       const reports = await callSuregoFunction('surego-moderation', 'listReports', { status })
       return reports.map(normalizeReport)
     } catch (error) {
-      return listLocalReports(status)
+      return handleSuregoCloudError(error, () => listLocalReports(status))
     }
   }
   return listLocalReports(status)
@@ -189,7 +189,7 @@ export async function updateReportStatus(id, status, options = {}) {
     try {
       report = normalizeReport(await callSuregoFunction('surego-moderation', 'updateReportStatus', payload))
     } catch (error) {
-      report = await updateLocalReportStatus(id, status, options)
+      report = await handleSuregoCloudError(error, () => updateLocalReportStatus(id, status, options))
     }
   } else {
     report = await updateLocalReportStatus(id, status, options)
@@ -212,8 +212,10 @@ export async function listOpsActivities() {
       const items = await callSuregoFunction('surego-moderation', 'listOpsActivities', { limit: 100 })
       return items.map(normalizeActivityModeration)
     } catch (error) {
-      const items = await listActivities()
-      return items.map(mergeActivityModeration)
+      return handleSuregoCloudError(error, async () => {
+        const items = await listActivities()
+        return items.map(mergeActivityModeration)
+      })
     }
   }
   const items = await listActivities()
@@ -262,7 +264,7 @@ export async function moderateActivity(activityId, moderationStatus, options = {
     try {
       activity = normalizeActivityModeration(await callSuregoFunction('surego-moderation', 'moderateActivity', payload))
     } catch (error) {
-      activity = await moderateLocalActivity(activityId, moderationStatus, options)
+      activity = await handleSuregoCloudError(error, () => moderateLocalActivity(activityId, moderationStatus, options))
     }
   } else {
     activity = await moderateLocalActivity(activityId, moderationStatus, options)
@@ -300,7 +302,7 @@ export async function getOpsStats() {
     try {
       return await callSuregoFunction('surego-moderation', 'getOpsStats', {})
     } catch (error) {
-      return getLocalOpsStats()
+      return handleSuregoCloudError(error, getLocalOpsStats)
     }
   }
   return getLocalOpsStats()

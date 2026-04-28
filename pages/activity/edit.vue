@@ -75,6 +75,10 @@
         <view class="field">
           <text class="label">地点 *</text>
           <input class="input" v-model="form.location" placeholder="活动地点" placeholder-class="placeholder" />
+          <view class="field-helper" @tap="chooseLocation">
+            <uni-icons type="location" size="16" color="#3b82f6" />
+            <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
+          </view>
         </view>
 
         <view class="field">
@@ -132,6 +136,7 @@
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
+import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { goBackHome, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
@@ -154,6 +159,9 @@ const form = reactive({
   time: '14:00',
   endTime: '18:00',
   location: '',
+  address: '',
+  latitude: '',
+  longitude: '',
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
@@ -183,6 +191,9 @@ onLoad(async (query = {}) => {
     time: activity.time || '14:00',
     endTime: activity.endTime || '18:00',
     location: activity.location || '',
+    address: activity.address || activity.location || '',
+    latitude: activity.latitude || '',
+    longitude: activity.longitude || '',
     maxParticipants: String(activity.maxParticipants || 10),
     hasParticipantLimit: Boolean(activity.hasParticipantLimit),
     requireApproval: Boolean(activity.requireApproval),
@@ -206,18 +217,33 @@ function handleDateChange(event) {
   form.date = `${Number(parts[1])}月${Number(parts[2])}日`
 }
 
-function chooseCover() {
+async function chooseCover() {
   if (!isEditable.value) {
     uni.showToast({ title: '示例活动暂不支持修改', icon: 'none' })
     return
   }
 
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
+  const uploaded = await chooseAndUploadImage({
+    prefix: 'surego/activity-covers'
+  })
+  form.image = uploaded.url
+}
+
+function chooseLocation() {
+  if (!isEditable.value) {
+    uni.showToast({ title: '示例活动暂不支持修改', icon: 'none' })
+    return
+  }
+
+  uni.chooseLocation({
     success(result) {
-      form.image = result.tempFilePaths[0]
+      form.location = result.name || result.address || form.location
+      form.address = result.address || result.name || form.location
+      form.latitude = result.latitude
+      form.longitude = result.longitude
+    },
+    fail() {
+      uni.showToast({ title: '未选择地图地点，可继续手动填写', icon: 'none' })
     }
   })
 }
@@ -342,6 +368,16 @@ async function handleSave() {
 
 .field {
   margin-top: 30rpx;
+}
+
+.field-helper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  color: #3b82f6;
+  font-size: 22rpx;
+  font-weight: 900;
 }
 
 .grid {

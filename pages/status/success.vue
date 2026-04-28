@@ -55,13 +55,13 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { activities } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
 const requireApproval = ref(false)
-const currentActivity = ref(activities[0])
+const currentActivity = ref(createEmptyActivity('101'))
 
 const dots = [
   { id: 1, color: '#ff5e7e', top: '8rpx', left: '148rpx' },
@@ -87,8 +87,8 @@ const title = computed(() => {
 const description = computed(() => {
   if (isPayment.value) {
     return requireApproval.value
-      ? '支付页将在下一阶段接入，本次先把申请传达给局长，请耐心等待审核。'
-      : '支付页将在下一阶段接入，本次先完成报名链路占位，后续会接入真实支付。'
+      ? '申请已传达给局长，请耐心等待审核；通过后可在参与者中心确认订单与入场凭证。'
+      : '报名链路已完成，试运营订单会记录状态但不会发生真实扣款。'
   }
   if (isCreate.value) return '你的局已上线，快去邀请伙伴们上车吧。'
   return requireApproval.value ? '申请已传达给局长，请耐心等待审核。' : '已成功报名，期待与你相见。'

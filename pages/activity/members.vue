@@ -103,14 +103,26 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
-import { members } from '@/common/mock/activities.js'
+import { listActivityMembers } from '@/common/api/member.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goBackHome } from '@/common/utils/route.js'
 
-const activity = ref({})
+const activity = ref(createEmptyActivity())
 const applications = ref([])
+const memberProfiles = ref([])
 const selectedMember = ref(null)
+const members = [
+  {
+    id: 'default_leader',
+    name: 'SureGo',
+    role: '局长',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=SureGo',
+    desc: 'SureGo 活动成员'
+  }
+]
 
 const confirmedMembers = computed(() => {
+  if (memberProfiles.value.length) return memberProfiles.value
   const leader = {
     id: `leader_${activity.value.id}`,
     name: activity.value.organizer || '局长',
@@ -152,10 +164,12 @@ onLoad(async (query) => {
   const id = (query && query.id) || '101'
   activity.value = await getActivityDetail(id)
   applications.value = await listApplications(id)
+  memberProfiles.value = await listActivityMembers(id)
 })
 
 async function refreshMembers() {
   applications.value = await listApplications(activity.value.id)
+  memberProfiles.value = await listActivityMembers(activity.value.id)
   uni.showToast({ title: '成员已刷新', icon: 'none' })
 }
 </script>

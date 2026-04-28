@@ -1,6 +1,6 @@
 import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
@@ -83,6 +83,9 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     time: form.time,
     endTime: form.endTime,
     location: form.location,
+    address: form.address || form.location,
+    latitude: form.latitude || '',
+    longitude: form.longitude || '',
     distance: form.distance || '0.6',
     participantCount: Number(form.participantCount) || 1,
     maxParticipants: Number(form.maxParticipants) || 10,
@@ -113,7 +116,7 @@ export async function listActivities() {
       const result = await callSuregoFunction('surego-activity', 'list', { limit: 50 })
       return result.map(normalizeActivityRecord)
     } catch (error) {
-      return listLocalActivities()
+      return handleSuregoCloudError(error, listLocalActivities)
     }
   }
   return listLocalActivities()
@@ -191,7 +194,7 @@ export async function getActivityDetail(id) {
       const detail = await callSuregoFunction('surego-activity', 'detail', { id })
       return normalizeActivityRecord(detail || findActivityById(id))
     } catch (error) {
-      return getLocalActivityDetail(id)
+      return handleSuregoCloudError(error, () => getLocalActivityDetail(id))
     }
   }
   return getLocalActivityDetail(id)
@@ -211,7 +214,7 @@ export async function createActivity(form) {
     try {
       return await callSuregoFunction('surego-activity', 'create', activity)
     } catch (error) {
-      return createLocalActivity(form)
+      return handleSuregoCloudError(error, () => createLocalActivity(form))
     }
   }
   return createLocalActivity(form)
@@ -230,7 +233,7 @@ export async function updateActivityStatus(id, status) {
     try {
       return await callSuregoFunction('surego-activity', 'updateStatus', { id, status: nextStatus })
     } catch (error) {
-      return updateLocalActivityStatus(id, nextStatus)
+      return handleSuregoCloudError(error, () => updateLocalActivityStatus(id, nextStatus))
     }
   }
   return updateLocalActivityStatus(id, nextStatus)
@@ -250,6 +253,9 @@ function updateLocalActivity(id, form) {
     time: form.time,
     endTime: form.endTime,
     location: form.location,
+    address: form.address || form.location,
+    latitude: form.latitude || found.latitude || '',
+    longitude: form.longitude || found.longitude || '',
     maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
     hasParticipantLimit: Boolean(form.hasParticipantLimit),
     requireApproval: Boolean(form.requireApproval),
@@ -273,7 +279,7 @@ export async function updateActivity(id, form) {
     try {
       return await callSuregoFunction('surego-activity', 'update', { id, ...form })
     } catch (error) {
-      return updateLocalActivity(id, form)
+      return handleSuregoCloudError(error, () => updateLocalActivity(id, form))
     }
   }
   return updateLocalActivity(id, form)

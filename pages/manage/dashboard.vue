@@ -148,10 +148,10 @@ import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
-import { findActivityById } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goActivityEdit, goBackHome, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
 
-const activity = ref(findActivityById('103'))
+const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
 const ticketOrders = ref([])
 const scrollIntoView = ref('')

@@ -126,11 +126,11 @@ import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
 import { listMessages } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
-import { findActivityById } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goActivityDetail, goBackHome, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
-const activity = ref(findActivityById('103'))
+const activity = ref(createEmptyActivity('103'))
 const application = ref(null)
 const order = ref(null)
 const checkin = ref(null)
@@ -170,7 +170,7 @@ const reviewFeedback = computed(() => {
 
 const paymentState = computed(() => {
   if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付', desc: '本局免费参与' }
-  if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认占位单' }
+  if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认试运营订单' }
   if (order.value.status === 'paid') return { key: 'paid', label: '已支付', desc: `订单号 ${order.value.id}` }
   if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款', desc: order.value.refundNote || '模拟退款已记录' }
   if (order.value.status === 'closed') return { key: 'closed', label: '已关闭', desc: order.value.closeReason || '订单已关闭' }

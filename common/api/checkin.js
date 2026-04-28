@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_checkins'
@@ -33,7 +33,7 @@ export async function createCheckinCode(activityId) {
     try {
       return await callSuregoFunction('surego-checkin', 'createCode', { activityId })
     } catch (error) {
-      return createLocalCheckinCode(activityId)
+      return handleSuregoCloudError(error, () => createLocalCheckinCode(activityId))
     }
   }
   return createLocalCheckinCode(activityId)
@@ -81,7 +81,7 @@ export async function confirmCheckin(payload) {
     try {
       return await callSuregoFunction('surego-checkin', 'confirm', buildCheckin(payload))
     } catch (error) {
-      return confirmLocalCheckin(payload)
+      return handleSuregoCloudError(error, () => confirmLocalCheckin(payload))
     }
   }
   return confirmLocalCheckin(payload)
@@ -97,7 +97,7 @@ export async function getCheckinForUser(activityId, userId = getCurrentUserId())
     try {
       return await callSuregoFunction('surego-checkin', 'getForUser', { activityId, userId })
     } catch (error) {
-      return getLocalCheckinForUser(activityId, userId)
+      return handleSuregoCloudError(error, () => getLocalCheckinForUser(activityId, userId))
     }
   }
   return getLocalCheckinForUser(activityId, userId)
@@ -117,7 +117,7 @@ export async function listCheckins(activityId) {
     try {
       return await callSuregoFunction('surego-checkin', 'listByActivity', { activityId })
     } catch (error) {
-      return listLocalCheckins(activityId)
+      return handleSuregoCloudError(error, () => listLocalCheckins(activityId))
     }
   }
   return listLocalCheckins(activityId)
@@ -139,7 +139,7 @@ export async function getCheckinSummary(activityId, totalCount = 0) {
     try {
       return await callSuregoFunction('surego-checkin', 'summary', { activityId, totalCount })
     } catch (error) {
-      return getLocalCheckinSummary(activityId, totalCount)
+      return handleSuregoCloudError(error, () => getLocalCheckinSummary(activityId, totalCount))
     }
   }
   return getLocalCheckinSummary(activityId, totalCount)

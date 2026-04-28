@@ -78,6 +78,10 @@
         <view class="field">
           <text class="label">地点 *</text>
           <input class="input" v-model="form.location" placeholder="例如：西湖风景区 路 太子湾公园" placeholder-class="placeholder" />
+          <view class="field-helper" @tap="chooseLocation">
+            <uni-icons type="location" size="16" color="#3b82f6" />
+            <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
+          </view>
         </view>
 
         <view class="field">
@@ -151,6 +155,7 @@
 import { computed, reactive, ref } from 'vue'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
+import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { goBackHome, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
@@ -172,6 +177,9 @@ const form = reactive({
   time: '14:00',
   endTime: '18:00',
   location: '',
+  address: '',
+  latitude: '',
+  longitude: '',
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
@@ -196,13 +204,23 @@ function handleDateChange(event) {
   form.date = `${Number(parts[1])}月${Number(parts[2])}日`
 }
 
-function chooseCover() {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
+async function chooseCover() {
+  const uploaded = await chooseAndUploadImage({
+    prefix: 'surego/activity-covers'
+  })
+  form.image = uploaded.url
+}
+
+function chooseLocation() {
+  uni.chooseLocation({
     success(result) {
-      form.image = result.tempFilePaths[0]
+      form.location = result.name || result.address || form.location
+      form.address = result.address || result.name || form.location
+      form.latitude = result.latitude
+      form.longitude = result.longitude
+    },
+    fail() {
+      uni.showToast({ title: '未选择地图地点，可继续手动填写', icon: 'none' })
     }
   })
 }
@@ -333,6 +351,16 @@ async function handleSubmit() {
 
 .field {
   margin-top: 30rpx;
+}
+
+.field-helper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 14rpx;
+  color: #3b82f6;
+  font-size: 22rpx;
+  font-weight: 900;
 }
 
 .grid {

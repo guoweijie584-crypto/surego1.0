@@ -223,20 +223,21 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad, onShareAppMessage } from '@dcloudio/uni-app'
+import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
+import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
-import { activities, members } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
-const activity = ref(activities[0])
+const activity = ref(createEmptyActivity('101'))
+const visibleMembers = ref([])
 const showShare = ref(false)
 const showMore = ref(false)
 const selectedMember = ref(null)
 
-const visibleMembers = computed(() => members.slice(0, Math.min(activity.value.participantCount, members.length)))
 const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
 
@@ -306,19 +307,35 @@ const primaryButtonClass = computed(() => ({
 }))
 
 onLoad(async (query) => {
-  activity.value = await getActivityDetail((query && query.id) || '101')
+  const id = (query && query.id) || '101'
+  activity.value = await getActivityDetail(id)
+  const members = await listActivityMembers(activity.value.id || id)
+  visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
 })
 
 onShareAppMessage(() => buildActivitySharePayload(activity.value))
+onShareTimeline(() => buildActivitySharePayload(activity.value))
 
 function padCount(count) {
   return String(count).padStart(2, '0')
 }
 
 function openLocation() {
-  uni.showToast({
-    title: '地图能力后续接入 uni.openLocation',
-    icon: 'none'
+  const latitude = Number(activity.value.latitude || 0)
+  const longitude = Number(activity.value.longitude || 0)
+  if (!latitude || !longitude) {
+    uni.showToast({ title: activity.value.location || '暂无地图坐标', icon: 'none' })
+    return
+  }
+
+  uni.openLocation({
+    latitude,
+    longitude,
+    name: activity.value.location,
+    address: activity.value.address || activity.value.location,
+    fail() {
+      uni.showToast({ title: activity.value.location || '地图打开失败', icon: 'none' })
+    }
   })
 }
 

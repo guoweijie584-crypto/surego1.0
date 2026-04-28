@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_applications'
@@ -52,7 +52,7 @@ export async function submitApplication(payload) {
       writeApplicationCache(application)
       return application
     } catch (error) {
-      return submitLocalApplication(payload)
+      return handleSuregoCloudError(error, () => submitLocalApplication(payload))
     }
   }
   return submitLocalApplication(payload)
@@ -67,7 +67,7 @@ export async function listApplications(activityId) {
     try {
       return await callSuregoFunction('surego-application', 'listByActivity', { activityId })
     } catch (error) {
-      return listLocalApplications(activityId)
+      return handleSuregoCloudError(error, () => listLocalApplications(activityId))
     }
   }
   return listLocalApplications(activityId)
@@ -103,7 +103,7 @@ export async function reviewApplication(id, status, options = {}) {
       const local = await reviewLocalApplication(review)
       return reviewed || local
     } catch (error) {
-      return reviewLocalApplication(review)
+      return handleSuregoCloudError(error, () => reviewLocalApplication(review))
     }
   }
   return reviewLocalApplication(review)

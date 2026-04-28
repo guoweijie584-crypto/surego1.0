@@ -94,12 +94,12 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { closeOrder, getOrderDetail, getOrderStatusText, refundOrder } from '@/common/api/order.js'
-import { findActivityById } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goBackHome, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const orderId = ref('')
 const order = ref(null)
-const activity = ref(findActivityById('102'))
+const activity = ref(createEmptyActivity('102'))
 
 const rules = computed(() => {
   if (!order.value) return []

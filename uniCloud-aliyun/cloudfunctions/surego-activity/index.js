@@ -12,6 +12,35 @@ const legacyStatusMap = {
   rejected: 'recruiting'
 };
 
+function normalizeRoles(roles) {
+  if (!roles) return [];
+  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
+}
+
+function resolveUserContext(event = {}, payload = {}) {
+  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
+  const roles = normalizeRoles(event.roles || payload.roles || payload.role);
+  return {
+    uid,
+    roles,
+    isOps: roles.includes('admin') || roles.includes('operator')
+  };
+}
+
+function authRequired() {
+  return {
+    code: 'AUTH_REQUIRED',
+    message: 'Please login before operating SureGo data.'
+  };
+}
+
+async function canEditActivity(id, user) {
+  if (user.isOps) return true;
+  const result = await collection.doc(id).get();
+  const found = (result.data || [])[0];
+  return Boolean(found && String(found.creator_id || found.creatorId || '') === user.uid);
+}
+
 function normalizeStatus(status = 'recruiting') {
   const mapped = legacyStatusMap[status] || status;
   return lifecycleStatuses.includes(mapped) ? mapped : 'recruiting';
@@ -44,6 +73,7 @@ function withoutEmptyId(payload) {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
+  const user = resolveUserContext(event, payload);
 
   if (action === 'list') {
     const result = await collection.orderBy('created_at', 'desc').limit(payload.limit || 20).get();
@@ -62,8 +92,11 @@ exports.main = async (event) => {
   }
 
   if (action === 'create') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
     const activity = withoutEmptyId({
       ...payload,
+      creatorId: user.uid,
+      creator_id: user.uid,
       status: normalizeStatus(payload.status),
       created_at: Date.now(),
       updated_at: Date.now()
@@ -79,9 +112,15 @@ exports.main = async (event) => {
   }
 
   if (action === 'update') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
     const id = payload.id;
+    if (!(await canEditActivity(id, user))) {
+      return { code: 'FORBIDDEN', message: 'Only the creator can edit this activity.' };
+    }
     const updatePayload = withoutEmptyId({
       ...payload,
+      creatorId: user.uid,
+      creator_id: user.uid,
       updated_at: Date.now()
     });
     delete updatePayload._id;
@@ -96,6 +135,10 @@ exports.main = async (event) => {
   }
 
   if (action === 'updateStatus') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
+    if (!(await canEditActivity(payload.id, user))) {
+      return { code: 'FORBIDDEN', message: 'Only the creator can update this activity.' };
+    }
     await collection.doc(payload.id).update({
       status: normalizeStatus(payload.status),
       updated_at: Date.now()

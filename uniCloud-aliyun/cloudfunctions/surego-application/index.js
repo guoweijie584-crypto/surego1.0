@@ -2,6 +2,40 @@
 
 const db = uniCloud.database();
 const collection = db.collection('surego-applications');
+const activityCollection = db.collection('surego-activities');
+
+function normalizeRoles(roles) {
+  if (!roles) return [];
+  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
+}
+
+function resolveUserContext(event = {}, payload = {}) {
+  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
+  const roles = normalizeRoles(event.roles || payload.roles || payload.role);
+  return {
+    uid,
+    roles,
+    isOps: roles.includes('admin') || roles.includes('operator')
+  };
+}
+
+function authRequired() {
+  return {
+    code: 'AUTH_REQUIRED',
+    message: 'Please login before operating SureGo data.'
+  };
+}
+
+async function getActivity(activityId) {
+  const result = await activityCollection.doc(String(activityId || '')).get();
+  return (result.data || [])[0] || null;
+}
+
+async function canManageActivity(activityId, user) {
+  if (user.isOps) return true;
+  const activity = await getActivity(activityId);
+  return Boolean(activity && String(activity.creator_id || activity.creatorId || '') === user.uid);
+}
 
 function normalizeApplication(item = {}) {
   return {
@@ -22,12 +56,13 @@ function normalizeList(result) {
 }
 
 function buildRecord(payload) {
+  const userId = payload.userId || payload.user_id;
   const record = {
     ...payload,
     activityId: String(payload.activityId || payload.activity_id),
     activity_id: String(payload.activityId || payload.activity_id),
-    userId: payload.userId || payload.user_id || 'mock_user',
-    user_id: payload.userId || payload.user_id || 'mock_user'
+    userId,
+    user_id: userId
   };
   if (!record.id) delete record.id;
   return record;
@@ -36,10 +71,14 @@ function buildRecord(payload) {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
+  const user = resolveUserContext(event, payload);
 
   if (action === 'submit') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
     const application = buildRecord({
       ...payload,
+      userId: user.uid,
+      user_id: user.uid,
       status: payload.status || 'pending',
       created_at: Date.now()
     });
@@ -54,8 +93,12 @@ exports.main = async (event) => {
   }
 
   if (action === 'listByActivity') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
     const activityId = String(payload.activityId || payload.activity_id);
-    const result = await collection.where({ activityId }).orderBy('created_at', 'desc').get();
+    const query = await canManageActivity(activityId, user)
+      ? { activityId }
+      : { activityId, userId: user.uid };
+    const result = await collection.where(query).orderBy('created_at', 'desc').get();
     return {
       code: 0,
       data: normalizeList(result)
@@ -63,12 +106,18 @@ exports.main = async (event) => {
   }
 
   if (action === 'review') {
+    if (!user.uid || user.uid === 'mock_user') return authRequired();
+    const existing = await collection.doc(payload.id).get();
+    const target = (existing.data || [])[0];
+    if (!target || !(await canManageActivity(target.activity_id || target.activityId, user))) {
+      return { code: 'FORBIDDEN', message: 'Only the activity creator can review applications.' };
+    }
     const reviewedAt = Date.now();
     await collection.doc(payload.id).update({
       status: payload.status,
       review_note: payload.reviewNote || payload.review_note || '',
       reject_reason: payload.rejectReason || payload.reject_reason || '',
-      reviewer_id: payload.reviewerId || payload.reviewer_id || '',
+      reviewer_id: user.uid,
       reviewed_at: reviewedAt
     });
     return {

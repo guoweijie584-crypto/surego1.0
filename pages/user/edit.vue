@@ -51,6 +51,7 @@
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'
+import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { goBackHome } from '@/common/utils/route.js'
 
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
@@ -77,15 +78,11 @@ function handleMbtiChange(event) {
   form.mbti = mbtiOptions[mbtiIndex.value]
 }
 
-function chooseAvatar() {
-  uni.chooseImage({
-    count: 1,
-    sizeType: ['compressed'],
-    sourceType: ['album', 'camera'],
-    success(result) {
-      form.avatar = result.tempFilePaths[0]
-    }
+async function chooseAvatar() {
+  const uploaded = await chooseAndUploadImage({
+    prefix: 'surego/avatars'
   })
+  form.avatar = uploaded.url
 }
 
 async function handleSave() {

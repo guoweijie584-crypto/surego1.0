@@ -1,5 +1,5 @@
 import { USE_UNICLOUD } from '@/common/config/runtime.js'
-import { callSuregoFunction } from '@/common/api/cloud.js'
+import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, MOCK_USER_ID } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_messages'
@@ -77,7 +77,7 @@ export async function createMessage(payload) {
     try {
       return await callSuregoFunction('surego-message', 'create', buildMessage(payload))
     } catch (error) {
-      return createLocalMessage(payload)
+      return handleSuregoCloudError(error, () => createLocalMessage(payload))
     }
   }
   return createLocalMessage(payload)
@@ -95,7 +95,7 @@ export async function listMessages(userId = getCurrentUserId()) {
       const items = await callSuregoFunction('surego-message', 'list', { userId })
       return items.length ? items : getSeedMessages()
     } catch (error) {
-      return listLocalMessages(userId)
+      return handleSuregoCloudError(error, () => listLocalMessages(userId))
     }
   }
   return listLocalMessages(userId)
@@ -114,7 +114,7 @@ export async function markMessageRead(id) {
     try {
       return await callSuregoFunction('surego-message', 'markRead', { id })
     } catch (error) {
-      return markLocalMessageRead(id)
+      return handleSuregoCloudError(error, () => markLocalMessageRead(id))
     }
   }
   return markLocalMessageRead(id)
@@ -137,7 +137,7 @@ export async function markAllMessagesRead(userId = getCurrentUserId()) {
     try {
       return await callSuregoFunction('surego-message', 'markAllRead', { userId })
     } catch (error) {
-      return markAllLocalMessagesRead(userId)
+      return handleSuregoCloudError(error, () => markAllLocalMessagesRead(userId))
     }
   }
   return markAllLocalMessagesRead(userId)

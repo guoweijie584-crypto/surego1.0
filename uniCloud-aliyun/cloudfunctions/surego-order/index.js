@@ -2,7 +2,43 @@
 
 const db = uniCloud.database();
 const collection = db.collection('surego-orders');
+const activityCollection = db.collection('surego-activities');
 const ORDER_STATUSES = ['pending', 'paid', 'refunded', 'closed'];
+
+function normalizeRoles(roles) {
+  if (!roles) return [];
+  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
+}
+
+function resolveUserContext(event = {}, payload = {}) {
+  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
+  const roles = normalizeRoles(event.roles || payload.roles || payload.role);
+  return {
+    uid,
+    roles,
+    isOps: roles.includes('admin') || roles.includes('operator')
+  };
+}
+
+function authRequired() {
+  return {
+    code: 'AUTH_REQUIRED',
+    message: 'Please login before operating SureGo data.'
+  };
+}
+
+async function canManageActivity(activityId, user) {
+  if (user.isOps) return true;
+  const result = await activityCollection.doc(String(activityId || '')).get();
+  const found = (result.data || [])[0];
+  return Boolean(found && String(found.creator_id || found.creatorId || '') === user.uid);
+}
+
+async function canEditOrder(id, user) {
+  const result = await collection.doc(id).get();
+  const found = (result.data || [])[0];
+  return Boolean(found && String(found.user_id || found.userId || '') === user.uid);
+}
 
 function normalizeStatus(status = 'pending') {
   return ORDER_STATUSES.includes(status) ? status : 'pending';
@@ -33,7 +69,7 @@ function normalizeList(result) {
 
 function buildRecord(payload = {}) {
   const activityId = String(payload.activityId || payload.activity_id || '');
-  const userId = payload.userId || payload.user_id || 'mock_user';
+  const userId = payload.userId || payload.user_id;
   const record = {
     ...payload,
     activityId,
@@ -56,7 +92,7 @@ function buildRecord(payload = {}) {
 
 async function findOrderByActivity(payload = {}) {
   const activityId = String(payload.activityId || payload.activity_id || '');
-  const userId = payload.userId || payload.user_id || 'mock_user';
+  const userId = payload.userId || payload.user_id;
   const result = await collection.where({ activityId, userId }).limit(1).get();
   return (result.data || [])[0] || null;
 }
@@ -64,9 +100,12 @@ async function findOrderByActivity(payload = {}) {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
+  const user = resolveUserContext(event, payload);
+
+  if (!user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'create') {
-    const order = buildRecord(payload);
+    const order = buildRecord({ ...payload, userId: user.uid, user_id: user.uid });
     const result = await collection.add(order);
     return {
       code: 0,
@@ -78,11 +117,12 @@ exports.main = async (event) => {
   }
 
   if (action === 'ensureForActivity') {
-    const found = await findOrderByActivity(payload);
+    const nextPayload = { ...payload, userId: user.uid, user_id: user.uid };
+    const found = await findOrderByActivity(nextPayload);
     if (found) {
       const nextOrder = buildRecord({
         ...found,
-        ...payload,
+        ...nextPayload,
         id: found._id || found.id,
         created_at: found.created_at
       });
@@ -93,7 +133,7 @@ exports.main = async (event) => {
       };
     }
 
-    const order = buildRecord(payload);
+    const order = buildRecord(nextPayload);
     const result = await collection.add(order);
     return {
       code: 0,
@@ -105,7 +145,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'getForActivity') {
-    const found = await findOrderByActivity(payload);
+    const found = await findOrderByActivity({ ...payload, userId: user.uid, user_id: user.uid });
     return {
       code: 0,
       data: found ? normalizeOrder(found) : null
@@ -115,6 +155,9 @@ exports.main = async (event) => {
   if (action === 'getDetail') {
     const result = await collection.doc(payload.id).get();
     const found = (result.data || [])[0] || null;
+    if (found && String(found.user_id || found.userId || '') !== user.uid && !(await canManageActivity(found.activity_id || found.activityId, user))) {
+      return { code: 'FORBIDDEN', message: 'You cannot read this order.' };
+    }
     return {
       code: 0,
       data: found ? normalizeOrder(found) : null
@@ -122,6 +165,9 @@ exports.main = async (event) => {
   }
 
   if (action === 'updateStatus' || action === 'markPaid') {
+    if (!(await canEditOrder(payload.id, user))) {
+      return { code: 'FORBIDDEN', message: 'You cannot update this order.' };
+    }
     const status = normalizeStatus(action === 'markPaid' ? 'paid' : payload.status);
     const patch = {
       status,
@@ -147,6 +193,9 @@ exports.main = async (event) => {
   }
 
   if (action === 'refund') {
+    if (!(await canEditOrder(payload.id, user))) {
+      return { code: 'FORBIDDEN', message: 'You cannot refund this order.' };
+    }
     const refundedAt = Date.now();
     const patch = {
       status: 'refunded',
@@ -165,6 +214,9 @@ exports.main = async (event) => {
   }
 
   if (action === 'close') {
+    if (!(await canEditOrder(payload.id, user))) {
+      return { code: 'FORBIDDEN', message: 'You cannot close this order.' };
+    }
     const closedAt = Date.now();
     const patch = {
       status: 'closed',
@@ -183,7 +235,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'list') {
-    const userId = payload.userId || payload.user_id || 'mock_user';
+    const userId = user.uid;
     const result = await collection.where({ userId }).orderBy('created_at', 'desc').limit(payload.limit || 20).get();
     return {
       code: 0,
@@ -193,6 +245,9 @@ exports.main = async (event) => {
 
   if (action === 'listByActivity') {
     const activityId = String(payload.activityId || payload.activity_id || '');
+    if (!(await canManageActivity(activityId, user))) {
+      return { code: 'FORBIDDEN', message: 'Only the activity creator can list activity orders.' };
+    }
     const result = await collection.where({ activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get();
     return {
       code: 0,

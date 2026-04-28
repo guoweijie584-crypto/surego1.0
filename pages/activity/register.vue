@@ -111,10 +111,10 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { submitApplication } from '@/common/api/application.js'
-import { activities } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goBackHome, goPayment, goSuccess } from '@/common/utils/route.js'
 
-const activity = ref(activities[0])
+const activity = ref(createEmptyActivity('101'))
 const gender = ref('')
 const mbtiIndex = ref(0)
 const message = ref('')
@@ -154,17 +154,17 @@ const shortLocation = computed(() => {
 
 const noticeText = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
-    return `本局为诚意金局，后续支付页接入后需支付 ¥${activity.value.amount} 诚意金，签到后全额退回。`
+    return `本局为诚意金局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，签到后记录为可退回状态。`
   }
   if (activity.value.partyMode === 'ticket') {
-    return `本局为门票局，后续支付页接入后需支付 ¥${activity.value.amount} 门票费用。`
+    return `本局为门票局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，确认后锁定名额。`
   }
   return '请按时成行，爽约会影响信用星级。'
 })
 
 const submitText = computed(() => {
   if (activity.value.partyMode === 'free') return '申请入局'
-  return '提交申请，支付页后续接入'
+  return '提交申请并确认订单'
 })
 
 const requiredAnswersDone = computed(() => {

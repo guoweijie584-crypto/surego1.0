@@ -58,10 +58,10 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
-import { findActivityById } from '@/common/mock/activities.js'
+import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { goBackHome, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
-const activity = ref(findActivityById('102'))
+const activity = ref(createEmptyActivity('102'))
 const order = ref(null)
 const isPaying = ref(false)
 

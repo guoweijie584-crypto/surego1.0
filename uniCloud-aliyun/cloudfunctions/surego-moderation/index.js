@@ -15,6 +15,35 @@ function now() {
   return Date.now();
 }
 
+function normalizeRoles(roles) {
+  if (!roles) return [];
+  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
+}
+
+function resolveUserContext(event = {}, payload = {}) {
+  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || payload.reporterId || payload.reporter_id || '');
+  const roles = normalizeRoles(event.roles || payload.roles || payload.role);
+  return {
+    uid,
+    roles,
+    isOps: roles.includes('admin') || roles.includes('operator')
+  };
+}
+
+function authRequired() {
+  return {
+    code: 'AUTH_REQUIRED',
+    message: 'Please login before operating SureGo data.'
+  };
+}
+
+function opsRequired() {
+  return {
+    code: 'FORBIDDEN',
+    message: 'Operator permission is required.'
+  };
+}
+
 function normalizeReportStatus(status = 'pending') {
   return reportStatuses.includes(status) ? status : 'pending';
 }
@@ -28,7 +57,7 @@ function normalizeReport(record = {}) {
     id: record._id || record.id,
     activityId: record.activity_id || record.activityId || '',
     activityTitle: record.activity_title || record.activityTitle || '',
-    reporterId: record.reporter_id || record.reporterId || 'mock_user',
+    reporterId: record.reporter_id || record.reporterId || '',
     reason: record.reason || 'content',
     note: record.note || '',
     status: normalizeReportStatus(record.status),
@@ -54,7 +83,7 @@ function normalizeActivity(record = {}) {
 
 async function writeAuditLog(payload = {}) {
   await auditLogs.add({
-    operator_id: payload.operatorId || payload.operator_id || 'mock_user',
+    operator_id: payload.operatorId || payload.operator_id,
     action: payload.action,
     target_type: payload.targetType || payload.target_type,
     target_id: payload.targetId || payload.target_id || '',
@@ -74,12 +103,15 @@ function normalizeActivityList(result = {}) {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
+  const user = resolveUserContext(event, payload);
+
+  if (!user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'createReport') {
     const record = {
       activity_id: payload.activityId || payload.activity_id || '',
       activity_title: payload.activityTitle || payload.activity_title || '',
-      reporter_id: payload.reporterId || payload.reporter_id || 'mock_user',
+      reporter_id: user.uid,
       reason: payload.reason || 'content',
       note: payload.note || '',
       status: 'pending',
@@ -98,6 +130,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'listReports') {
+    if (!user.isOps) return opsRequired();
     const status = payload.status;
     const query = status && status !== 'all' ? reports.where({ status: normalizeReportStatus(status) }) : reports;
     const result = await query.orderBy('created_at', 'desc').limit(payload.limit || 100).get();
@@ -108,11 +141,12 @@ exports.main = async (event) => {
   }
 
   if (action === 'updateReportStatus') {
+    if (!user.isOps) return opsRequired();
     const status = normalizeReportStatus(payload.status);
     const updatePayload = {
       status,
       review_note: payload.reviewNote || payload.review_note || '',
-      handled_by: payload.handledBy || payload.handled_by || 'mock_user',
+      handled_by: user.uid,
       handled_at: now(),
       updated_at: now()
     };
@@ -126,6 +160,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'listOpsActivities') {
+    if (!user.isOps) return opsRequired();
     const result = await activities.orderBy('created_at', 'desc').limit(payload.limit || 100).get();
     return {
       code: 0,
@@ -134,12 +169,13 @@ exports.main = async (event) => {
   }
 
   if (action === 'moderateActivity') {
+    if (!user.isOps) return opsRequired();
     const activityId = payload.activityId || payload.activity_id || payload.id;
     const moderationStatus = normalizeActivityStatus(payload.moderationStatus || payload.moderation_status);
     const updatePayload = {
       moderation_status: moderationStatus,
       moderation_note: payload.moderationNote || payload.moderation_note || '',
-      moderated_by: payload.moderatedBy || payload.moderated_by || 'mock_user',
+      moderated_by: user.uid,
       moderated_at: now(),
       updated_at: now()
     };
@@ -153,6 +189,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'getOpsStats') {
+    if (!user.isOps) return opsRequired();
     const [activityResult, reportResult, applicationResult, orderResult, checkinResult] = await Promise.all([
       activities.limit(1000).get(),
       reports.limit(1000).get(),

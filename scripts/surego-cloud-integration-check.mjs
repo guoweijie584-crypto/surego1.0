@@ -50,6 +50,15 @@ const modules = [
     requiredSchemaFields: ['activity_id', 'user_id', 'status']
   },
   {
+    name: 'user',
+    api: 'common/api/user.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-user/index.js',
+    schema: 'uniCloud-aliyun/database/surego-users.schema.json',
+    actions: ['profile', 'updateProfile', 'getProfiles'],
+    apiExports: ['getCurrentUser', 'updateCurrentUser'],
+    requiredSchemaFields: ['user_id']
+  },
+  {
     name: 'moderation',
     api: 'common/api/moderation.js',
     cloud: 'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js',
@@ -107,6 +116,14 @@ for (const item of modules) {
 
   if (!cloudSource.includes('code: 0') || !cloudSource.includes('data:')) {
     errors.push(`${item.cloud} must return { code: 0, data } for successful actions`)
+  }
+
+  if (cloudSource.includes("|| 'mock_user'") || cloudSource.includes('|| "mock_user"')) {
+    errors.push(`${item.cloud} must not default cloud writes to mock_user`)
+  }
+
+  if (!cloudSource.includes('resolveUserContext')) {
+    errors.push(`${item.cloud} is missing resolveUserContext auth helper`)
   }
 
   for (const field of item.requiredSchemaFields) {

@@ -46,6 +46,8 @@ const requiredApiFiles = [
   'common/api/message.js',
   'common/api/checkin.js',
   'common/api/user.js',
+  'common/api/upload.js',
+  'common/api/member.js',
   'common/api/moderation.js'
 ]
 
@@ -55,6 +57,7 @@ const requiredCloudFunctions = [
   'surego-order',
   'surego-message',
   'surego-checkin',
+  'surego-user',
   'surego-moderation'
 ]
 
@@ -128,13 +131,22 @@ const runtimeSource = read('common/config/runtime.js')
 if (!runtimeSource.includes('USE_UNICLOUD = false')) {
   errors.push('common/config/runtime.js must keep USE_UNICLOUD = false for local release readiness')
 }
+for (const token of ['ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
+  if (!runtimeSource.includes(token)) {
+    errors.push(`common/config/runtime.js is missing operation runtime token: ${token}`)
+  }
+}
+
+if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
+  errors.push('common/js/vconsole.min.js must not be included in the trial release package')
+}
 
 for (const apiFile of requiredApiFiles) {
   const source = read(apiFile)
-  if (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction')) {
+  if (apiFile !== 'common/api/upload.js' && (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction'))) {
     errors.push(`${apiFile} must keep mock/uniCloud facade mode`)
   }
-  if (!source.includes('@/common/api/auth.js')) {
+  if (apiFile !== 'common/api/upload.js' && !source.includes('@/common/api/auth.js')) {
     errors.push(`${apiFile} must use the auth facade`)
   }
 }
@@ -150,6 +162,12 @@ for (const page of businessPages) {
   const source = read(`${page}.vue`)
   if (source.includes('uniCloud.callFunction')) {
     errors.push(`${page}.vue must call common/api facade instead of uniCloud.callFunction`)
+  }
+  if (source.includes('@/common/mock/activities.js')) {
+    errors.push(`${page}.vue must not import common/mock/activities.js in release mode`)
+  }
+  if (source.includes('tempFilePaths[0]')) {
+    errors.push(`${page}.vue must upload images through common/api/upload.js instead of storing tempFilePaths[0]`)
   }
   for (const pattern of bannedPatterns) {
     if (pattern.test(source)) {
@@ -186,6 +204,44 @@ const authSource = read('common/api/auth.js')
 for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
+  }
+}
+
+const cloudSource = read('common/api/cloud.js')
+for (const token of ['uni_id_token', 'uniIdToken', 'getCurrentUserId', 'handleSuregoCloudError', 'shouldUseCloudFallback']) {
+  if (!cloudSource.includes(token)) {
+    errors.push(`common/api/cloud.js is missing release cloud auth token: ${token}`)
+  }
+}
+
+const createSource = read('pages/activity/create.vue')
+for (const token of ['uni.chooseLocation', 'latitude', 'longitude', 'chooseAndUploadImage']) {
+  if (!createSource.includes(token)) {
+    errors.push(`pages/activity/create.vue is missing operation capability: ${token}`)
+  }
+}
+
+const activityDetailSource = read('pages/activity/detail.vue')
+for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers']) {
+  if (!activityDetailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue is missing operation capability: ${token}`)
+  }
+}
+
+const checkinDeskSource = read('pages/manage/checkin.vue')
+for (const token of ['uni.scanCode', 'listActivityMembers', 'confirmNextByScan']) {
+  if (!checkinDeskSource.includes(token)) {
+    errors.push(`pages/manage/checkin.vue is missing operation capability: ${token}`)
+  }
+}
+
+for (const name of requiredCloudFunctions) {
+  const source = read(`uniCloud-aliyun/cloudfunctions/${name}/index.js`)
+  if (source.includes("|| 'mock_user'") || source.includes('|| "mock_user"')) {
+    errors.push(`${name} must not default cloud writes to mock_user`)
+  }
+  if (!source.includes('resolveUserContext')) {
+    errors.push(`${name} must include resolveUserContext auth helper`)
   }
 }
 
