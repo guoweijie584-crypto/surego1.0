@@ -1,7 +1,7 @@
 import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
-import { getCurrentUserProfile } from '@/common/api/auth.js'
+import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
@@ -26,11 +26,29 @@ function normalizeApplicationStatus(status = 'not_applied') {
   return APPLICATION_STATUSES.includes(status) ? status : 'not_applied'
 }
 
+function readLocalApplication(activityId) {
+  try {
+    return uni.getStorageSync(`surego_application_${activityId}`) || null
+  } catch (error) {
+    return null
+  }
+}
+
+export function isCurrentUserActivityCreator(item = {}) {
+  const currentUserId = getCurrentUserId()
+  const creatorId = item.creatorId || item.creator_id || ''
+  return Boolean(currentUserId && creatorId && String(currentUserId) === String(creatorId))
+}
+
 export function normalizeActivityRecord(item = {}) {
-  const legacyStatus = item.applicationStatus || item.application_status || item.status
+  const id = item.id || item._id
+  const localApplication = readLocalApplication(id)
+  const legacyStatus = item.applicationStatus || item.application_status || localApplication?.status || item.status
   const moderationStatus = item.moderationStatus || item.moderation_status || 'visible'
+  const creatorId = item.creatorId || item.creator_id || ''
   return {
     ...item,
+    id,
     status: normalizeActivityStatus(item.status),
     lifecycleStatus: normalizeActivityStatus(item.lifecycleStatus || item.status),
     applicationStatus: normalizeApplicationStatus(legacyStatus),
@@ -39,8 +57,9 @@ export function normalizeActivityRecord(item = {}) {
     moderationNote: item.moderationNote || item.moderation_note || '',
     moderatedAt: item.moderatedAt || item.moderated_at || '',
     moderatedBy: item.moderatedBy || item.moderated_by || '',
-    creatorId: item.creatorId || item.creator_id || '',
-    creator_id: item.creator_id || item.creatorId || ''
+    creatorId,
+    creator_id: creatorId,
+    isCreator: isCurrentUserActivityCreator({ ...item, creatorId })
   }
 }
 
@@ -94,7 +113,6 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
     amount: Number(form.amount) || 0,
     requireApproval: Boolean(form.requireApproval),
-    isCreator: form.isCreator !== undefined ? Boolean(form.isCreator) : true,
     status: normalizeActivityStatus(form.status || 'recruiting'),
     lifecycleStatus: normalizeActivityStatus(form.status || 'recruiting'),
     applicationStatus: normalizeApplicationStatus(form.applicationStatus || 'not_applied'),
@@ -288,7 +306,7 @@ export async function updateActivity(id, form) {
 export async function listMyActivities() {
   const all = await listActivities()
   return Promise.resolve({
-    hosting: all.filter((item) => item.isCreator),
+    hosting: all.filter((item) => isCurrentUserActivityCreator(item)),
     joined: all.filter((item) => item.applicationStatus === 'approved'),
     pending: all.filter((item) => item.applicationStatus === 'pending' || uni.getStorageSync(`surego_application_${item.id}`))
   })

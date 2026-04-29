@@ -63,6 +63,8 @@
               :value="answers[index]"
               maxlength="120"
               auto-height
+              adjust-position="false"
+              cursor-spacing="28"
               placeholder="回答一下局长的问题..."
               placeholder-class="textarea__placeholder"
               @input="handleAnswerInput(index, $event)"
@@ -80,6 +82,8 @@
             :value="message"
             maxlength="180"
             auto-height
+            adjust-position="false"
+            cursor-spacing="28"
             placeholder="介绍一下自己，或者告诉局长你为什么想来..."
             placeholder-class="textarea__placeholder"
             @input="message = $event.detail.value"
@@ -179,6 +183,7 @@ const canSubmit = computed(() => {
 onLoad(async (query) => {
   activity.value = await getActivityDetail((query && query.id) || '101')
   answers.value = (activity.value.questions || []).map(() => '')
+  validateJoinEligibility(true)
 })
 
 function handleMbtiChange(event) {
@@ -193,6 +198,7 @@ function handleAnswerInput(index, event) {
 
 async function handleSubmit() {
   if (!canSubmit.value || isSubmitting.value) return
+  if (!validateJoinEligibility()) return
 
   isSubmitting.value = true
   const application = {
@@ -225,6 +231,33 @@ async function handleSubmit() {
       requireApproval: activity.value.requireApproval ? '1' : '0'
     })
   }, 650)
+}
+
+function validateJoinEligibility(silent = false) {
+  const current = activity.value || {}
+  let messageText = ''
+
+  if (current.isCreator) {
+    messageText = '自己发起的活动不能报名'
+  } else if (current.applicationStatus === 'pending') {
+    messageText = '你已提交申请，请等待审核'
+  } else if (current.applicationStatus === 'approved') {
+    messageText = '你已加入该活动'
+  } else if (current.applicationStatus === 'rejected') {
+    messageText = '该活动申请未通过，暂不可重复提交'
+  } else if (current.hasParticipantLimit && Number(current.participantCount || 0) >= Number(current.maxParticipants || 0)) {
+    messageText = '活动名额已满'
+  } else if (['finished', 'cancelled'].includes(current.status) || ['finished', 'cancelled'].includes(current.lifecycleStatus)) {
+    messageText = '活动已结束或取消'
+  } else if (current.moderationStatus && current.moderationStatus !== 'visible' && current.moderationStatus !== 'approved') {
+    messageText = '活动暂不可报名'
+  }
+
+  if (!messageText) return true
+  if (!silent) {
+    uni.showToast({ title: messageText, icon: 'none' })
+  }
+  return false
 }
 </script>
 

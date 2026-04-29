@@ -1,16 +1,18 @@
 <template>
   <view class="manage su-page">
-    <view class="manage__nav">
-      <view class="manage__back" @tap="goBackHome">
+    <view class="manage__nav" :style="navStyle">
+      <view class="manage__nav-row" :style="navRowStyle">
+      <view class="manage__back" @tap="goActivityDetail(activity.id)">
         <uni-icons type="left" size="24" color="#fff" />
       </view>
       <text>局面管理</text>
       <view class="manage__back" @tap="goActivityEdit(activity.id)">
         <uni-icons type="gear-filled" size="22" color="#fff" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="manage__scroll" :scroll-into-view="scrollIntoView">
+    <scroll-view scroll-y class="manage__scroll" :scroll-into-view="scrollIntoView" :style="contentTopStyle">
       <view class="manage__hero">
         <text class="manage__kicker">COMMAND CENTER</text>
         <text class="manage__title">{{ activity.title }}</text>
@@ -113,6 +115,8 @@
           class="review-sheet__textarea"
           :placeholder="reviewMode === 'approved' ? '给参与者留一句欢迎提示' : '填写拒绝原因，参与者可在凭证页查看'"
           maxlength="120"
+          adjust-position="false"
+          cursor-spacing="28"
         />
         <view class="review-sheet__button" @tap="submitReview">
           {{ reviewMode === 'approved' ? '确认通过' : '确认拒绝' }}
@@ -149,8 +153,9 @@ import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.j
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityEdit, goBackHome, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
 
+const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
 const ticketOrders = ref([])
@@ -160,6 +165,9 @@ const showTicketSheet = ref(false)
 const reviewTarget = ref(null)
 const reviewMode = ref('approved')
 const reviewForm = ref({ note: '' })
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 
 const actions = [
   { title: '审核申请', desc: '处理待加入成员', icon: 'personadd-filled', tone: 'action__icon--blue', key: 'review' },
@@ -195,11 +203,21 @@ const ticketStats = computed(() => {
 })
 
 onLoad(async (query) => {
-  const id = (query && query.id) || '103'
-  activity.value = await getActivityDetail(id)
-  applications.value = await listApplications(id)
-  ticketOrders.value = await listOrdersByActivity(id)
+  activityId.value = (query && query.id) || '103'
+  activity.value = await getActivityDetail(activityId.value)
+  if (!ensureOwnerAccess()) return
+  applications.value = await listApplications(activityId.value)
+  ticketOrders.value = await listOrdersByActivity(activityId.value)
 })
+
+function ensureOwnerAccess() {
+  if (activity.value?.isCreator) return true
+  uni.showToast({ title: '只有局长可以管理活动', icon: 'none' })
+  setTimeout(() => {
+    goActivityDetail(activity.value?.id || activityId.value)
+  }, 500)
+  return false
+}
 
 function getInitial(item) {
   return item.gender === 'female' ? '她' : '他'
@@ -301,16 +319,18 @@ async function submitReview() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   color: #fff;
   font-size: 28rpx;
   font-weight: 900;
   background: rgba(15, 23, 42, 0.78);
   backdrop-filter: blur(18px);
+}
+
+.manage__nav-row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .manage__back {
@@ -323,10 +343,11 @@ async function submitReview() {
 
 .manage__scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
 .manage__hero {
-  padding: 174rpx 40rpx 40rpx;
+  padding: 0 40rpx 40rpx;
 }
 
 .manage__kicker {

@@ -1,6 +1,7 @@
 <template>
   <view class="checkin su-page">
-    <view class="checkin__nav">
+    <view class="checkin__nav" :style="navStyle">
+      <view class="checkin__nav-row" :style="navRowStyle">
       <view class="checkin__nav-btn" @tap="goManageDashboard(activity.id)">
         <uni-icons type="left" size="24" color="#fff" />
       </view>
@@ -8,9 +9,10 @@
       <view class="checkin__nav-btn" @tap="refreshCode">
         <uni-icons type="refresh" size="20" color="#fff" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="checkin__scroll">
+    <scroll-view scroll-y class="checkin__scroll" :style="contentTopStyle">
       <view class="hero">
         <text class="hero__kicker">CHECK-IN DESK</text>
         <text class="hero__title">{{ activity.title }}</text>
@@ -47,7 +49,7 @@
 
         <view class="code-actions">
           <view class="code-actions__input">
-            <input v-model="codeInput" placeholder="输入 SG 开头核销码" placeholder-class="input-placeholder" />
+            <input v-model="codeInput" adjust-position="false" cursor-spacing="28" placeholder="输入 SG 开头核销码" placeholder-class="input-placeholder" />
           </view>
           <view class="code-actions__button" @tap="confirmByCode">
             <uni-icons type="checkmarkempty" size="18" color="#fff" />
@@ -98,7 +100,7 @@ import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goManageDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -107,6 +109,10 @@ const memberProfiles = ref([])
 const checkins = ref([])
 const checkinCode = ref('')
 const codeInput = ref('')
+const hasOwnerAccess = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 const checkinSourceOptions = {
   manual: { source: 'manual' },
   scan: { source: 'scan' }
@@ -164,6 +170,7 @@ onShow(async () => {
 
 async function loadState() {
   activity.value = await getActivityDetail(activityId.value)
+  if (!ensureOwnerAccess()) return
   applications.value = await listApplications(activityId.value)
   memberProfiles.value = await listActivityMembers(activityId.value)
   const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
@@ -172,6 +179,19 @@ async function loadState() {
     const code = await createCheckinCode(activityId.value)
     checkinCode.value = code.code
   }
+}
+
+function ensureOwnerAccess() {
+  if (activity.value?.isCreator) {
+    hasOwnerAccess.value = true
+    return true
+  }
+  hasOwnerAccess.value = false
+  uni.showToast({ title: '只有局长可以核销签到', icon: 'none' })
+  setTimeout(() => {
+    goActivityDetail(activity.value?.id || activityId.value)
+  }, 500)
+  return false
 }
 
 async function refreshCode() {
@@ -275,14 +295,16 @@ async function confirmPerson(person, code, source = 'manual') {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   color: #fff;
   background: rgba(15, 23, 42, 0.82);
   backdrop-filter: blur(18px);
+}
+
+.checkin__nav-row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .checkin__nav-title {
@@ -300,10 +322,11 @@ async function confirmPerson(person, code, source = 'manual') {
 
 .checkin__scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
 .hero {
-  padding: 176rpx 40rpx 38rpx;
+  padding: 0 40rpx 38rpx;
 }
 
 .hero__kicker {

@@ -25,7 +25,7 @@
 
         <view class="field">
           <text class="label">活动标题 *</text>
-          <input class="input" v-model="form.title" placeholder="活动标题" placeholder-class="placeholder" />
+          <input class="input" v-model="form.title" adjust-position="false" cursor-spacing="28" placeholder="活动标题" placeholder-class="placeholder" />
         </view>
 
         <view class="grid">
@@ -37,7 +37,7 @@
           </view>
           <view class="field">
             <text class="label">人数上限</text>
-            <input class="input" type="number" v-model="form.maxParticipants" />
+            <input class="input" type="number" v-model="form.maxParticipants" adjust-position="false" cursor-spacing="28" />
           </view>
         </view>
 
@@ -74,7 +74,7 @@
 
         <view class="field">
           <text class="label">地点 *</text>
-          <input class="input" v-model="form.location" placeholder="活动地点" placeholder-class="placeholder" />
+          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="28" placeholder="活动地点" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
             <uni-icons type="location" size="16" color="#3b82f6" />
             <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
@@ -100,12 +100,12 @@
 
         <view v-if="form.partyMode !== 'free'" class="field">
           <text class="label">{{ form.partyMode === 'sincerity' ? '诚意金金额' : '门票金额' }}</text>
-          <input class="input" type="digit" v-model="form.amount" placeholder="0" placeholder-class="placeholder" />
+          <input class="input" type="digit" v-model="form.amount" adjust-position="false" cursor-spacing="28" placeholder="0" placeholder-class="placeholder" />
         </view>
 
         <view class="field">
           <text class="label">活动介绍 *</text>
-          <textarea class="textarea" v-model="form.description" maxlength="300" auto-height placeholder="写清楚怎么玩、适合谁、需要带什么..." placeholder-class="placeholder" />
+          <textarea class="textarea" v-model="form.description" maxlength="300" auto-height adjust-position="false" cursor-spacing="28" placeholder="写清楚怎么玩、适合谁、需要带什么..." placeholder-class="placeholder" />
         </view>
 
         <view class="field">
@@ -117,7 +117,7 @@
             </view>
           </view>
           <view v-for="(question, index) in form.questions" :key="index" class="question-row">
-            <input class="input question-row__input" v-model="form.questions[index]" placeholder="给申请者的问题" placeholder-class="placeholder" />
+            <input class="input question-row__input" v-model="form.questions[index]" adjust-position="false" cursor-spacing="28" placeholder="给申请者的问题" placeholder-class="placeholder" />
             <view class="question-row__remove" @tap="removeQuestion(index)">
               <uni-icons type="trash" size="18" color="#ef4444" />
             </view>
@@ -137,7 +137,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
-import { goBackHome, goManageDashboard } from '@/common/utils/route.js'
+import { goActivityDetail, goBackHome, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const partyModes = [
@@ -150,7 +150,7 @@ const activityId = ref('')
 const sourceActivity = ref(null)
 const categoryIndex = ref(0)
 const isSaving = ref(false)
-const isEditable = computed(() => String(activityId.value).startsWith('local_') || Boolean(sourceActivity.value?.isCreator))
+const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
 const form = reactive({
   title: '',
   category: categories[0],
@@ -183,6 +183,7 @@ onLoad(async (query = {}) => {
   activityId.value = query.id || ''
   const activity = await getActivityDetail(activityId.value)
   sourceActivity.value = activity
+  ensureOwnerAccess()
   Object.assign(form, {
     title: activity.title || '',
     category: activity.category || categories[0],
@@ -226,7 +227,17 @@ async function chooseCover() {
   const uploaded = await chooseAndUploadImage({
     prefix: 'surego/activity-covers'
   })
+  if (!uploaded) return
   form.image = uploaded.url
+}
+
+function ensureOwnerAccess() {
+  if (sourceActivity.value?.isCreator) return true
+  uni.showToast({ title: '只有局长可以编辑活动', icon: 'none' })
+  setTimeout(() => {
+    goActivityDetail(activityId.value)
+  }, 500)
+  return false
 }
 
 function chooseLocation() {

@@ -59,7 +59,6 @@ function authRequired() {
 }
 
 async function canEditActivity(id, user) {
-  if (user.isOps) return true;
   const result = await collection.doc(id).get();
   const found = (result.data || [])[0];
   return Boolean(found && String(found.creator_id || found.creatorId || '') === user.uid);
@@ -91,6 +90,7 @@ function normalizeList(result) {
 function withoutEmptyId(payload) {
   const next = { ...payload };
   if (!next.id) delete next.id;
+  delete next['is' + 'Creator'];
   return next;
 }
 

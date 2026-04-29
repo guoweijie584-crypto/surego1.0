@@ -1,11 +1,12 @@
 <template>
   <view class="participant su-page">
-    <view class="participant__nav">
+    <view class="participant__nav" :style="navStyle">
+      <view class="participant__nav-row" :style="navRowStyle">
       <view class="participant__nav-btn" @tap="goBackHome">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text class="participant__nav-title">参与者中心</text>
-      <view class="participant__nav-actions">
+      <view class="participant__nav-actions" :style="navActionsStyle">
         <view class="participant__nav-btn" @tap="goMessages">
           <uni-icons type="notification-filled" size="20" color="#0f172a" />
         </view>
@@ -13,9 +14,10 @@
           <uni-icons type="paperplane-filled" size="20" color="#0f172a" />
         </view>
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="participant__scroll">
+    <scroll-view scroll-y class="participant__scroll" :style="contentTopStyle">
       <view class="hero">
         <view class="hero__cover-wrap">
           <image class="hero__cover" :src="activity.image" mode="aspectFill" />
@@ -127,7 +129,7 @@ import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/a
 import { listMessages } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityDetail, goBackHome, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackHome, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -136,6 +138,10 @@ const order = ref(null)
 const checkin = ref(null)
 const entryCode = ref('')
 const relatedMessages = ref([])
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 420 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 const modeLabel = computed(() => {
   if (activity.value.partyMode === 'sincerity') return `诚意金 ¥${activity.value.amount}`
@@ -353,7 +359,11 @@ async function handlePrimaryAction() {
 
 function handleMessageTap(item) {
   if (item.type === 'application') {
-    goManageDashboard(item.activityId)
+    if (activity.value.isCreator) {
+      goManageDashboard(item.activityId)
+    } else {
+      goActivityDetail(item.activityId)
+    }
     return
   }
 
@@ -373,15 +383,20 @@ function handleMessageTap(item) {
 }
 
 .participant__nav {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 0;
   z-index: 20;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 56rpx 34rpx 22rpx;
   background: rgba(248, 249, 249, 0.92);
   backdrop-filter: blur(18px);
+}
+
+.participant__nav-row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .participant__nav-btn,
@@ -407,11 +422,15 @@ function handleMessageTap(item) {
 }
 
 .participant__nav-actions {
-  gap: 14rpx;
+  gap: 12rpx;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .participant__scroll {
-  height: calc(100vh - 136rpx);
+  height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: 60rpx;
 }
 
 .hero {

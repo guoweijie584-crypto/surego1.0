@@ -7,6 +7,125 @@ function buildQuery(params = {}) {
     .join('&')
 }
 
+const DEFAULT_WINDOW_WIDTH = 375
+
+function getWindowMetrics() {
+  try {
+    if (typeof uni.getWindowInfo === 'function') {
+      return uni.getWindowInfo() || {}
+    }
+  } catch (error) {
+    // Fall through to the older API for older base libraries.
+  }
+
+  try {
+    return uni.getSystemInfoSync() || {}
+  } catch (error) {
+    return {}
+  }
+}
+
+function getMenuButtonRect() {
+  try {
+    if (typeof uni.getMenuButtonBoundingClientRect === 'function') {
+      return uni.getMenuButtonBoundingClientRect() || null
+    }
+  } catch (error) {
+    return null
+  }
+  return null
+}
+
+function pxToRpx(px, windowWidth = DEFAULT_WINDOW_WIDTH) {
+  const safeWidth = Number(windowWidth) || DEFAULT_WINDOW_WIDTH
+  return Math.ceil((Number(px) || 0) * 750 / safeWidth)
+}
+
+export function getMiniProgramNavMetrics(options = {}) {
+  const windowInfo = getWindowMetrics()
+  const menuRect = getMenuButtonRect()
+  const windowWidth = Number(windowInfo.windowWidth || windowInfo.screenWidth || DEFAULT_WINDOW_WIDTH)
+  const statusBarHeight = Number(windowInfo.statusBarHeight || 0)
+  const fallbackTop = statusBarHeight + 8
+  const fallbackHeight = 32
+  const fallbackWidth = 96
+  const fallbackLeft = windowWidth - fallbackWidth - 8
+
+  const capsuleTopPx = Number(menuRect?.top || fallbackTop)
+  const capsuleHeightPx = Number(menuRect?.height || fallbackHeight)
+  const capsuleBottomPx = Number(menuRect?.bottom || capsuleTopPx + capsuleHeightPx)
+  const capsuleLeftPx = Number(menuRect?.left || fallbackLeft)
+  const bottomGapPx = Number(options.bottomGapPx ?? 10)
+  const rightGapPx = Number(options.rightGapPx ?? 10)
+  const rightReservePx = Math.max(0, windowWidth - capsuleLeftPx) + rightGapPx
+  const navHeightPx = capsuleBottomPx + bottomGapPx
+
+  return {
+    windowWidth,
+    statusBarHeight,
+    capsuleTopPx,
+    capsuleHeightPx,
+    capsuleBottomPx,
+    capsuleLeftPx,
+    navHeightPx,
+    rightReservePx,
+    navHeightRpx: pxToRpx(navHeightPx, windowWidth),
+    capsuleTopRpx: pxToRpx(capsuleTopPx, windowWidth),
+    capsuleHeightRpx: pxToRpx(capsuleHeightPx, windowWidth),
+    capsuleLeftRpx: pxToRpx(capsuleLeftPx, windowWidth),
+    rightReserveRpx: pxToRpx(rightReservePx, windowWidth),
+    leftLimitRpx: pxToRpx(capsuleLeftPx, windowWidth)
+  }
+}
+
+export function getCapsuleSafeRightRpx(extraRight = 16) {
+  const metrics = getMiniProgramNavMetrics({ rightGapPx: extraRight })
+  return metrics.rightReserveRpx
+}
+
+export function getMiniProgramNavStyle(options = {}) {
+  const metrics = getMiniProgramNavMetrics(options)
+  return {
+    height: `${metrics.navHeightRpx}rpx`
+  }
+}
+
+export function getMiniProgramNavRowStyle(options = {}) {
+  const metrics = getMiniProgramNavMetrics(options)
+  const leftPadding = Number(options.leftPaddingRpx ?? 34)
+  const rightPadding = Math.max(Number(options.minRightPaddingRpx ?? 24), metrics.rightReserveRpx)
+  return {
+    height: `${metrics.capsuleHeightRpx}rpx`,
+    marginTop: `${metrics.capsuleTopRpx}rpx`,
+    paddingLeft: `${leftPadding}rpx`,
+    paddingRight: `${rightPadding}rpx`
+  }
+}
+
+export function getMiniProgramNavActionsStyle(options = {}) {
+  const metrics = getMiniProgramNavMetrics(options)
+  const leftReserve = Number(options.leftReserveRpx ?? 0)
+  const maxWidth = Math.max(80, metrics.leftLimitRpx - leftReserve)
+  return {
+    maxWidth: `${maxWidth}rpx`
+  }
+}
+
+export function getMiniProgramNavContentStyle(options = {}) {
+  const metrics = getMiniProgramNavMetrics(options)
+  const gap = Number(options.gapRpx ?? 28)
+  return {
+    paddingTop: `${metrics.navHeightRpx + gap}rpx`
+  }
+}
+
+export function getCapsuleSafeAreaStyle(options = {}) {
+  return {
+    ...getMiniProgramNavStyle(options),
+    ...getMiniProgramNavRowStyle(options)
+  }
+}
+
 export function goAuthLogin(params = {}) {
   const query = buildQuery(params)
   uni.navigateTo({
