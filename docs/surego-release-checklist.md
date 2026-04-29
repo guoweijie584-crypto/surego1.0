@@ -1,10 +1,16 @@
 # SureGo 试运营发布检查清单
 
+## Current trial runtime
+
+- Trial experience builds now use `APP_MODE = 'trial'` and `USE_UNICLOUD = true`.
+- `ALLOW_MOCK_FALLBACK` resolves to `false` in trial mode, so cloud errors should be fixed instead of silently writing local mock data.
+- For a pure local demo build, switch runtime back on a separate local-only change.
+
 ## uni-id login bridge
 
 - SureGo login now tries `uni.login` + `uni-id-co.loginByWeixin` first.
 - If `uni-id-co` is not uploaded or configured, it falls back to the legacy `user-center` cloud function.
-- If both cloud paths fail, it falls back to local mock login so local development and demos still run.
+- In trial cloud mode, both cloud paths should be configured; mock fallback is only for local development branches.
 - Before real cloud verification, upload/configure `uni-id-co` and confirm `uni_id_token`, `uni_id_token_expired`, and `uni-id-pages-userInfo` are written after login.
 
 ## 发布前静态检查

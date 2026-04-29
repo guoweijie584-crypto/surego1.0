@@ -1,4 +1,4 @@
-import { shouldUseCloudFallback } from '@/common/config/runtime.js'
+import { shouldUseCloudFallback } from '../config/runtime.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 
 const UNI_ID_TOKEN_KEY = 'uni_id_token'

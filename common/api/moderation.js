@@ -1,4 +1,4 @@
-import { USE_UNICLOUD } from '@/common/config/runtime.js'
+import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, isOpsUser } from '@/common/api/auth.js'
 import { listActivities } from '@/common/api/activity.js'

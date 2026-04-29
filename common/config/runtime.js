@@ -1,5 +1,5 @@
-export const APP_MODE = 'development'
-export const USE_UNICLOUD = false
+export const APP_MODE = 'trial'
+export const USE_UNICLOUD = true
 export const ALLOW_MOCK_FALLBACK = APP_MODE !== 'trial'
 
 export function isTrialMode() {

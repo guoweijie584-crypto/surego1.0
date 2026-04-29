@@ -1,4 +1,4 @@
-import { ALLOW_MOCK_FALLBACK } from '@/common/config/runtime.js'
+import { ALLOW_MOCK_FALLBACK } from '../config/runtime.js'
 
 function buildCloudPath(prefix = 'surego', filePath = '') {
   const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
