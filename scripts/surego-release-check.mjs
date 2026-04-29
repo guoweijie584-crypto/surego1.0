@@ -48,6 +48,7 @@ const requiredApiFiles = [
   'common/api/checkin.js',
   'common/api/user.js',
   'common/api/upload.js',
+  'common/api/location.js',
   'common/api/member.js',
   'common/api/moderation.js'
 ]
@@ -151,10 +152,11 @@ if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
 
 for (const apiFile of requiredApiFiles) {
   const source = read(apiFile)
-  if (apiFile !== 'common/api/upload.js' && (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction'))) {
+  const isLocalPlatformFacade = apiFile === 'common/api/upload.js' || apiFile === 'common/api/location.js'
+  if (!isLocalPlatformFacade && (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction'))) {
     errors.push(`${apiFile} must keep mock/uniCloud facade mode`)
   }
-  if (apiFile !== 'common/api/upload.js' && !source.includes('@/common/api/auth.js')) {
+  if (!isLocalPlatformFacade && !source.includes('@/common/api/auth.js')) {
     errors.push(`${apiFile} must use the auth facade`)
   }
 }
@@ -271,12 +273,95 @@ for (const token of ['uni.chooseLocation', 'latitude', 'longitude', 'chooseAndUp
     errors.push(`pages/activity/create.vue is missing operation capability: ${token}`)
   }
 }
+if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing')) {
+  errors.push('pages/activity/create.vue must include keyboard compatibility attributes')
+}
 
 const activityDetailSource = read('pages/activity/detail.vue')
-for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers']) {
+for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
   if (!activityDetailSource.includes(token)) {
     errors.push(`pages/activity/detail.vue is missing operation capability: ${token}`)
   }
+}
+
+const activitySource = read('common/api/activity.js')
+for (const token of ['isCurrentUserActivityCreator', 'applicationStatus']) {
+  if (!activitySource.includes(token)) {
+    errors.push(`common/api/activity.js is missing ownership release token: ${token}`)
+  }
+}
+if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)')) {
+  errors.push('common/api/activity.js must not trust stored isCreator in release mode')
+}
+
+const uploadSource = read('common/api/upload.js')
+for (const token of ['USER_CANCEL_IMAGE_PICKER', 'isImagePickerCancel']) {
+  if (!uploadSource.includes(token)) {
+    errors.push(`common/api/upload.js is missing picker cancellation token: ${token}`)
+  }
+}
+
+const locationSource = read('common/api/location.js')
+for (const token of ['getCurrentLocation', 'refreshCurrentLocation', 'getStoredLocation', 'uni.getLocation', 'sortActivitiesByDistance']) {
+  if (!locationSource.includes(token)) {
+    errors.push(`common/api/location.js is missing release location token: ${token}`)
+  }
+}
+
+const navRouteSource = read('common/utils/route.js')
+for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle']) {
+  if (!navRouteSource.includes(token)) {
+    errors.push(`common/utils/route.js is missing release mini-program capsule token: ${token}`)
+  }
+}
+
+for (const page of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/activity/detail.vue', 'pages/manage/dashboard.vue', 'pages/manage/checkin.vue', 'pages/participant/dashboard.vue', 'pages/order/detail.vue', 'pages/share/poster.vue', 'pages/messages/index.vue']) {
+  const source = read(page)
+  for (const token of ['getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must avoid the WeChat capsule with ${token}`)
+    }
+  }
+  if (source.includes('topSafeStyle') || source.includes('getCapsuleSafeAreaStyle')) {
+    errors.push(`${page} must not rely on padding-only capsule safe-area helpers`)
+  }
+  if (source.includes('height: 132rpx') || source.includes('height: 136rpx')) {
+    errors.push(`${page} must not hard-code custom nav height in release mode`)
+  }
+}
+
+const registerSource = read('pages/activity/register.vue')
+for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing']) {
+  if (!registerSource.includes(token)) {
+    errors.push(`pages/activity/register.vue is missing release join/keyboard token: ${token}`)
+  }
+}
+
+const manageSource = read('pages/manage/dashboard.vue')
+if (!manageSource.includes('ensureOwnerAccess') || !manageSource.includes('goActivityDetail')) {
+  errors.push('pages/manage/dashboard.vue must guard owner-only access')
+}
+
+const checkinSource = read('pages/manage/checkin.vue')
+if (!checkinSource.includes('ensureOwnerAccess')) {
+  errors.push('pages/manage/checkin.vue must guard owner-only access')
+}
+
+const editActivitySource = read('pages/activity/edit.vue')
+if (!editActivitySource.includes('ensureOwnerAccess')) {
+  errors.push('pages/activity/edit.vue must guard owner-only access')
+}
+
+const discoverSource = read('pages/discover/index.vue')
+for (const token of ['refreshCurrentLocation', 'getStoredLocation', 'sortActivitiesByDistance']) {
+  if (!discoverSource.includes(token)) {
+    errors.push(`pages/discover/index.vue is missing release location token: ${token}`)
+  }
+}
+
+const citySource = read('pages/discover/city.vue')
+if (!citySource.includes('refreshCurrentLocation') || citySource.includes("selectCity('杭州')")) {
+  errors.push('pages/discover/city.vue must use real location refresh instead of hard-coded city locate')
 }
 
 const checkinDeskSource = read('pages/manage/checkin.vue')
@@ -305,6 +390,9 @@ for (const name of requiredCloudFunctions) {
   }
   if (!source.includes('!user.exists')) {
     errors.push(`${name} must reject deleted/stale uni-id users with !user.exists`)
+  }
+  if (name === 'surego-activity' && source.includes('isCreator')) {
+    errors.push('surego-activity must not persist or return client-provided isCreator')
   }
 }
 

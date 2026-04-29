@@ -1,11 +1,12 @@
 <template>
   <view class="detail su-page">
-    <view class="detail__nav">
+    <view class="detail__nav" :style="navStyle">
+      <view class="detail__nav-row" :style="navRowStyle">
       <view class="detail__nav-btn" @tap="goBackHome">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text class="detail__nav-title">活动详情</text>
-      <view class="detail__nav-actions">
+      <view class="detail__nav-actions" :style="navActionsStyle">
         <view class="detail__nav-btn" @tap="showShare = true">
           <uni-icons type="redo" size="22" color="#0f172a" />
         </view>
@@ -13,9 +14,10 @@
           <uni-icons type="more-filled" size="22" color="#0f172a" />
         </view>
       </view>
+      </view>
     </view>
 
-    <view class="detail__main">
+    <view class="detail__main" :style="contentTopStyle">
       <view class="hero-card">
         <view class="hero-card__image-wrap">
           <image class="hero-card__image" :src="activity.image" mode="aspectFill" />
@@ -229,7 +231,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activity = ref(createEmptyActivity('101'))
@@ -237,6 +239,10 @@ const visibleMembers = ref([])
 const showShare = ref(false)
 const showMore = ref(false)
 const selectedMember = ref(null)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 240 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 28 })
 
 const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
@@ -400,14 +406,16 @@ function toastAndClose(title) {
   right: 0;
   left: 0;
   z-index: 30;
-  display: flex;
-  height: 136rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
+  padding: 0;
   border-bottom: 1rpx solid rgba(255, 255, 255, 0.65);
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(18px);
+}
+
+.detail__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .detail__nav-title {
@@ -418,7 +426,9 @@ function toastAndClose(title) {
 
 .detail__nav-actions {
   display: flex;
-  gap: 18rpx;
+  flex-shrink: 0;
+  gap: 14rpx;
+  overflow: hidden;
 }
 
 .detail__nav-btn {
@@ -433,7 +443,8 @@ function toastAndClose(title) {
   display: flex;
   flex-direction: column;
   gap: 28rpx;
-  padding: 164rpx 34rpx 0;
+  padding-right: 34rpx;
+  padding-left: 34rpx;
 }
 
 .hero-card,

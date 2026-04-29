@@ -1,6 +1,7 @@
 <template>
   <view class="poster su-page">
-    <view class="poster__nav">
+    <view class="poster__nav" :style="navStyle">
+      <view class="poster__nav-row" :style="navRowStyle">
       <view class="poster__nav-btn" @tap="goActivityDetail(activity.id)">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
@@ -8,9 +9,10 @@
       <view class="poster__nav-btn" @tap="copySharePath">
         <uni-icons type="link" size="20" color="#0f172a" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="poster__scroll">
+    <scroll-view scroll-y class="poster__scroll" :style="contentTopStyle">
       <view class="poster-card">
         <view class="poster-card__cover-wrap">
           <image class="poster-card__cover" :src="activity.image" mode="aspectFill" />
@@ -91,13 +93,16 @@ import { computed, nextTick, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityDetail } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail } from '@/common/utils/route.js'
 import { buildActivityPosterCopy, buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activityId = ref('101')
 const activity = ref(createEmptyActivity('101'))
 const posterImage = ref('')
 const isGenerating = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 const posterWidth = 750
 const posterHeight = 1180
@@ -286,13 +291,15 @@ async function savePosterPreview() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(18px);
+}
+
+.poster__nav-row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .poster__nav-title {
@@ -312,6 +319,8 @@ async function savePosterPreview() {
 
 .poster__scroll {
   height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: 70rpx;
 }
 
 .poster-canvas {
@@ -324,7 +333,7 @@ async function savePosterPreview() {
 
 .poster-card {
   overflow: hidden;
-  margin: 168rpx 38rpx 30rpx;
+  margin: 0 38rpx 30rpx;
   border-radius: 48rpx;
   background: #fff;
   box-shadow: 0 28rpx 80rpx rgba(15, 23, 42, 0.13);

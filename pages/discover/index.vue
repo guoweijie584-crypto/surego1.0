@@ -1,10 +1,11 @@
 <template>
   <view class="discover su-page">
-    <view class="discover__top">
+    <view class="discover__top" :style="navStyle">
+      <view class="discover__top-row" :style="navRowStyle">
       <view class="discover__avatar" @tap="goUserProfile">
         <image src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
       </view>
-      <view class="discover__tools">
+      <view class="discover__tools" :style="navActionsStyle">
         <view class="discover__city" @tap="goCityPicker">
           <uni-icons type="location-filled" size="18" color="#111827" />
           <text>{{ selectedCity }}</text>
@@ -17,10 +18,11 @@
           <view class="discover__dot" />
         </view>
       </view>
+      </view>
     </view>
 
     <scroll-view scroll-y class="discover__scroll">
-      <view class="discover__hero">
+      <view class="discover__hero" :style="contentTopStyle">
         <text class="discover__kicker">DISCOVER</text>
         <text class="discover__title">发现好局</text>
         <text class="discover__desc">按城市、分类和热度探索附近正在成行的活动。</text>
@@ -106,7 +108,8 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivitiesByCity } from '@/common/api/activity.js'
-import { goActivityDetail, goCalendar, goCityPicker, goMessages, goSearch, goUserProfile } from '@/common/utils/route.js'
+import { getStoredLocation, refreshCurrentLocation, sortActivitiesByDistance } from '@/common/api/location.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goCalendar, goCityPicker, goMessages, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
 const categories = ['全部', '户外', '美食', '运动', '学习', '展览', '夜生活']
@@ -120,6 +123,11 @@ const topics = [
 const activeCategory = ref('全部')
 const selectedCity = ref('杭州')
 const activities = ref([])
+const currentLocation = ref(getStoredLocation())
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 118 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 32 })
 
 const filteredActivities = computed(() => {
   if (activeCategory.value === '全部') return activities.value
@@ -128,7 +136,16 @@ const filteredActivities = computed(() => {
 
 onShow(async () => {
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
-  activities.value = await listActivitiesByCity(selectedCity.value)
+  currentLocation.value = getStoredLocation()
+  if (!currentLocation.value.latitude || !currentLocation.value.longitude) {
+    try {
+      currentLocation.value = await refreshCurrentLocation({ silent: true })
+    } catch (error) {
+      currentLocation.value = getStoredLocation()
+    }
+  }
+  const cityActivities = await listActivitiesByCity(selectedCity.value)
+  activities.value = sortActivitiesByDistance(cityActivities, currentLocation.value)
 })
 
 function countByCategory(category) {
@@ -159,13 +176,16 @@ function openBlindPick() {
   right: 0;
   left: 0;
   z-index: 30;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 40rpx 18rpx;
+  display: block;
+  padding: 0;
   background: rgba(255, 255, 255, 0.52);
   backdrop-filter: blur(18px);
+}
+
+.discover__top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .discover__avatar,
@@ -184,7 +204,9 @@ function openBlindPick() {
 .discover__tools {
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  flex-shrink: 0;
+  gap: 8rpx;
+  overflow: hidden;
   padding: 10rpx;
   border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.88);
@@ -209,6 +231,13 @@ function openBlindPick() {
   font-weight: 900;
 }
 
+.discover__city text {
+  max-width: 108rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .discover__tool {
   width: 62rpx;
 }
@@ -229,7 +258,9 @@ function openBlindPick() {
 }
 
 .discover__hero {
-  padding: 174rpx 40rpx 32rpx;
+  padding-right: 40rpx;
+  padding-bottom: 32rpx;
+  padding-left: 40rpx;
 }
 
 .discover__kicker,

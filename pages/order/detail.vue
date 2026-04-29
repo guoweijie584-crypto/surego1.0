@@ -1,6 +1,7 @@
 <template>
   <view class="order-detail su-page">
-    <view class="order-nav">
+    <view class="order-nav" :style="navStyle">
+      <view class="order-nav__row" :style="navRowStyle">
       <view class="order-nav__btn" @tap="goBackHome">
         <uni-icons type="left" size="22" color="#0f172a" />
       </view>
@@ -8,9 +9,10 @@
       <view class="order-nav__btn" @tap="reloadOrder">
         <uni-icons type="refresh" size="18" color="#0f172a" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="order-scroll">
+    <scroll-view scroll-y class="order-scroll" :style="contentTopStyle">
       <view v-if="!order" class="empty">
         <uni-icons type="wallet-filled" size="44" color="#cbd5e1" />
         <text>订单不存在或已被清理</text>
@@ -95,11 +97,14 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { closeOrder, getOrderDetail, getOrderStatusText, refundOrder } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackHome, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackHome, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const orderId = ref('')
 const order = ref(null)
 const activity = ref(createEmptyActivity('102'))
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
 
 const rules = computed(() => {
   if (!order.value) return []
@@ -163,16 +168,18 @@ async function handleClose() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   background: rgba(248, 250, 252, 0.92);
   backdrop-filter: blur(18rpx);
   color: #0f172a;
   font-size: 28rpx;
   font-weight: 900;
+}
+
+.order-nav__row {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .order-nav__btn {
@@ -189,7 +196,7 @@ async function handleClose() {
 .order-scroll {
   height: 100vh;
   box-sizing: border-box;
-  padding: 154rpx 30rpx 60rpx;
+  padding: 0 30rpx 60rpx;
 }
 
 .empty {

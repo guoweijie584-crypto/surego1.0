@@ -22,6 +22,7 @@ const requiredFiles = [
   'common/api/checkin.js',
   'common/api/user.js',
   'common/api/upload.js',
+  'common/api/location.js',
   'common/api/member.js',
   'common/api/moderation.js',
   'scripts/surego-cloud-integration-check.mjs',
@@ -406,10 +407,13 @@ if (fs.existsSync(activityApiPath)) {
   if (!activitySource.includes('updateActivity(')) {
     errors.push('common/api/activity.js is missing updateActivity');
   }
-  for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus']) {
+  for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus', 'isCurrentUserActivityCreator']) {
     if (!activitySource.includes(helper)) {
       errors.push(`common/api/activity.js is missing ${helper}`);
     }
+  }
+  if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)') || activitySource.includes('activity.isCreator ||')) {
+    errors.push('common/api/activity.js must derive ownership from creator_id/current user instead of trusting isCreator');
   }
 }
 
@@ -556,10 +560,57 @@ for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'c
 const uploadApiPath = path.join(root, 'common/api/upload.js');
 if (fs.existsSync(uploadApiPath)) {
   const uploadSource = fs.readFileSync(uploadApiPath, 'utf8');
-  for (const token of ['chooseAndUploadImage', 'uploadImageFile', 'uni.chooseImage', 'uniCloud.uploadFile', 'ALLOW_MOCK_FALLBACK']) {
+  for (const token of ['chooseAndUploadImage', 'uploadImageFile', 'uni.chooseImage', 'uniCloud.uploadFile', 'ALLOW_MOCK_FALLBACK', 'USER_CANCEL_IMAGE_PICKER', 'isImagePickerCancel']) {
     if (!uploadSource.includes(token)) {
       errors.push(`common/api/upload.js is missing ${token}`);
     }
+  }
+}
+
+const locationApiPath = path.join(root, 'common/api/location.js');
+if (fs.existsSync(locationApiPath)) {
+  const source = fs.readFileSync(locationApiPath, 'utf8');
+  for (const token of ['getCurrentLocation', 'refreshCurrentLocation', 'getStoredLocation', 'uni.getLocation', 'sortActivitiesByDistance']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/location.js is missing ${token}`);
+    }
+  }
+}
+
+const routeUtilPath = path.join(root, 'common/utils/route.js');
+if (fs.existsSync(routeUtilPath)) {
+  const source = fs.readFileSync(routeUtilPath, 'utf8');
+  for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle']) {
+    if (!source.includes(token)) {
+      errors.push(`common/utils/route.js is missing mini-program capsule helper token: ${token}`);
+    }
+  }
+}
+
+for (const page of [
+  'pages/home/index',
+  'pages/discover/index',
+  'pages/activity/detail',
+  'pages/messages/index',
+  'pages/manage/dashboard',
+  'pages/manage/checkin',
+  'pages/order/detail',
+  'pages/participant/dashboard',
+  'pages/share/poster'
+]) {
+  const absolute = path.join(root, `${page}.vue`);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of ['getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+    if (!source.includes(token)) {
+      errors.push(`${page}.vue must use mini-program nav metrics helper: ${token}`);
+    }
+  }
+  if (source.includes('topSafeStyle') || source.includes('getCapsuleSafeAreaStyle')) {
+    errors.push(`${page}.vue must not rely on padding-only capsule safe-area helpers`);
+  }
+  if (source.includes('height: 132rpx') || source.includes('height: 136rpx')) {
+    errors.push(`${page}.vue must not hard-code custom nav height instead of capsule metrics`);
   }
 }
 
@@ -624,6 +675,11 @@ if (fs.existsSync(applicationCloudPath)) {
 const manageDashboardPath = path.join(root, 'pages/manage/dashboard.vue');
 if (fs.existsSync(manageDashboardPath)) {
   const source = fs.readFileSync(manageDashboardPath, 'utf8');
+  for (const token of ['ensureOwnerAccess', 'goActivityDetail', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/dashboard.vue is missing owner/safe-area guard token: ${token}`);
+    }
+  }
   if (!source.includes('updateActivityStatus')) {
     errors.push('pages/manage/dashboard.vue is missing updateActivityStatus');
   }
@@ -645,6 +701,9 @@ if (fs.existsSync(activityCloudPath)) {
   }
   if (source.includes("status: payload.status || 'hosting'")) {
     errors.push('surego-activity cloud function still defaults to legacy hosting status');
+  }
+  if (source.includes('isCreator')) {
+    errors.push('surego-activity cloud function must strip client-provided isCreator');
   }
 }
 
@@ -722,7 +781,7 @@ if (fs.existsSync(checkinCloudPath)) {
 const manageCheckinPath = path.join(root, 'pages/manage/checkin.vue');
 if (fs.existsSync(manageCheckinPath)) {
   const source = fs.readFileSync(manageCheckinPath, 'utf8');
-  for (const token of ['isValidCheckinCode', "source: 'manual'", "source: 'scan'", 'nextCheckablePerson']) {
+  for (const token of ['isValidCheckinCode', "source: 'manual'", "source: 'scan'", 'nextCheckablePerson', 'ensureOwnerAccess', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
     if (!source.includes(token)) {
       errors.push(`pages/manage/checkin.vue is missing ${token}`);
     }
@@ -743,7 +802,7 @@ if (fs.existsSync(participantCheckinPath)) {
 const activityDetailPath = path.join(root, 'pages/activity/detail.vue');
 if (fs.existsSync(activityDetailPath)) {
   const source = fs.readFileSync(activityDetailPath, 'utf8');
-  for (const token of ['buildActivitySharePayload', 'buildActivitySharePath']) {
+  for (const token of ['buildActivitySharePayload', 'buildActivitySharePath', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
     if (!source.includes(token)) {
       errors.push(`pages/activity/detail.vue is missing ${token}`);
     }
@@ -755,6 +814,43 @@ if (fs.existsSync(activityDetailPath)) {
   }
   if (source.includes("toastAndClose('举报已提交')") || source.includes("toastAndClose('涓炬姤宸叉彁浜?)")) {
     errors.push('pages/activity/detail.vue report action must create a moderation report instead of toast-only feedback');
+  }
+}
+
+const registerPagePath = path.join(root, 'pages/activity/register.vue');
+if (fs.existsSync(registerPagePath)) {
+  const source = fs.readFileSync(registerPagePath, 'utf8');
+  for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/register.vue is missing join/keyboard guard token: ${token}`);
+    }
+  }
+}
+
+const discoverPagePath = path.join(root, 'pages/discover/index.vue');
+if (fs.existsSync(discoverPagePath)) {
+  const source = fs.readFileSync(discoverPagePath, 'utf8');
+  for (const token of ['refreshCurrentLocation', 'getStoredLocation', 'sortActivitiesByDistance', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/discover/index.vue is missing location/safe-area token: ${token}`);
+    }
+  }
+}
+
+const cityPagePath = path.join(root, 'pages/discover/city.vue');
+if (fs.existsSync(cityPagePath)) {
+  const source = fs.readFileSync(cityPagePath, 'utf8');
+  if (!source.includes('refreshCurrentLocation') || source.includes("selectCity('杭州')")) {
+    errors.push('pages/discover/city.vue must use real location refresh instead of hard-coded city locate');
+  }
+}
+
+for (const file of ['pages/activity/create.vue', 'pages/activity/edit.vue', 'pages/user/edit.vue', 'components/surego/SuWechatProfileSheet.vue', 'pages/discover/search.vue', 'pages/manage/dashboard.vue', 'pages/manage/checkin.vue', 'pages/ops/reports.vue']) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('adjust-position="false"') || !source.includes('cursor-spacing')) {
+    errors.push(`${file} must include keyboard compatibility attributes on input/textarea controls`);
   }
 }
 

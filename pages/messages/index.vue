@@ -1,6 +1,7 @@
 <template>
   <view class="messages su-page">
-    <view class="messages__nav">
+    <view class="messages__nav" :style="navStyle">
+      <view class="messages__nav-row" :style="navRowStyle">
       <view class="messages__back" @tap="goBackHome">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
@@ -8,9 +9,10 @@
       <view class="messages__back" @tap="handleMarkAllRead">
         <uni-icons type="trash" size="20" color="#94a3b8" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="messages__scroll">
+    <scroll-view scroll-y class="messages__scroll" :style="contentTopStyle">
       <scroll-view scroll-x class="tabs" :show-scrollbar="false">
         <view class="tabs__inner">
           <view
@@ -61,12 +63,16 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
+import { getActivityDetail } from '@/common/api/activity.js'
 import { listMessages, markAllMessagesRead, markMessageRead } from '@/common/api/message.js'
-import { goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const tabs = ['全部', '未读', '申请', '活动']
 const activeTab = ref('全部')
 const messages = ref([])
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const filteredMessages = computed(() => {
   if (activeTab.value === '未读') return messages.value.filter((item) => !item.read)
@@ -93,7 +99,12 @@ async function openMessage(item) {
   await markMessageRead(item.id)
   messages.value = messages.value.map((msg) => (msg.id === item.id ? { ...msg, read: true } : msg))
   if (item.type === 'application' && item.activityId) {
-    goManageDashboard(item.activityId)
+    const activity = await getActivityDetail(item.activityId)
+    if (activity?.isCreator) {
+      goManageDashboard(item.activityId)
+    } else {
+      goParticipantDashboard(item.activityId)
+    }
     return
   }
   if (item.type === 'activity' && item.activityId) {
@@ -117,14 +128,16 @@ async function openMessage(item) {
   right: 0;
   left: 0;
   z-index: 30;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
+  padding: 0;
   border-bottom: 1rpx solid #f1f5f9;
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(18px);
+}
+
+.messages__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: #111827;
   font-size: 32rpx;
   font-style: italic;
@@ -143,7 +156,6 @@ async function openMessage(item) {
 
 .messages__scroll {
   height: 100vh;
-  padding-top: 150rpx;
 }
 
 .tabs {

@@ -1,6 +1,7 @@
 <template>
   <view class="home su-page">
-    <view class="home__top">
+    <view class="home__top" :style="navStyle">
+      <view class="home__top-row" :style="navRowStyle">
       <view class="home__brand" @tap="goUserProfile">
         <image class="home__avatar" src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
         <view>
@@ -8,7 +9,7 @@
           <text class="home__title">成行</text>
         </view>
       </view>
-      <view class="home__actions">
+      <view class="home__actions" :style="navActionsStyle">
         <view class="home__icon" @tap="goSearch()">
           <uni-icons type="search" size="22" color="#111827" />
         </view>
@@ -16,6 +17,7 @@
           <uni-icons type="notification-filled" size="22" color="#111827" />
           <view class="home__notice-dot" />
         </view>
+      </view>
       </view>
     </view>
 
@@ -115,8 +117,11 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivities, listMyActivities } from '@/common/api/activity.js'
-import { goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
 
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 390 })
 const allActivities = ref([])
 const myGroups = ref({
   hosting: [],
@@ -155,10 +160,14 @@ function getDaysLabel(id) {
 }
 
 .home__top {
+  display: block;
+  padding: 0;
+}
+
+.home__top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18rpx 40rpx 34rpx;
 }
 
 .home__brand {
@@ -195,7 +204,9 @@ function getDaysLabel(id) {
 
 .home__actions {
   display: flex;
-  gap: 18rpx;
+  flex-shrink: 0;
+  gap: 14rpx;
+  overflow: hidden;
 }
 
 .home__icon {
