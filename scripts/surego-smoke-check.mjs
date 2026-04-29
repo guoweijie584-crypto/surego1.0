@@ -661,6 +661,9 @@ if (fs.existsSync(userProfilePath)) {
       errors.push(`pages/user/profile.vue is missing ${token}`);
     }
   }
+  if (source.includes('count: loggedIn.value ? 2 : 0') || source.includes('靠谱、准时') || source.includes('活动组织清晰')) {
+    errors.push('pages/user/profile.vue must not show hard-coded mock reviews after login');
+  }
 }
 
 const messageCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-message/index.js');

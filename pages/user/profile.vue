@@ -96,13 +96,13 @@
         </view>
 
         <view v-if="activeTab === 'reviews'" class="profile__list">
-          <view class="review-card">
-            <uni-icons type="star-filled" size="22" color="#ffb020" />
-            <text>靠谱、准时、会照顾新朋友，值得继续一起成行。</text>
+          <view v-if="reviews.length === 0" class="empty">
+            <uni-icons type="star-filled" size="42" color="#cbd5e1" />
+            <text>暂无评价</text>
           </view>
-          <view class="review-card">
+          <view v-for="item in reviews" :key="item.id" class="review-card">
             <uni-icons type="star-filled" size="22" color="#ffb020" />
-            <text>活动组织清晰，现场氛围很好。</text>
+            <text>{{ item.content }}</text>
           </view>
         </view>
 
@@ -159,6 +159,7 @@ const loggedIn = ref(false)
 const canUseOps = ref(false)
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
+const reviews = ref([])
 const user = ref(getCurrentUserProfile())
 const profileSheetVisible = ref(false)
 
@@ -177,7 +178,7 @@ const filteredOrders = computed(() => {
 })
 const tabs = computed(() => [
   { key: 'activities', label: '活动', count: activityList.value.length },
-  { key: 'reviews', label: '评价', count: loggedIn.value ? 2 : 0 },
+  { key: 'reviews', label: '评价', count: reviews.value.length },
   { key: 'orders', label: '订单', count: orders.value.length }
 ])
 
@@ -188,12 +189,14 @@ onShow(async () => {
     user.value = getCurrentUserProfile()
     myActivities.value = { hosting: [], joined: [], pending: [] }
     orders.value = []
+    reviews.value = []
     return
   }
 
   user.value = await getCurrentUser()
   myActivities.value = await listMyActivities()
   orders.value = await listOrders()
+  reviews.value = []
 })
 
 function goLogin() {

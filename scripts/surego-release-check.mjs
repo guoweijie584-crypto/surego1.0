@@ -205,6 +205,9 @@ const profileSource = read('pages/user/profile.vue')
 if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('isOpsUser')) {
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
 }
+if (profileSource.includes('count: loggedIn.value ? 2 : 0') || profileSource.includes('靠谱、准时') || profileSource.includes('活动组织清晰')) {
+  errors.push('pages/user/profile.vue must not ship hard-coded mock reviews')
+}
 
 const loginSource = read('pages/auth/login.vue')
 if (!loginSource.includes('loginWithWeixin') || loginSource.includes('setMockLogin')) {
