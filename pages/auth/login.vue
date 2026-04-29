@@ -30,17 +30,27 @@
       </button>
       <view class="login__secondary" @tap="goBack">先逛逛</view>
     </view>
+
+    <SuWechatProfileSheet
+      :visible="profileSheetVisible"
+      :initial-profile="profile"
+      @saved="handleProfileSaved"
+      @close="handleProfileSkipped"
+    />
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getCurrentUserProfile, loginWithWeixin } from '@/common/api/auth.js'
+import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
+import { getCurrentUser } from '@/common/api/user.js'
+import { getCurrentUserProfile, isSuregoProfileComplete, loginWithWeixin } from '@/common/api/auth.js'
 
 const redirect = ref('')
 const profile = ref(getCurrentUserProfile())
 const isLoggingIn = ref(false)
+const profileSheetVisible = ref(false)
 
 onLoad((query = {}) => {
   redirect.value = decodeURIComponent(query.redirect || '')
@@ -54,24 +64,51 @@ async function handleLogin() {
 
   isLoggingIn.value = true
   try {
-    const result = await loginWithWeixin(profile.value)
+    const result = await loginWithWeixin()
+    const currentProfile = await getCurrentUser().catch(() => result.user || getCurrentUserProfile())
     profile.value = {
       ...profile.value,
-      ...(result.user || {})
+      ...(result.user || {}),
+      ...currentProfile
     }
-    uni.showToast({
-      title: result.mode === 'mock' ? '开发模式已授权' : '授权成功',
-      icon: 'none'
-    })
+    isLoggingIn.value = false
+    if (!isSuregoProfileComplete(profile.value)) {
+      profileSheetVisible.value = true
+      uni.showToast({ title: '登录成功，请完善资料', icon: 'none' })
+      return
+    }
 
-    setTimeout(() => {
-      isLoggingIn.value = false
-      completeLoginNavigation()
-    }, 280)
+    finishLogin(result.mode === 'mock' ? '开发模式已授权' : '授权成功')
   } catch (error) {
     isLoggingIn.value = false
     uni.showToast({ title: '授权失败，请稍后再试', icon: 'none' })
   }
+}
+
+function handleProfileSaved(user) {
+  profile.value = {
+    ...profile.value,
+    ...(user || {})
+  }
+  profileSheetVisible.value = false
+  finishLogin('资料已保存')
+}
+
+function handleProfileSkipped() {
+  profileSheetVisible.value = false
+  finishLogin('已登录，可稍后完善资料')
+}
+
+function finishLogin(title) {
+  uni.showToast({
+    title,
+    icon: 'none'
+  })
+
+  setTimeout(() => {
+    isLoggingIn.value = false
+    completeLoginNavigation()
+  }, 280)
 }
 
 function completeLoginNavigation() {

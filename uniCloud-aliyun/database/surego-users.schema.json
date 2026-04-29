@@ -12,6 +12,8 @@
     "user_id": { "bsonType": "string", "title": "User id" },
     "nickname": { "bsonType": "string", "title": "Nickname" },
     "avatar": { "bsonType": "string", "title": "Avatar url" },
+    "avatar_file_id": { "bsonType": "string", "title": "Avatar file id" },
+    "profile_completed_at": { "bsonType": "timestamp", "title": "Profile completed at" },
     "mbti": { "bsonType": "string", "title": "MBTI" },
     "bio": { "bsonType": "string", "title": "Bio" },
     "quote": { "bsonType": "string", "title": "Quote" },

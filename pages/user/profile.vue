@@ -23,9 +23,10 @@
         <view class="profile__identity">
           <view class="profile__name-row">
             <text class="profile__name">{{ user.nickname }}</text>
-            <text class="profile__credit">信用 {{ user.credit }}</text>
+            <text v-if="loggedIn" class="profile__credit">信用 {{ user.credit }}</text>
+            <text v-else class="profile__guest">未授权</text>
           </view>
-          <text class="profile__bio">{{ user.bio }} / {{ user.mbti }}</text>
+          <text class="profile__bio">{{ user.bio }}<text v-if="user.mbti"> / {{ user.mbti }}</text></text>
           <text class="profile__quote">{{ user.quote }}</text>
         </view>
       </view>
@@ -41,97 +42,128 @@
           <text>{{ item.count }}</text>
           <text>{{ item.label }}</text>
         </view>
-        <view class="stats__edit" @tap="goUserEdit">编辑资料</view>
+        <view class="stats__edit" @tap="loggedIn ? goUserEdit() : goLogin()">
+          {{ loggedIn ? '编辑资料' : '微信登录' }}
+        </view>
       </view>
 
-      <view v-if="canUseOps" class="ops-entry" @tap="goOpsDashboard">
-        <view class="ops-entry__icon">
-          <uni-icons type="gear-filled" size="22" color="#fff" />
+      <view v-if="!loggedIn" class="login-card">
+        <view class="login-card__icon">
+          <uni-icons type="personadd-filled" size="28" color="#fff" />
         </view>
-        <view class="ops-entry__copy">
-          <text class="ops-entry__title">运营控制台</text>
-          <text class="ops-entry__desc">处理举报、活动审核和试运营数据</text>
+        <view class="login-card__copy">
+          <text class="login-card__title">你还没有登录</text>
+          <text class="login-card__desc">授权微信登录后，可以同步活动、订单、消息和现场凭证。</text>
         </view>
-        <uni-icons type="right" size="18" color="#94a3b8" />
+        <button class="login-card__button" @tap.stop="goLogin">微信登录</button>
       </view>
 
-      <view v-if="activeTab === 'activities'" class="profile__list">
-        <view v-for="item in activityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
-          <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
-          <view class="profile-card__body">
-            <view class="profile-card__row">
-              <text class="profile-card__title su-line-1">{{ item.title }}</text>
-              <text v-if="item.isCreator" class="profile-card__badge">主办</text>
+      <view v-else>
+        <view v-if="!profileComplete" class="complete-card">
+          <view class="complete-card__copy">
+            <text class="complete-card__title">完善微信资料</text>
+            <text class="complete-card__desc">选择头像和昵称后，其他玩家能更容易认出你。</text>
+          </view>
+          <button class="complete-card__button" @tap="profileSheetVisible = true">去完善</button>
+        </view>
+
+        <view v-if="canUseOps" class="ops-entry" @tap="goOpsDashboard">
+          <view class="ops-entry__icon">
+            <uni-icons type="gear-filled" size="22" color="#fff" />
+          </view>
+          <view class="ops-entry__copy">
+            <text class="ops-entry__title">运营控制台</text>
+            <text class="ops-entry__desc">处理举报、活动审核和试运营数据</text>
+          </view>
+          <uni-icons type="right" size="18" color="#94a3b8" />
+        </view>
+
+        <view v-if="activeTab === 'activities'" class="profile__list">
+          <view v-if="activityList.length === 0" class="empty">
+            <uni-icons type="calendar" size="42" color="#cbd5e1" />
+            <text>暂无活动</text>
+          </view>
+          <view v-for="item in activityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
+            <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
+            <view class="profile-card__body">
+              <view class="profile-card__row">
+                <text class="profile-card__title su-line-1">{{ item.title }}</text>
+                <text v-if="item.isCreator" class="profile-card__badge">主办</text>
+              </view>
+              <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
             </view>
-            <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
           </view>
         </view>
-      </view>
 
-      <view v-if="activeTab === 'reviews'" class="profile__list">
-        <view class="review-card">
-          <uni-icons type="star-filled" size="22" color="#ffb020" />
-          <text>靠谱、准时、会照顾新朋友，值得继续一起成行。</text>
+        <view v-if="activeTab === 'reviews'" class="profile__list">
+          <view class="review-card">
+            <uni-icons type="star-filled" size="22" color="#ffb020" />
+            <text>靠谱、准时、会照顾新朋友，值得继续一起成行。</text>
+          </view>
+          <view class="review-card">
+            <uni-icons type="star-filled" size="22" color="#ffb020" />
+            <text>活动组织清晰，现场氛围很好。</text>
+          </view>
         </view>
-        <view class="review-card">
-          <uni-icons type="star-filled" size="22" color="#ffb020" />
-          <text>活动组织清晰，现场氛围很好。</text>
-        </view>
-      </view>
 
-      <view v-if="activeTab === 'orders'" class="profile__list">
-        <view class="order-filters">
-          <view
-            v-for="item in orderFilters"
-            :key="item.key"
-            class="order-filter"
-            :class="{ 'order-filter--active': activeOrderFilter === item.key }"
-            @tap="activeOrderFilter = item.key"
-          >
-            {{ item.label }}
+        <view v-if="activeTab === 'orders'" class="profile__list">
+          <view class="order-filters">
+            <view
+              v-for="item in orderFilters"
+              :key="item.key"
+              class="order-filter"
+              :class="{ 'order-filter--active': activeOrderFilter === item.key }"
+              @tap="activeOrderFilter = item.key"
+            >
+              {{ item.label }}
+            </view>
           </view>
-        </view>
-        <view v-if="filteredOrders.length === 0" class="empty">
-          <uni-icons type="wallet-filled" size="42" color="#cbd5e1" />
-          <text>暂无订单</text>
-        </view>
-        <view v-for="item in filteredOrders" :key="item.id" class="order-card" @tap="goOrderDetail(item.id)">
-          <view>
-            <text class="order-card__title">{{ item.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
-            <text class="order-card__meta">{{ item.activityTitle || 'SureGo 活动' }}</text>
-            <text class="order-card__meta">¥{{ item.amount }} · {{ getOrderStatusText(item.status) }}</text>
+          <view v-if="filteredOrders.length === 0" class="empty">
+            <uni-icons type="wallet-filled" size="42" color="#cbd5e1" />
+            <text>暂无订单</text>
           </view>
-          <text class="order-card__badge" :class="`order-card__badge--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
+          <view v-for="item in filteredOrders" :key="item.id" class="order-card" @tap="goOrderDetail(item.id)">
+            <view>
+              <text class="order-card__title">{{ item.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
+              <text class="order-card__meta">{{ item.activityTitle || 'SureGo 活动' }}</text>
+              <text class="order-card__meta">￥{{ item.amount }} · {{ getOrderStatusText(item.status) }}</text>
+            </view>
+            <text class="order-card__badge" :class="`order-card__badge--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
+          </view>
         </view>
       </view>
     </scroll-view>
+
+    <SuWechatProfileSheet
+      :visible="profileSheetVisible"
+      :initial-profile="user"
+      @saved="handleProfileSaved"
+      @close="profileSheetVisible = false"
+    />
   </view>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import { listMyActivities } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
-import { isOpsUser } from '@/common/api/auth.js'
-import { goActivityDetail, goBackHome, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { getCurrentUserProfile, isLoggedIn, isOpsUser, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { goActivityDetail, goAuthLogin, goBackHome, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const activeOrderFilter = ref('all')
+const loggedIn = ref(false)
 const canUseOps = ref(false)
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
-const user = ref({
-  nickname: '吴哈哈',
-  avatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=Lucky',
-  credit: 100,
-  mbti: 'ENFP',
-  bio: '爱摄影、爱生活的斜杠青年',
-  quote: '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。'
-})
+const user = ref(getCurrentUserProfile())
+const profileSheetVisible = ref(false)
 
 const activityList = computed(() => [...myActivities.value.hosting, ...myActivities.value.joined, ...myActivities.value.pending])
+const profileComplete = computed(() => isSuregoProfileComplete(user.value))
 const orderFilters = [
   { key: 'all', label: '全部' },
   { key: 'pending', label: '待支付' },
@@ -145,16 +177,28 @@ const filteredOrders = computed(() => {
 })
 const tabs = computed(() => [
   { key: 'activities', label: '活动', count: activityList.value.length },
-  { key: 'reviews', label: '评价', count: 2 },
+  { key: 'reviews', label: '评价', count: loggedIn.value ? 2 : 0 },
   { key: 'orders', label: '订单', count: orders.value.length }
 ])
 
 onShow(async () => {
-  canUseOps.value = isOpsUser()
+  loggedIn.value = isLoggedIn()
+  canUseOps.value = loggedIn.value && isOpsUser()
+  if (!loggedIn.value) {
+    user.value = getCurrentUserProfile()
+    myActivities.value = { hosting: [], joined: [], pending: [] }
+    orders.value = []
+    return
+  }
+
   user.value = await getCurrentUser()
   myActivities.value = await listMyActivities()
   orders.value = await listOrders()
 })
+
+function goLogin() {
+  goAuthLogin({ redirect: '/pages/user/profile' })
+}
 
 function openActivity(item) {
   if (item.isCreator) {
@@ -166,6 +210,15 @@ function openActivity(item) {
     return
   }
   goActivityDetail(item.id)
+}
+
+function handleProfileSaved(nextUser) {
+  user.value = {
+    ...user.value,
+    ...(nextUser || {})
+  }
+  profileSheetVisible.value = false
+  uni.showToast({ title: '资料已保存', icon: 'none' })
 }
 </script>
 
@@ -256,13 +309,21 @@ function openActivity(item) {
   font-weight: 900;
 }
 
-.profile__credit {
+.profile__credit,
+.profile__guest {
   padding: 8rpx 16rpx;
   border-radius: 999rpx;
-  background: #22c55e;
   color: #fff;
   font-size: 18rpx;
   font-weight: 900;
+}
+
+.profile__credit {
+  background: #22c55e;
+}
+
+.profile__guest {
+  background: #94a3b8;
 }
 
 .profile__bio,
@@ -327,7 +388,9 @@ function openActivity(item) {
   font-weight: 900;
 }
 
-.ops-entry {
+.login-card,
+.ops-entry,
+.complete-card {
   display: flex;
   align-items: center;
   gap: 20rpx;
@@ -335,10 +398,22 @@ function openActivity(item) {
   padding: 24rpx;
   border: 1rpx solid rgba(15, 23, 42, 0.08);
   border-radius: 28rpx;
-  background: #0f172a;
   box-shadow: 0 18rpx 42rpx rgba(15, 23, 42, 0.12);
 }
 
+.login-card {
+  background: #fff;
+}
+
+.complete-card {
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+}
+
+.ops-entry {
+  background: #0f172a;
+}
+
+.login-card__icon,
 .ops-entry__icon {
   display: flex;
   width: 70rpx;
@@ -349,27 +424,69 @@ function openActivity(item) {
   background: #ff6b6b;
 }
 
-.ops-entry__copy {
+.login-card__copy,
+.ops-entry__copy,
+.complete-card__copy {
   flex: 1;
   min-width: 0;
 }
 
+.login-card__title,
+.login-card__desc,
 .ops-entry__title,
-.ops-entry__desc {
+.ops-entry__desc,
+.complete-card__title,
+.complete-card__desc {
   display: block;
 }
 
-.ops-entry__title {
-  color: #fff;
+.login-card__title,
+.ops-entry__title,
+.complete-card__title {
+  color: #111827;
   font-size: 27rpx;
   font-weight: 900;
 }
 
-.ops-entry__desc {
+.ops-entry__title {
+  color: #fff;
+}
+
+.login-card__desc,
+.ops-entry__desc,
+.complete-card__desc {
   margin-top: 6rpx;
-  color: #cbd5e1;
+  color: #64748b;
   font-size: 21rpx;
   font-weight: 800;
+}
+
+.ops-entry__desc {
+  color: #cbd5e1;
+}
+
+.login-card__button {
+  flex: 0 0 auto;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: #22c55e;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 900;
+  line-height: 64rpx;
+}
+
+.complete-card__button {
+  flex: 0 0 auto;
+  height: 64rpx;
+  padding: 0 24rpx;
+  border-radius: 999rpx;
+  background: #ff6b6b;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 900;
+  line-height: 64rpx;
 }
 
 .profile__list {

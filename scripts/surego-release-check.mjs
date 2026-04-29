@@ -51,6 +51,10 @@ const requiredApiFiles = [
   'common/api/moderation.js'
 ]
 
+const requiredComponents = [
+  'components/surego/SuWechatProfileSheet.vue'
+]
+
 const requiredCloudFunctions = [
   'surego-activity',
   'surego-application',
@@ -128,8 +132,11 @@ for (const token of ['"vueVersion" : "3"', '"mp-weixin"', '"versionName"', '"ver
 }
 
 const runtimeSource = read('common/config/runtime.js')
-if (!runtimeSource.includes('USE_UNICLOUD = false')) {
-  errors.push('common/config/runtime.js must keep USE_UNICLOUD = false for local release readiness')
+if (!runtimeSource.includes("APP_MODE = 'trial'")) {
+  errors.push("common/config/runtime.js must use APP_MODE = 'trial' for cloud trial release")
+}
+if (!runtimeSource.includes('USE_UNICLOUD = true')) {
+  errors.push('common/config/runtime.js must use USE_UNICLOUD = true for cloud trial release')
 }
 for (const token of ['ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
   if (!runtimeSource.includes(token)) {
@@ -149,6 +156,10 @@ for (const apiFile of requiredApiFiles) {
   if (apiFile !== 'common/api/upload.js' && !source.includes('@/common/api/auth.js')) {
     errors.push(`${apiFile} must use the auth facade`)
   }
+}
+
+for (const component of requiredComponents) {
+  read(component)
 }
 
 for (const name of requiredCloudFunctions) {
@@ -199,11 +210,29 @@ const loginSource = read('pages/auth/login.vue')
 if (!loginSource.includes('loginWithWeixin') || loginSource.includes('setMockLogin')) {
   errors.push('pages/auth/login.vue must use loginWithWeixin facade instead of direct mock login')
 }
+if (!loginSource.includes('SuWechatProfileSheet') || !loginSource.includes('profileSheetVisible')) {
+  errors.push('pages/auth/login.vue must collect WeChat avatar and nickname after first login')
+}
 
 const authSource = read('common/api/auth.js')
 for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
+  }
+}
+if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
+  errors.push('common/api/auth.js must not use 吴哈哈 as a release login fallback')
+}
+
+const userSource = read('common/api/user.js')
+if (userSource.includes("|| '吴哈哈'") || userSource.includes("nickname: '吴哈哈'")) {
+  errors.push('common/api/user.js must not use 吴哈哈 as a release login fallback')
+}
+
+const wechatProfileSheetSource = read('components/surego/SuWechatProfileSheet.vue')
+for (const token of ['open-type="chooseAvatar"', '@chooseavatar', 'type="nickname"', 'uploadImageFile', 'syncCurrentUserProfile']) {
+  if (!wechatProfileSheetSource.includes(token)) {
+    errors.push(`SuWechatProfileSheet.vue is missing release profile capability: ${token}`)
   }
 }
 

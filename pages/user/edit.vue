@@ -10,16 +10,16 @@
 
     <scroll-view scroll-y class="edit-profile__scroll">
       <view class="profile-card">
-        <view class="avatar-box" @tap="chooseAvatar">
+        <button class="avatar-box" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
           <image class="avatar-box__image" :src="form.avatar" mode="aspectFill" />
           <view class="avatar-box__mask">
             <uni-icons type="camera-filled" size="22" color="#fff" />
           </view>
-        </view>
+        </button>
 
         <view class="field">
           <text class="label">昵称</text>
-          <input class="input" v-model="form.nickname" placeholder="请输入昵称" placeholder-class="placeholder" />
+          <input class="input" type="nickname" v-model="form.nickname" placeholder="请输入昵称" placeholder-class="placeholder" />
         </view>
 
         <view class="field">
@@ -51,7 +51,7 @@
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'
-import { chooseAndUploadImage } from '@/common/api/upload.js'
+import { uploadImageFile } from '@/common/api/upload.js'
 import { goBackHome } from '@/common/utils/route.js'
 
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
@@ -60,6 +60,7 @@ const isSaving = ref(false)
 const form = reactive({
   nickname: '',
   avatar: '',
+  avatarFileId: '',
   mbti: '',
   bio: '',
   quote: ''
@@ -78,11 +79,16 @@ function handleMbtiChange(event) {
   form.mbti = mbtiOptions[mbtiIndex.value]
 }
 
-async function chooseAvatar() {
-  const uploaded = await chooseAndUploadImage({
-    prefix: 'surego/avatars'
-  })
-  form.avatar = uploaded.url
+async function handleChooseAvatar(event) {
+  const avatarUrl = event?.detail?.avatarUrl || ''
+  if (!avatarUrl) return
+  try {
+    const uploaded = await uploadImageFile(avatarUrl, { prefix: 'surego/avatars' })
+    form.avatar = uploaded.url
+    form.avatarFileId = uploaded.fileID || uploaded.url
+  } catch (error) {
+    uni.showToast({ title: '头像上传失败，可稍后重试', icon: 'none' })
+  }
 }
 
 async function handleSave() {
@@ -138,6 +144,13 @@ async function handleSave() {
   width: 172rpx;
   height: 172rpx;
   margin: 0 auto 34rpx;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.avatar-box::after {
+  border: 0;
 }
 
 .avatar-box__image {

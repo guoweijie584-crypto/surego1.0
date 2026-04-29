@@ -10,6 +10,7 @@ const requiredFiles = [
   'components/surego/SuActivityCard.vue',
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
+  'components/surego/SuWechatProfileSheet.vue',
   'common/config/runtime.js',
   'common/api/auth.js',
   'common/api/cloud.js',
@@ -420,6 +421,9 @@ if (fs.existsSync(userApiPath)) {
       errors.push(`common/api/user.js is missing ${token}`);
     }
   }
+  if (userSource.includes("nickname: '吴哈哈'") || userSource.includes("|| '吴哈哈'")) {
+    errors.push('common/api/user.js must not use 吴哈哈 as a real login profile fallback');
+  }
 }
 
 const cloudApiPath = path.join(root, 'common/api/cloud.js');
@@ -471,6 +475,9 @@ if (fs.existsSync(authApiPath)) {
       errors.push(`common/api/auth.js is missing ${token}`);
     }
   }
+  if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
+    errors.push('common/api/auth.js must not use 吴哈哈 as a real login profile fallback');
+  }
 }
 
 const authLoginPath = path.join(root, 'pages/auth/login.vue');
@@ -484,6 +491,22 @@ if (fs.existsSync(authLoginPath)) {
   }
   if (!source.includes('isLoggingIn')) {
     errors.push('pages/auth/login.vue must prevent duplicate login taps with isLoggingIn');
+  }
+  if (!source.includes('SuWechatProfileSheet') || !source.includes('profileSheetVisible')) {
+    errors.push('pages/auth/login.vue must show the WeChat profile sheet after first login when profile is incomplete');
+  }
+}
+
+const wechatProfileSheetPath = path.join(root, 'components/surego/SuWechatProfileSheet.vue');
+if (fs.existsSync(wechatProfileSheetPath)) {
+  const source = fs.readFileSync(wechatProfileSheetPath, 'utf8');
+  for (const token of ['open-type="chooseAvatar"', '@chooseavatar', 'type="nickname"', 'syncCurrentUserProfile', 'uploadImageFile']) {
+    if (!source.includes(token)) {
+      errors.push(`SuWechatProfileSheet.vue is missing ${token}`);
+    }
+  }
+  if (source.includes('tempFilePaths[0]')) {
+    errors.push('SuWechatProfileSheet.vue must not persist tempFilePaths[0] directly');
   }
 }
 
