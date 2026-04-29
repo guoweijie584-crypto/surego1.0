@@ -15,10 +15,11 @@
         <view>
           <text class="city__label">当前城市</text>
           <text class="city__current-name">{{ selectedCity }}</text>
+          <text v-if="hasLocated" class="city__located">已定位当前位置</text>
         </view>
-        <view class="city__locate" @tap="selectCity('杭州')">
+        <view class="city__locate" @tap="locateCurrentCity">
           <uni-icons type="location-filled" size="18" color="#fff" />
-          <text>杭州</text>
+          <text>定位</text>
         </view>
       </view>
 
@@ -51,14 +52,18 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
+import { getStoredLocation, refreshCurrentLocation } from '@/common/api/location.js'
 import { goBackHome } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
 const selectedCity = ref('杭州')
 const cities = ref([])
+const hasLocated = ref(false)
 
 onShow(async () => {
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  const storedLocation = getStoredLocation()
+  hasLocated.value = Boolean(storedLocation.latitude && storedLocation.longitude)
   cities.value = await getCityActivityStats()
 })
 
@@ -74,6 +79,16 @@ function selectCity(city) {
       uni.redirectTo({ url: '/pages/discover/index' })
     }
   }, 260)
+}
+
+async function locateCurrentCity() {
+  try {
+    await refreshCurrentLocation()
+    hasLocated.value = true
+    uni.showToast({ title: '已定位当前位置，可继续选择城市', icon: 'none' })
+  } catch (error) {
+    uni.showToast({ title: '定位失败，可手动选择城市', icon: 'none' })
+  }
 }
 </script>
 
@@ -142,6 +157,14 @@ function selectCity(city) {
   color: #fff;
   font-size: 42rpx;
   font-style: italic;
+  font-weight: 900;
+}
+
+.city__located {
+  display: block;
+  margin-top: 8rpx;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 20rpx;
   font-weight: 900;
 }
 

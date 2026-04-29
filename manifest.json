@@ -84,6 +84,12 @@
         "setting" : {
             "urlCheck" : false
         },
+        "permission" : {
+            "scope.userLocation" : {
+                "desc" : "用于发现附近活动、选择活动地点和计算活动距离"
+            }
+        },
+        "requiredPrivateInfos" : [ "getLocation", "chooseLocation" ],
         "usingComponents" : true
     },
     "h5" : {

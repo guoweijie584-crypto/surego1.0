@@ -1,9 +1,25 @@
 import { ALLOW_MOCK_FALLBACK } from '../config/runtime.js'
 
+export const USER_CANCEL_IMAGE_PICKER = 'USER_CANCEL_IMAGE_PICKER'
+
 function buildCloudPath(prefix = 'surego', filePath = '') {
   const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
   const ext = extMatch ? extMatch[0] : '.jpg'
   return `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+}
+
+function createCancelError(error = {}) {
+  const next = new Error('用户取消选择图片')
+  next.code = USER_CANCEL_IMAGE_PICKER
+  next.errMsg = error.errMsg || USER_CANCEL_IMAGE_PICKER
+  return next
+}
+
+export function isImagePickerCancel(error = {}) {
+  const message = String(error.errMsg || error.message || '').toLowerCase()
+  return error.code === USER_CANCEL_IMAGE_PICKER
+    || message.includes('cancel')
+    || message.includes('取消')
 }
 
 export function chooseImageFile(options = {}) {
@@ -15,13 +31,13 @@ export function chooseImageFile(options = {}) {
       success(result = {}) {
         const filePath = (result.tempFilePaths || [])[0]
         if (!filePath) {
-          reject(new Error('No image selected'))
+          reject(createCancelError())
           return
         }
         resolve(filePath)
       },
-      fail(error) {
-        reject(error)
+      fail(error = {}) {
+        reject(isImagePickerCancel(error) ? createCancelError(error) : error)
       }
     })
   })
@@ -62,10 +78,13 @@ export async function uploadImageFile(filePath, options = {}) {
 export async function chooseAndUploadImage(options = {}) {
   try {
     const filePath = await chooseImageFile(options)
-    const uploaded = await uploadImageFile(filePath, options)
-    return uploaded
+    return await uploadImageFile(filePath, options)
   } catch (error) {
-    const message = error?.message || '图片上传失败'
+    if (isImagePickerCancel(error)) {
+      return null
+    }
+
+    const message = error?.message || '图片上传失败，请稍后重试'
     uni.showToast({
       title: message,
       icon: 'none'

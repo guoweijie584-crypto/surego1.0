@@ -20,6 +20,8 @@
           class="profile-sheet__input"
           type="nickname"
           v-model="form.nickname"
+          adjust-position="false"
+          cursor-spacing="28"
           placeholder="填写或选择微信昵称"
           placeholder-class="profile-sheet__placeholder"
         />

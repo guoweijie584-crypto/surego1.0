@@ -19,7 +19,7 @@
 
         <view class="field">
           <text class="label">昵称</text>
-          <input class="input" type="nickname" v-model="form.nickname" placeholder="请输入昵称" placeholder-class="placeholder" />
+          <input class="input" type="nickname" v-model="form.nickname" adjust-position="false" cursor-spacing="28" placeholder="请输入昵称" placeholder-class="placeholder" />
         </view>
 
         <view class="field">
@@ -31,12 +31,12 @@
 
         <view class="field">
           <text class="label">一句话介绍</text>
-          <input class="input" v-model="form.bio" placeholder="例如：爱摄影、爱生活的斜杠青年" placeholder-class="placeholder" />
+          <input class="input" v-model="form.bio" adjust-position="false" cursor-spacing="28" placeholder="例如：爱摄影、爱生活的斜杠青年" placeholder-class="placeholder" />
         </view>
 
         <view class="field">
           <text class="label">个人签名</text>
-          <textarea class="textarea" v-model="form.quote" maxlength="120" auto-height placeholder="写一句你想让同频朋友看到的话" placeholder-class="placeholder" />
+          <textarea class="textarea" v-model="form.quote" maxlength="120" auto-height adjust-position="false" cursor-spacing="28" placeholder="写一句你想让同频朋友看到的话" placeholder-class="placeholder" />
         </view>
 
         <button class="save-btn" :disabled="isSaving || !canSave" :class="{ 'save-btn--disabled': isSaving || !canSave }" @tap="handleSave">

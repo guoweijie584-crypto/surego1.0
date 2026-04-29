@@ -50,6 +50,8 @@
               v-model="reviewNote"
               class="review-box__textarea"
               maxlength="120"
+              adjust-position="false"
+              cursor-spacing="28"
               placeholder="写给举报人的处理说明"
             />
             <view class="review-box__actions">

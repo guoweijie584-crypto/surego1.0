@@ -11,6 +11,8 @@
           v-model="keyword"
           focus
           confirm-type="search"
+          adjust-position="false"
+          cursor-spacing="28"
           placeholder="搜索活动、兴趣、地点"
           placeholder-class="search__placeholder"
           @confirm="runSearch"
