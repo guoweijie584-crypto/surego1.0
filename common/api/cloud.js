@@ -1,7 +1,12 @@
 import { shouldUseCloudFallback } from '../config/runtime.js'
-import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
+import { getCurrentUserId, getCurrentUserProfile, logout } from '@/common/api/auth.js'
 
 const UNI_ID_TOKEN_KEY = 'uni_id_token'
+const AUTH_ERROR_CODES = ['AUTH_REQUIRED', 'TOKEN_EXPIRED', 'TOKEN_INVALID', 'SUREGO_AUTH_EXPIRED']
+
+function isAuthErrorCode(code) {
+  return AUTH_ERROR_CODES.includes(String(code || ''))
+}
 
 function readUniIdToken() {
   try {
@@ -31,17 +36,28 @@ export async function callSuregoFunction(name, action, payload = {}) {
     })
     const result = response?.result || {}
     if (result.code && result.code !== 0) {
-      throw new Error(result.message || result.errMsg || result.code)
+      const cloudError = {
+        code: result.code,
+        message: result.message || result.errMsg || result.code
+      }
+      if (isAuthErrorCode(cloudError.code)) {
+        logout()
+      }
+      throw cloudError
     }
     return result.data !== undefined ? result.data : result
   } catch (error) {
+    const code = error?.code || ''
     const message = error?.message || '云端服务暂不可用'
+    if (isAuthErrorCode(code) || message.includes('AUTH_REQUIRED')) {
+      logout()
+    }
     uni.showToast({
       title: message,
       icon: 'none'
     })
     throw {
-      code: 'SUREGO_CLOUD_ERROR',
+      code: isAuthErrorCode(code) ? code : 'SUREGO_CLOUD_ERROR',
       message
     }
   }

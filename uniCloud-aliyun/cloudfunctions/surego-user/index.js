@@ -105,9 +105,19 @@ async function findUniIdUser(userId) {
   }
 }
 
+function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
+  const token = String(uniIdToken || '');
+  if (!userRecord || !token) return false;
+  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
+  return tokens.some((item) => {
+    if (!item) return false;
+    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
+  });
+}
+
 async function ensureDefaultRole(userId) {
   const user = await findUniIdUser(userId);
-  if (!user) return [DEFAULT_ROLE];
+  if (!user) return null;
   const roles = normalizeRoles(user.role);
   if (!Array.isArray(user.role) || !user.role.length) {
     await uniIdUsers.doc(String(userId)).update({ role: roles });
@@ -118,12 +128,20 @@ async function ensureDefaultRole(userId) {
 async function resolveUserContext(event = {}, payload = {}) {
   const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
   if (!uid || uid === 'mock_user') {
-    return { uid, roles: [], isAdmin: false, isOps: false };
+    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+  }
+  const userRecord = await findUniIdUser(uid);
+  if (!isTokenOwnedByUser(userRecord, event.uniIdToken)) {
+    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
   }
   const roles = await ensureDefaultRole(uid);
+  if (!roles) {
+    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+  }
   return {
     uid,
     roles,
+    exists: true,
     isAdmin: hasAdminRole(roles),
     isOps: hasOpsRole(roles)
   };
@@ -193,7 +211,7 @@ exports.main = async (event) => {
   const payload = event.payload || {};
   const user = await resolveUserContext(event, payload);
 
-  if (!user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'profile') {
     const found = await findByUserId(payload.userId || payload.user_id || user.uid);
@@ -252,6 +270,9 @@ exports.main = async (event) => {
     const roles = normalizeRoles(payload.roles || payload.role);
     if (!targetUserId) return authRequired();
     const currentTarget = await findUniIdUser(targetUserId);
+    if (!currentTarget) {
+      return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
+    }
     const previousRoles = normalizeRoles(currentTarget?.role);
     if (targetUserId === user.uid && previousRoles.includes('admin') && !roles.includes('admin')) {
       const adminCount = await countAdminUsers();

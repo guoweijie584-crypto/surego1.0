@@ -126,6 +126,25 @@ for (const item of modules) {
     errors.push(`${item.cloud} is missing resolveUserContext auth helper`)
   }
 
+  for (const token of ['uni-id-users', 'findUniIdUser', 'isTokenOwnedByUser', 'uniIdToken', 'exists']) {
+    if (!cloudSource.includes(token)) {
+      errors.push(`${item.cloud} must validate the current uid against uni-id-users`)
+      break
+    }
+  }
+
+  if (cloudSource.includes('event.roles || payload.roles')) {
+    errors.push(`${item.cloud} must not trust frontend-provided roles`)
+  }
+
+  if (!cloudSource.includes('!user.exists')) {
+    errors.push(`${item.cloud} must reject deleted/stale uni-id users with !user.exists`)
+  }
+
+  if (item.name === 'user' && cloudSource.includes('if (!user) return [DEFAULT_ROLE]')) {
+    errors.push('surego-user must not silently grant default user role when uni-id user has been deleted')
+  }
+
   for (const field of item.requiredSchemaFields) {
     if (!(schema.required || []).includes(field)) {
       errors.push(`${item.schema} must require ${field}`)

@@ -369,9 +369,14 @@ export function saveCurrentUserProfile(profile = {}) {
   return next
 }
 
-export function logout() {
+export function clearAuthSession() {
   uni.removeStorageSync(MOCK_LOGIN_KEY)
   uni.removeStorageSync(UNI_ID_USER_KEY)
   uni.removeStorageSync(UNI_ID_TOKEN_KEY)
+  uni.removeStorageSync(LOCAL_USER_KEY)
   uni.setStorageSync(UNI_ID_TOKEN_EXPIRED_KEY, 0)
+}
+
+export function logout() {
+  clearAuthSession()
 }

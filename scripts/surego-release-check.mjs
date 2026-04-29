@@ -259,7 +259,7 @@ for (const token of ['listUsers', 'updateUserRoles', 'roleOptions', 'isAdminUser
 }
 
 const cloudSource = read('common/api/cloud.js')
-for (const token of ['uni_id_token', 'uniIdToken', 'getCurrentUserId', 'handleSuregoCloudError', 'shouldUseCloudFallback']) {
+for (const token of ['uni_id_token', 'uniIdToken', 'getCurrentUserId', 'handleSuregoCloudError', 'shouldUseCloudFallback', 'AUTH_ERROR_CODES', 'logout']) {
   if (!cloudSource.includes(token)) {
     errors.push(`common/api/cloud.js is missing release cloud auth token: ${token}`)
   }
@@ -294,6 +294,18 @@ for (const name of requiredCloudFunctions) {
   if (!source.includes('resolveUserContext')) {
     errors.push(`${name} must include resolveUserContext auth helper`)
   }
+  for (const token of ['uni-id-users', 'findUniIdUser', 'isTokenOwnedByUser', 'uniIdToken', 'exists']) {
+    if (!source.includes(token)) {
+      errors.push(`${name} must validate the current uid against uni-id-users before release operations`)
+      break
+    }
+  }
+  if (source.includes('event.roles || payload.roles')) {
+    errors.push(`${name} must not trust frontend-provided roles for release permissions`)
+  }
+  if (!source.includes('!user.exists')) {
+    errors.push(`${name} must reject deleted/stale uni-id users with !user.exists`)
+  }
 }
 
 const userCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-user/index.js')
@@ -301,6 +313,9 @@ for (const token of ['ensureDefaultRole', "action === 'listUsers'", "action === 
   if (!userCloudSource.includes(token)) {
     errors.push(`surego-user cloud function is missing release role token: ${token}`)
   }
+}
+if (userCloudSource.includes('if (!user) return [DEFAULT_ROLE]')) {
+  errors.push('surego-user must not silently grant default user role when uni-id user has been deleted')
 }
 
 const rolesInitSource = read('uniCloud-aliyun/database/uni-id-roles.init_data.json')

@@ -439,7 +439,7 @@ if (fs.existsSync(userApiPath)) {
 const cloudApiPath = path.join(root, 'common/api/cloud.js');
 if (fs.existsSync(cloudApiPath)) {
   const cloudSource = fs.readFileSync(cloudApiPath, 'utf8');
-  for (const token of ['callSuregoFunction', 'uniCloud.callFunction', 'uni_id_token', 'getCurrentUserId', 'uniIdToken']) {
+  for (const token of ['callSuregoFunction', 'uniCloud.callFunction', 'uni_id_token', 'getCurrentUserId', 'uniIdToken', 'AUTH_ERROR_CODES', 'logout']) {
     if (!cloudSource.includes(token)) {
       errors.push(`common/api/cloud.js is missing ${token}`);
     }
@@ -584,6 +584,18 @@ for (const cloudFile of expectedCloudFunctions) {
   }
   if (!source.includes('resolveUserContext')) {
     errors.push(`${cloudFile} is missing resolveUserContext auth helper`);
+  }
+  for (const token of ['uni-id-users', 'findUniIdUser', 'isTokenOwnedByUser', 'uniIdToken', 'exists']) {
+    if (!source.includes(token)) {
+      errors.push(`${cloudFile} must validate the current uid against uni-id-users before write/read operations`);
+      break;
+    }
+  }
+  if (source.includes('event.roles || payload.roles')) {
+    errors.push(`${cloudFile} must not trust frontend-provided roles for cloud permissions`);
+  }
+  if (!source.includes('!user.exists')) {
+    errors.push(`${cloudFile} auth checks must reject deleted/stale uni-id users with !user.exists`);
   }
 }
 
@@ -796,6 +808,9 @@ if (fs.existsSync(userCloudPath)) {
     if (!source.includes(token)) {
       errors.push(`surego-user cloud function is missing ${token}`);
     }
+  }
+  if (source.includes('if (!user) return [DEFAULT_ROLE]')) {
+    errors.push('surego-user must not silently grant default user role when uni-id user has been deleted');
   }
 }
 

@@ -5,6 +5,7 @@ const collection = db.collection('surego-checkins');
 const activityCollection = db.collection('surego-activities');
 const applicationCollection = db.collection('surego-applications');
 const orderCollection = db.collection('surego-orders');
+const uniIdUsers = db.collection('uni-id-users');
 
 function now() {
   return Date.now();
@@ -15,12 +16,35 @@ function normalizeRoles(roles) {
   return Array.isArray(roles) ? roles.map(String) : [String(roles)];
 }
 
-function resolveUserContext(event = {}, payload = {}) {
+async function findUniIdUser(userId) {
+  if (!userId || userId === 'mock_user') return null;
+  try {
+    const result = await uniIdUsers.doc(String(userId)).get();
+    return (result.data || [])[0] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
+  const token = String(uniIdToken || '');
+  if (!userRecord || !token) return false;
+  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
+  return tokens.some((item) => {
+    if (!item) return false;
+    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
+  });
+}
+
+async function resolveUserContext(event = {}, payload = {}) {
   const uid = String(event.userId || event.uid || payload.uid || payload.checkedBy || payload.checked_by || payload.userId || payload.user_id || '');
-  const roles = normalizeRoles(event.roles || payload.roles || payload.role);
+  const userRecord = await findUniIdUser(uid);
+  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
+  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
   return {
     uid,
     roles,
+    exists: Boolean(userRecord && tokenValid),
     isOps: roles.includes('admin') || roles.includes('operator')
   };
 }
@@ -118,9 +142,9 @@ function isValidCheckinCode(code = '') {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = resolveUserContext(event, payload);
+  const user = await resolveUserContext(event, payload);
 
-  if (!user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'createCode') {
     return {
