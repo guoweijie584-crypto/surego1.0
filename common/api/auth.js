@@ -199,6 +199,9 @@ export function getCurrentUserProfile() {
   const avatarSource = isStrictCloudAuthMode()
     ? (uniIdUser.avatar || localUser.avatar)
     : (uniIdUser.avatar || mockLogin.avatar || localUser.avatar)
+  const roles = isStrictCloudAuthMode()
+    ? getUserRoles(cloudUser, uniIdUser, localUser)
+    : getUserRoles(cloudUser, uniIdUser, mockLogin, localUser)
 
   return {
     uid,
@@ -210,7 +213,9 @@ export function getCurrentUserProfile() {
     credit: Number(localUser.credit) || 100,
     mbti: localUser.mbti || 'ENFP',
     bio: localUser.bio || '爱摄影、爱生活的斜杠青年',
-    quote: localUser.quote || '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。'
+    quote: localUser.quote || '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。',
+    role: roles,
+    roles
   }
 }
 

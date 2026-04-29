@@ -19,6 +19,8 @@
     "quote": { "bsonType": "string", "title": "Quote" },
     "credit": { "bsonType": "int", "title": "Credit" },
     "roles": { "bsonType": "array", "title": "Roles" },
+    "role_updated_at": { "bsonType": "timestamp", "title": "Role updated at" },
+    "role_updated_by": { "bsonType": "string", "title": "Role updated by" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
   }

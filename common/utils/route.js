@@ -95,6 +95,10 @@ export function goOpsReports(status = '') {
   guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`)
 }
 
+export function goOpsUsers() {
+  guardLoginAction('/pages/ops/users')
+}
+
 export function goActivityEdit(id) {
   uni.navigateTo({
     url: `/pages/activity/edit?id=${encodeURIComponent(id)}`

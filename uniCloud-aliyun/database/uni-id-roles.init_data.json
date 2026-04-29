@@ -1,16 +1,22 @@
 [
   {
-    "role_id": "USER",
-    "role_name": "用户",
+    "role_id": "user",
+    "role_name": "普通用户",
+    "permission": []
+  },
+  {
+    "role_id": "operator",
+    "role_name": "运营人员",
     "permission": [
-      "P_TEST_ADD"
+      "surego:ops"
     ]
   },
   {
-    "role_id": "AUDITOR",
-    "role_name": "审核员",
+    "role_id": "admin",
+    "role_name": "管理员",
     "permission": [
-      "P_TEST_UPDATE"
+      "surego:ops",
+      "surego:role"
     ]
   }
 ]

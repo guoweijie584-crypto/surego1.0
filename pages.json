@@ -155,6 +155,13 @@
       }
     },
     {
+      "path": "pages/ops/users",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/payment/index",
       "style": {
         "navigationStyle": "custom",

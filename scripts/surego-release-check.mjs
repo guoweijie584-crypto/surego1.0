@@ -26,6 +26,7 @@ const businessPages = [
   'pages/user/edit',
   'pages/ops/dashboard',
   'pages/ops/reports',
+  'pages/ops/users',
   'pages/payment/index',
   'pages/status/success'
 ]
@@ -188,7 +189,7 @@ for (const page of businessPages) {
 }
 
 const routeSource = read('common/utils/route.js')
-for (const helper of ['goActivityCreate', 'goActivityRegister', 'goManageDashboard', 'goManageCheckin', 'goOpsDashboard', 'goOpsReports', 'goSharePoster', 'goOrderDetail']) {
+for (const helper of ['goActivityCreate', 'goActivityRegister', 'goManageDashboard', 'goManageCheckin', 'goOpsDashboard', 'goOpsReports', 'goOpsUsers', 'goSharePoster', 'goOrderDetail']) {
   if (!routeSource.includes(helper)) {
     errors.push(`common/utils/route.js is missing release helper: ${helper}`)
   }
@@ -239,6 +240,24 @@ for (const token of ['open-type="chooseAvatar"', '@chooseavatar', 'type="nicknam
   }
 }
 
+for (const token of ['listUsers', 'updateUserRoles', 'getRoleLabel', 'isAdminUser']) {
+  if (!userSource.includes(token)) {
+    errors.push(`common/api/user.js is missing release role helper: ${token}`)
+  }
+}
+
+const opsDashboardSource = read('pages/ops/dashboard.vue')
+if (!opsDashboardSource.includes('goOpsUsers')) {
+  errors.push('pages/ops/dashboard.vue must link to user role management')
+}
+
+const opsUsersSource = read('pages/ops/users.vue')
+for (const token of ['listUsers', 'updateUserRoles', 'roleOptions', 'isAdminUser']) {
+  if (!opsUsersSource.includes(token)) {
+    errors.push(`pages/ops/users.vue is missing release user management token: ${token}`)
+  }
+}
+
 const cloudSource = read('common/api/cloud.js')
 for (const token of ['uni_id_token', 'uniIdToken', 'getCurrentUserId', 'handleSuregoCloudError', 'shouldUseCloudFallback']) {
   if (!cloudSource.includes(token)) {
@@ -274,6 +293,20 @@ for (const name of requiredCloudFunctions) {
   }
   if (!source.includes('resolveUserContext')) {
     errors.push(`${name} must include resolveUserContext auth helper`)
+  }
+}
+
+const userCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-user/index.js')
+for (const token of ['ensureDefaultRole', "action === 'listUsers'", "action === 'updateUserRoles'", 'uni-id-users', 'role_updated_at', 'role_updated_by', 'LAST_ADMIN_REQUIRED']) {
+  if (!userCloudSource.includes(token)) {
+    errors.push(`surego-user cloud function is missing release role token: ${token}`)
+  }
+}
+
+const rolesInitSource = read('uniCloud-aliyun/database/uni-id-roles.init_data.json')
+for (const role of ['"role_id": "user"', '"role_id": "operator"', '"role_id": "admin"']) {
+  if (!rolesInitSource.includes(role)) {
+    errors.push(`uni-id-roles.init_data.json is missing release role: ${role}`)
   }
 }
 

@@ -24,6 +24,19 @@
         </view>
       </view>
 
+      <view class="ops-tools">
+        <view class="ops-tool" @tap="goOpsUsers">
+          <view class="ops-tool__icon">
+            <uni-icons type="staff-filled" size="22" color="#fff" />
+          </view>
+          <view class="ops-tool__copy">
+            <text class="ops-tool__title">用户与权限</text>
+            <text class="ops-tool__desc">管理员设置用户、运营人员和管理员角色</text>
+          </view>
+          <uni-icons type="right" size="18" color="#94a3b8" />
+        </view>
+      </view>
+
       <view class="metric-grid">
         <view v-for="item in metricCards" :key="item.key" class="metric-card">
           <text class="metric-card__value">{{ item.value }}</text>
@@ -68,7 +81,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getOpsStats, listOpsActivities, moderateActivity } from '@/common/api/moderation.js'
-import { goBackHome, goOpsReports } from '@/common/utils/route.js'
+import { goBackHome, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
 
 const stats = ref({
   activityCount: 0,
@@ -226,6 +239,53 @@ async function handleModerate(item, moderationStatus) {
   grid-template-columns: repeat(3, 1fr);
   gap: 16rpx;
   padding: 0 34rpx;
+}
+
+.ops-tools {
+  padding: 0 34rpx 28rpx;
+}
+
+.ops-tool {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 24rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.06);
+}
+
+.ops-tool__icon {
+  display: flex;
+  width: 68rpx;
+  height: 68rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  background: #0f172a;
+}
+
+.ops-tool__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ops-tool__title,
+.ops-tool__desc {
+  display: block;
+}
+
+.ops-tool__title {
+  color: #0f172a;
+  font-size: 26rpx;
+  font-weight: 900;
+}
+
+.ops-tool__desc {
+  margin-top: 6rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  font-weight: 800;
 }
 
 .metric-card {

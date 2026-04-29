@@ -4,6 +4,12 @@ import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserId, getCurren
 
 const STORAGE_KEY = 'surego_current_user'
 const LEGACY_MOCK_NICKNAME = String.fromCharCode(21556, 21704, 21704)
+const ROLE_VALUES = ['user', 'operator', 'admin']
+const ROLE_LABELS = {
+  user: '普通用户',
+  operator: '运营人员',
+  admin: '管理员'
+}
 
 const defaultUser = {
   nickname: DEFAULT_USER_NICKNAME,
@@ -25,6 +31,20 @@ function sanitizeNickname(value, fallback = DEFAULT_USER_NICKNAME) {
 function sanitizeAvatar(value, fallback = DEFAULT_USER_AVATAR) {
   const avatar = String(value || '').trim()
   return avatar || fallback
+}
+
+function normalizeRoles(roles = []) {
+  const values = Array.isArray(roles) ? roles : [roles]
+  const next = values.map((role) => String(role || '').trim().toLowerCase()).filter((role) => ROLE_VALUES.includes(role))
+  return next.length ? Array.from(new Set(next)) : ['user']
+}
+
+export function getRoleLabel(role) {
+  return ROLE_LABELS[String(role || '').toLowerCase()] || '普通用户'
+}
+
+export function isAdminUser(profile = getCurrentUserProfile()) {
+  return normalizeRoles(profile.roles || profile.role).includes('admin')
 }
 
 function readLocalUser() {
@@ -60,7 +80,9 @@ function buildUserPayload(payload = {}) {
     credit: Number(payload.credit) || Number(current.credit) || defaultUser.credit,
     mbti: payload.mbti || current.mbti || '',
     bio: payload.bio || current.bio || '',
-    quote: payload.quote || current.quote || ''
+    quote: payload.quote || current.quote || '',
+    roles: normalizeRoles(payload.roles || payload.role || current.roles || current.role),
+    role: normalizeRoles(payload.roles || payload.role || current.roles || current.role)
   }
 }
 
@@ -104,6 +126,56 @@ export async function getCurrentUser() {
     }
   }
   return readLocalUser()
+}
+
+function normalizeUserRecord(item = {}) {
+  const uid = item.uid || item.userId || item.user_id || item._id || ''
+  const roles = normalizeRoles(item.roles || item.role)
+  return {
+    ...item,
+    id: item.id || item._id || uid,
+    uid,
+    userId: uid,
+    nickname: sanitizeNickname(item.nickname || item.username || item.mobile),
+    avatar: sanitizeAvatar(item.avatar),
+    roles,
+    role: roles,
+    roleText: roles.map(getRoleLabel).join('、'),
+    lastLoginDate: item.lastLoginDate || item.last_login_date || 0,
+    registerDate: item.registerDate || item.register_date || 0
+  }
+}
+
+function listLocalUsers() {
+  const current = getCurrentUserProfile()
+  return Promise.resolve([normalizeUserRecord(current)])
+}
+
+export async function listUsers() {
+  if (USE_UNICLOUD) {
+    try {
+      const users = await callSuregoFunction('surego-user', 'listUsers', {})
+      return users.map(normalizeUserRecord)
+    } catch (error) {
+      return handleSuregoCloudError(error, listLocalUsers)
+    }
+  }
+  return listLocalUsers()
+}
+
+export async function updateUserRoles(userId, roles = []) {
+  const nextRoles = normalizeRoles(roles)
+  if (USE_UNICLOUD) {
+    try {
+      return normalizeUserRecord(await callSuregoFunction('surego-user', 'updateUserRoles', {
+        targetUserId: userId,
+        roles: nextRoles
+      }))
+    } catch (error) {
+      return handleSuregoCloudError(error, () => null)
+    }
+  }
+  return normalizeUserRecord({ uid: userId, roles: nextRoles })
 }
 
 function buildLocalUserProfiles(ids) {

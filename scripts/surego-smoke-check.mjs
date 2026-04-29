@@ -36,6 +36,7 @@ const requiredFiles = [
   'pages/user/edit.vue',
   'pages/ops/dashboard.vue',
   'pages/ops/reports.vue',
+  'pages/ops/users.vue',
   'pages/activity/detail.vue',
   'pages/activity/members.vue',
   'pages/activity/register.vue',
@@ -63,6 +64,7 @@ const expectedPages = [
   'pages/user/edit',
   'pages/ops/dashboard',
   'pages/ops/reports',
+  'pages/ops/users',
   'pages/activity/detail',
   'pages/activity/members',
   'pages/activity/register',
@@ -266,6 +268,9 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
     }
   }
+  if (!routeSource.includes('goOpsUsers')) {
+    errors.push('common/utils/route.js is missing goOpsUsers');
+  }
   for (const helper of ['goAuthLogin', 'guardLoginAction']) {
     if (!routeSource.includes(helper)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
@@ -411,7 +416,7 @@ if (fs.existsSync(activityApiPath)) {
 const userApiPath = path.join(root, 'common/api/user.js');
 if (fs.existsSync(userApiPath)) {
   const userSource = fs.readFileSync(userApiPath, 'utf8');
-  for (const helper of ['getCurrentUser', 'updateCurrentUser', 'syncCurrentUserProfile']) {
+  for (const helper of ['getCurrentUser', 'updateCurrentUser', 'syncCurrentUserProfile', 'listUsers', 'updateUserRoles', 'getRoleLabel']) {
     if (!userSource.includes(helper)) {
       errors.push(`common/api/user.js is missing ${helper}`);
     }
@@ -419,6 +424,11 @@ if (fs.existsSync(userApiPath)) {
   for (const token of ['USE_UNICLOUD', 'callSuregoFunction', 'setMockLogin']) {
     if (!userSource.includes(token)) {
       errors.push(`common/api/user.js is missing ${token}`);
+    }
+  }
+  for (const action of ['listUsers', 'updateUserRoles']) {
+    if (!userSource.includes(`'${action}'`) && !userSource.includes(`"${action}"`)) {
+      errors.push(`common/api/user.js must call surego-user ${action}`);
     }
   }
   if (userSource.includes("nickname: '吴哈哈'") || userSource.includes("|| '吴哈哈'")) {
@@ -739,9 +749,19 @@ if (fs.existsSync(activityDetailPath)) {
 const opsDashboardPath = path.join(root, 'pages/ops/dashboard.vue');
 if (fs.existsSync(opsDashboardPath)) {
   const source = fs.readFileSync(opsDashboardPath, 'utf8');
-  for (const token of ['getOpsStats', 'listOpsActivities', 'moderateActivity', 'goOpsReports']) {
+  for (const token of ['getOpsStats', 'listOpsActivities', 'moderateActivity', 'goOpsReports', 'goOpsUsers']) {
     if (!source.includes(token)) {
       errors.push(`pages/ops/dashboard.vue is missing ${token}`);
+    }
+  }
+}
+
+const opsUsersPath = path.join(root, 'pages/ops/users.vue');
+if (fs.existsSync(opsUsersPath)) {
+  const source = fs.readFileSync(opsUsersPath, 'utf8');
+  for (const token of ['listUsers', 'updateUserRoles', 'getRoleLabel', 'isAdminUser', 'roleOptions']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/ops/users.vue is missing ${token}`);
     }
   }
 }
@@ -765,6 +785,26 @@ if (fs.existsSync(moderationCloudPath)) {
   for (const action of ["action === 'createReport'", "action === 'listReports'", "action === 'updateReportStatus'", "action === 'listOpsActivities'", "action === 'moderateActivity'", "action === 'getOpsStats'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-moderation cloud function is missing ${action}`);
+    }
+  }
+}
+
+const userCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-user/index.js');
+if (fs.existsSync(userCloudPath)) {
+  const source = fs.readFileSync(userCloudPath, 'utf8');
+  for (const token of ['ensureDefaultRole', "action === 'listUsers'", "action === 'updateUserRoles'", 'uni-id-users', 'role_updated_at', 'role_updated_by', 'LAST_ADMIN_REQUIRED']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-user cloud function is missing ${token}`);
+    }
+  }
+}
+
+const rolesInitPath = path.join(root, 'uniCloud-aliyun/database/uni-id-roles.init_data.json');
+if (fs.existsSync(rolesInitPath)) {
+  const source = fs.readFileSync(rolesInitPath, 'utf8');
+  for (const role of ['"role_id": "user"', '"role_id": "operator"', '"role_id": "admin"']) {
+    if (!source.includes(role)) {
+      errors.push(`uni-id-roles.init_data.json is missing ${role}`);
     }
   }
 }
