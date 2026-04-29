@@ -25,6 +25,8 @@
 </template>
 
 <script setup>
+import { goActivityCreate } from '@/common/utils/route.js'
+
 const props = defineProps({
   active: {
     type: String,
@@ -38,7 +40,7 @@ function goHome() {
 }
 
 function goCreate() {
-  uni.navigateTo({ url: '/pages/activity/create' })
+  goActivityCreate()
 }
 
 function goDiscover() {

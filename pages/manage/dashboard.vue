@@ -106,7 +106,7 @@
       </view>
     </scroll-view>
 
-    <SuActionSheet v-model:show="showReviewSheet" :title="reviewMode === 'approved' ? '通过申请' : '拒绝申请'">
+    <SuActionSheet v-model="showReviewSheet" :title="reviewMode === 'approved' ? '通过申请' : '拒绝申请'">
       <view class="review-sheet">
         <textarea
           v-model="reviewForm.note"
@@ -120,7 +120,7 @@
       </view>
     </SuActionSheet>
 
-    <SuActionSheet v-model:show="showTicketSheet" title="票券与保证金">
+    <SuActionSheet v-model="showTicketSheet" title="票券与保证金">
       <view class="ticket-sheet">
         <view class="ticket-summary">
           <view v-for="item in ticketStats" :key="item.label">
