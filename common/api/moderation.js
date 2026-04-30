@@ -54,9 +54,12 @@ function normalizeReport(item = {}) {
 
 function normalizeActivityModeration(item = {}) {
   const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status || 'pending')
+  const creatorId = item.creatorId || item.creator_id || ''
   return {
     ...item,
     id: String(item.id || item._id || item.activityId || item.activity_id || ''),
+    creatorId,
+    creator_id: creatorId,
     moderationStatus,
     moderation_status: moderationStatus,
     moderationNote: item.moderationNote || item.moderation_note || '',
@@ -155,6 +158,7 @@ async function notifyReportHandled(report) {
   if (!report?.reporterId) return
   await createMessage({
     userId: report.reporterId,
+    eventKey: `report:handled:${report.id}:${report.status}`,
     type: 'system',
     title: report.status === 'resolved' ? '举报已处理' : '举报已关闭',
     content: report.reviewNote || '运营已处理你的活动举报。',
@@ -223,21 +227,31 @@ export async function listOpsActivities() {
   return items.map(mergeActivityModeration)
 }
 
-async function notifyActivityModerated(activity) {
-  const userId = activity.creatorId || activity.creator_id
+function getModerationEventType(activity = {}, options = {}) {
+  const nextStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
+  const previousStatus = normalizeModerationStatus(options.previousModerationStatus || options.previous_moderation_status || options.activity?.moderationStatus || options.activity?.moderation_status || '')
+  if (previousStatus === 'hidden' && nextStatus === 'approved') return 'restored'
+  return nextStatus
+}
+
+async function notifyActivityModerated(activity, options = {}) {
+  const context = options.activity || {}
+  const userId = activity.creatorId || activity.creator_id || context.creatorId || context.creator_id
   if (!userId) return
+  const eventType = getModerationEventType(activity, options)
   const statusCopy = {
     approved: '活动已通过运营审核',
     rejected: '活动未通过运营审核',
     hidden: '活动已被运营下架',
+    restored: '活动已恢复展示',
     visible: '活动已恢复展示'
   }
   await createMessage({
     userId,
-    eventKey: `activity:moderation:${activity.id || activity._id}:${activity.moderationStatus}`,
+    eventKey: `activity:moderation:${activity.id || activity._id}:${eventType}`,
     type: 'system',
-    title: statusCopy[activity.moderationStatus] || '活动状态已更新',
-    content: activity.moderationNote || statusCopy[activity.moderationStatus] || '运营已更新活动状态。',
+    title: statusCopy[eventType] || '活动状态已更新',
+    content: activity.moderationNote || statusCopy[eventType] || '运营已更新活动状态。',
     activityId: activity.id,
     read: false
   })
@@ -263,6 +277,7 @@ export async function moderateActivity(activityId, moderationStatus, options = {
     moderationNote: options.moderationNote || '',
     moderatedBy: options.moderatedBy || getCurrentUserId()
   }
+  const activityContext = options.activity || {}
   let activity
   if (USE_UNICLOUD) {
     try {
@@ -273,7 +288,11 @@ export async function moderateActivity(activityId, moderationStatus, options = {
   } else {
     activity = await moderateLocalActivity(activityId, payload.moderationStatus, options)
   }
-  await notifyActivityModerated(activity)
+  activity = normalizeActivityModeration({ ...activityContext, ...activity })
+  await notifyActivityModerated(activity, {
+    ...options,
+    previousModerationStatus: options.previousModerationStatus || activityContext.moderationStatus || activityContext.moderation_status
+  })
   return activity
 }
 

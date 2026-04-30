@@ -181,7 +181,7 @@
       "path": "uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list",
       "style": {
         "enablePullDownRefresh": false,
-        "navigationBarTitleText": "City Select"
+        "navigationBarTitleText": "选择城市"
       }
     }
   ],

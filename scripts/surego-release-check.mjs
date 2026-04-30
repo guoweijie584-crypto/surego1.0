@@ -139,6 +139,11 @@ for (const page of pluginPages) {
   }
 }
 
+const citySelectPage = (pagesConfig.pages || []).find((item) => item.path === 'uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list')
+if (citySelectPage?.style?.navigationBarTitleText !== '选择城市') {
+  errors.push('unicloud-city-select route title must be Chinese: 选择城市')
+}
+
 for (const route of staleDemoRoutes) {
   if (pagePathSet.has(route)) {
     errors.push(`pages.json must not register demo route: ${route}`)
@@ -772,6 +777,20 @@ for (const token of ['event_key', 'eventKey', 'record.event_key']) {
 const messageApiSource = read('common/api/message.js')
 if (!messageApiSource.includes('eventKey') || !messageApiSource.includes('existing')) {
   errors.push('common/api/message.js must dedupe local messages by eventKey')
+}
+
+const moderationSource = read('common/api/moderation.js')
+for (const token of ['getModerationEventType', 'restored', 'previousModerationStatus', 'report:handled']) {
+  if (!moderationSource.includes(token)) {
+    errors.push(`common/api/moderation.js must guard release moderation notifications with ${token}`)
+  }
+}
+
+const citySelectPluginPageSource = read('uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list.vue')
+for (const token of ['confirm-type="search"', ':adjust-position="false"', 'height: 40px', 'line-height: 40px']) {
+  if (!citySelectPluginPageSource.includes(token)) {
+    errors.push(`unicloud-city-select city list page must keep readable release search input token: ${token}`)
+  }
 }
 
 const moderationCloudSourceForReview = read('uniCloud-aliyun/cloudfunctions/surego-moderation/index.js')

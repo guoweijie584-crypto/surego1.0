@@ -3,7 +3,7 @@
 		<view class="header">
 			<view class="search-box">
 				<view class="input-box">
-					<input class="input" v-model="searchValue" placeholder="搜索城市" @blur="search" />
+					<input class="input" v-model="searchValue" placeholder="搜索城市" confirm-type="search" :adjust-position="false" cursor-spacing="80" @confirm="search" @blur="search" />
 				</view>
 			</view>
 			<view class="hot-city">
@@ -157,13 +157,13 @@
 		box-sizing: border-box;
 
 		.header {
-			height: 165px;
+			height: 180px;
 			background-color: #f8f8f8;
 
 			.search-box {
 				display: flex;
 				padding: 10px;
-				height: 30px;
+				height: 52px;
 				align-items: center;
 
 				.close-box {}
@@ -172,9 +172,15 @@
 					flex: 1;
 
 					.input {
+						box-sizing: border-box;
+						width: 100%;
+						min-height: 40px;
+						height: 40px;
+						line-height: 40px;
 						background-color: #ffffff;
-						padding: 5px 10px;
+						padding: 0 12px;
 						border-radius: 10px;
+						font-size: 16px;
 					}
 				}
 			}

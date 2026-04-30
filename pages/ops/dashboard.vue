@@ -134,13 +134,20 @@ function getModerationLabel(status = 'pending') {
 }
 
 async function handleModerate(item, moderationStatus) {
+  const isRestore = moderationStatus === 'approved' && item.moderationStatus === 'hidden'
+  if (!isRestore && item.moderationStatus === moderationStatus) {
+    uni.showToast({ title: '状态未变化', icon: 'none' })
+    return
+  }
   const labels = {
     approved: '运营通过',
     rejected: '运营驳回',
     hidden: '活动已下架'
   }
   const updated = await moderateActivity(item.id, moderationStatus, {
-    moderationNote: moderationStatus === 'approved' && item.moderationStatus === 'hidden' ? '恢复展示' : labels[moderationStatus]
+    activity: item,
+    previousModerationStatus: item.moderationStatus,
+    moderationNote: isRestore ? '恢复展示' : labels[moderationStatus]
   })
   activities.value = activities.value.map((activity) => (
     activity.id === item.id ? { ...activity, ...updated } : activity

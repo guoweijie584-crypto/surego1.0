@@ -227,6 +227,10 @@ if (fs.existsSync(pagesPath)) {
     if (!pagePaths.has('uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list')) {
       errors.push('pages.json is missing unicloud-city-select city list route');
     }
+    const citySelectPage = (config.pages || []).find((item) => item.path === 'uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list');
+    if (citySelectPage?.style?.navigationBarTitleText !== '选择城市') {
+      errors.push('unicloud-city-select route title must be Chinese: 选择城市');
+    }
     for (const page of staleDemoPages) {
       if (pagePaths.has(page)) {
         errors.push(`Remove stale demo route from pages.json: ${page}`);
@@ -368,6 +372,11 @@ if (fs.existsSync(moderationApiPath)) {
   for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js']) {
     if (!moderationSource.includes(token)) {
       errors.push(`common/api/moderation.js is missing ${token}`);
+    }
+  }
+  for (const token of ['getModerationEventType', 'restored', 'previousModerationStatus', 'report:handled']) {
+    if (!moderationSource.includes(token)) {
+      errors.push(`common/api/moderation.js is missing moderation notification guard: ${token}`);
     }
   }
 }
@@ -1103,6 +1112,16 @@ for (const file of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   }
   if (source.includes('tempFilePaths[0]')) {
     errors.push(`${file} must upload custom covers through common/api/upload.js`);
+  }
+}
+
+const citySelectPluginPagePath = path.join(root, 'uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list.vue');
+if (fs.existsSync(citySelectPluginPagePath)) {
+  const source = fs.readFileSync(citySelectPluginPagePath, 'utf8');
+  for (const token of ['confirm-type="search"', ':adjust-position="false"', 'height: 40px', 'line-height: 40px']) {
+    if (!source.includes(token)) {
+      errors.push(`unicloud-city-select city list page must keep readable search input token: ${token}`);
+    }
   }
 }
 
