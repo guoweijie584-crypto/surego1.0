@@ -1,16 +1,18 @@
 ﻿<template>
   <view class="city su-page">
-    <view class="city__nav">
-      <view class="city__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
-      </view>
-      <view>
-        <text class="city__eyebrow">CITY</text>
-        <text class="city__title">选择城市</text>
+    <view class="city__nav" :style="navStyle">
+      <view class="city__nav-row" :style="navRowStyle">
+        <view class="city__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
+        </view>
+        <view>
+          <text class="city__eyebrow">CITY</text>
+          <text class="city__title">选择城市</text>
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="city__scroll">
+    <scroll-view scroll-y class="city__scroll" :style="contentTopStyle">
       <view class="city__current">
         <view>
           <text class="city__label">当前城市</text>
@@ -53,7 +55,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
-import { goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
@@ -61,6 +63,9 @@ const selectedCity = ref('杭州')
 const selectedCityCode = ref('330100')
 const cities = ref([])
 const citySelectRef = ref(null)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const hotCities = [
   { code: '330100', name: '杭州市' },
   { code: '310100', name: '上海市' },
@@ -111,10 +116,19 @@ function handlePluginSelect(city = {}) {
 }
 
 .city__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.city__nav-row {
   display: flex;
   align-items: center;
   gap: 22rpx;
-  padding: 58rpx 40rpx 26rpx;
 }
 
 .city__back {
@@ -148,7 +162,8 @@ function handlePluginSelect(city = {}) {
 }
 
 .city__scroll {
-  height: calc(100vh - 162rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .city__current {

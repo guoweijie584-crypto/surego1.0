@@ -1,20 +1,22 @@
 ﻿<template>
   <view class="profile su-page">
-    <view class="profile__nav">
-      <view class="profile__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
-      </view>
-      <view class="profile__nav-actions">
-        <view class="profile__nav-btn" @tap="goCalendar()">
-          <uni-icons type="calendar" size="20" color="#111827" />
+    <view class="profile__nav" :style="navStyle">
+      <view class="profile__nav-row" :style="navRowStyle">
+        <view class="profile__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
         </view>
-        <view class="profile__nav-btn" @tap="goMessages">
-          <uni-icons type="notification-filled" size="20" color="#111827" />
+        <view class="profile__nav-actions" :style="navActionsStyle">
+          <view class="profile__nav-btn" @tap="goCalendar()">
+            <uni-icons type="calendar" size="20" color="#111827" />
+          </view>
+          <view class="profile__nav-btn" @tap="goMessages">
+            <uni-icons type="notification-filled" size="20" color="#111827" />
+          </view>
         </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="profile__scroll">
+    <scroll-view scroll-y class="profile__scroll" :style="contentTopStyle">
       <view class="profile__head">
         <view class="profile__avatar-wrap">
           <image class="profile__avatar" :src="user.avatar" mode="aspectFill" />
@@ -151,7 +153,7 @@ import { listMyActivities } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, isLoggedIn, isOpsUser, isSuregoProfileComplete } from '@/common/api/auth.js'
-import { goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const activeOrderFilter = ref('all')
@@ -162,6 +164,10 @@ const orders = ref([])
 const reviews = ref([])
 const user = ref(getCurrentUserProfile())
 const profileSheetVisible = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 210 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const activityList = computed(() => [...myActivities.value.hosting, ...myActivities.value.joined, ...myActivities.value.pending])
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
@@ -232,10 +238,19 @@ function handleProfileSaved(nextUser) {
 }
 
 .profile__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.88);
+  backdrop-filter: blur(18px);
+}
+
+.profile__nav-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 58rpx 40rpx 22rpx;
 }
 
 .profile__back,
@@ -254,10 +269,12 @@ function handleProfileSaved(nextUser) {
 .profile__nav-actions {
   display: flex;
   gap: 16rpx;
+  min-width: 0;
 }
 
 .profile__scroll {
-  height: calc(100vh - 158rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .profile__head {

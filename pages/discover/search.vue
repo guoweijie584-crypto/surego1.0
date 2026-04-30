@@ -1,26 +1,28 @@
 ﻿<template>
   <view class="search su-page">
-    <view class="search__nav">
-      <view class="search__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
-      </view>
-      <view class="search__box">
-        <uni-icons type="search" size="20" color="#94a3b8" />
-        <input
-          class="search__input"
-          v-model="keyword"
-          focus
-          confirm-type="search"
-          adjust-position="false"
-          cursor-spacing="28"
-          placeholder="搜索活动、兴趣、地点"
-          placeholder-class="search__placeholder"
-          @confirm="runSearch"
-        />
+    <view class="search__nav" :style="navStyle">
+      <view class="search__nav-row" :style="navRowStyle">
+        <view class="search__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
+        </view>
+        <view class="search__box">
+          <uni-icons type="search" size="20" color="#94a3b8" />
+          <input
+            class="search__input"
+            v-model="keyword"
+            focus
+            confirm-type="search"
+            adjust-position="false"
+            cursor-spacing="28"
+            placeholder="搜索活动、兴趣、地点"
+            placeholder-class="search__placeholder"
+            @confirm="runSearch"
+          />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="search__scroll">
+    <scroll-view scroll-y class="search__scroll" :style="contentTopStyle">
       <view v-if="!hasSearched" class="search__panel">
         <view class="section-head">
           <text class="section-title">热门搜索</text>
@@ -82,7 +84,7 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import { listActivities, searchActivities } from '@/common/api/activity.js'
-import { goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const RECENT_KEY = 'surego_recent_searches'
 const hotKeywords = ['野餐', '饭搭子', '读书', '夜市', '展览', '诚意金']
@@ -90,6 +92,9 @@ const keyword = ref('')
 const results = ref([])
 const recentKeywords = ref([])
 const hasSearched = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 onLoad(async (options = {}) => {
   recentKeywords.value = uni.getStorageSync(RECENT_KEY) || []
@@ -132,10 +137,19 @@ function clearRecent() {
 }
 
 .search__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.search__nav-row {
   display: flex;
   align-items: center;
   gap: 18rpx;
-  padding: 58rpx 40rpx 22rpx;
 }
 
 .search__back {
@@ -176,7 +190,8 @@ function clearRecent() {
 }
 
 .search__scroll {
-  height: calc(100vh - 158rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .search__panel {

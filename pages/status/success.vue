@@ -1,8 +1,13 @@
 <template>
-  <view class="success su-page">
+  <view class="success su-page" :style="contentTopStyle">
     <view class="success__wash" />
-    <view class="success__close" @tap="goBackOrFallback">
-      <uni-icons type="closeempty" size="30" color="rgba(255,255,255,.48)" />
+    <view class="success__nav" :style="navStyle">
+      <view class="success__nav-row" :style="navRowStyle">
+        <view class="success__nav-spacer" />
+        <view class="success__close" @tap="goBackOrFallback">
+          <uni-icons type="closeempty" size="30" color="rgba(255,255,255,.48)" />
+        </view>
+      </view>
     </view>
 
     <view class="success__content">
@@ -56,12 +61,15 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityDetail, goBackOrFallback, goHomeRoot, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goHomeRoot, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
 const requireApproval = ref(false)
 const currentActivity = ref(createEmptyActivity('101'))
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 44, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 8 })
 
 const dots = [
   { id: 1, color: '#ff5e7e', top: '8rpx', left: '148rpx' },
@@ -125,7 +133,9 @@ function openNext() {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  padding: 88rpx 44rpx;
+  padding-right: 44rpx;
+  padding-bottom: 88rpx;
+  padding-left: 44rpx;
   background: #0f172a;
 }
 
@@ -140,11 +150,26 @@ function openNext() {
   filter: blur(70rpx);
 }
 
-.success__close {
-  position: absolute;
-  top: 42rpx;
-  right: 34rpx;
+.success__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
   z-index: 3;
+}
+
+.success__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.success__nav-spacer {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.success__close {
   display: flex;
   width: 64rpx;
   height: 64rpx;

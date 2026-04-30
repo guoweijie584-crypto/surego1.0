@@ -100,7 +100,9 @@ export function getCapsuleSafeRightRpx(extraRight = 16) {
 export function getMiniProgramNavStyle(options = {}) {
   const metrics = getMiniProgramNavMetrics(options)
   return {
-    height: `${metrics.navHeightRpx}rpx`
+    height: `${metrics.navHeightRpx}rpx`,
+    boxSizing: 'border-box',
+    padding: '0'
   }
 }
 
@@ -112,7 +114,10 @@ export function getMiniProgramNavRowStyle(options = {}) {
     height: `${metrics.capsuleHeightRpx}rpx`,
     marginTop: `${metrics.capsuleTopRpx}rpx`,
     paddingLeft: `${leftPadding}rpx`,
-    paddingRight: `${rightPadding}rpx`
+    paddingRight: `${rightPadding}rpx`,
+    boxSizing: 'border-box',
+    width: '100%',
+    minWidth: 0
   }
 }
 
@@ -121,7 +126,10 @@ export function getMiniProgramNavActionsStyle(options = {}) {
   const leftReserve = Number(options.leftReserveRpx ?? 0)
   const maxWidth = Math.max(80, metrics.leftLimitRpx - leftReserve)
   return {
-    maxWidth: `${maxWidth}rpx`
+    maxWidth: `${maxWidth}rpx`,
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    flexShrink: 0
   }
 }
 
@@ -129,7 +137,8 @@ export function getMiniProgramNavContentStyle(options = {}) {
   const metrics = getMiniProgramNavMetrics(options)
   const gap = Number(options.gapRpx ?? 28)
   return {
-    paddingTop: `${metrics.navHeightRpx + gap}rpx`
+    paddingTop: `${metrics.navHeightRpx + gap}rpx`,
+    boxSizing: 'border-box'
   }
 }
 

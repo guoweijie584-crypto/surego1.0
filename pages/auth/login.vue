@@ -1,7 +1,9 @@
 <template>
-  <view class="login">
-    <view class="login__nav">
+  <view class="login" :style="contentTopStyle">
+    <view class="login__nav" :style="navStyle">
+      <view class="login__nav-row" :style="navRowStyle">
       <view class="login__back" @tap="goBack">‹</view>
+      </view>
     </view>
 
     <view class="login__hero">
@@ -46,11 +48,15 @@ import { onLoad } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, isSuregoProfileComplete, loginWithWeixin } from '@/common/api/auth.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle } from '@/common/utils/route.js'
 
 const redirect = ref('')
 const profile = ref(getCurrentUserProfile())
 const isLoggingIn = ref(false)
 const profileSheetVisible = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 32, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 28 })
 
 onLoad((query = {}) => {
   redirect.value = decodeURIComponent(query.redirect || '')
@@ -137,7 +143,9 @@ function goBack() {
 <style scoped>
 .login {
   min-height: 100vh;
-  padding: 36rpx 32rpx 64rpx;
+  padding-right: 32rpx;
+  padding-bottom: 64rpx;
+  padding-left: 32rpx;
   box-sizing: border-box;
   background:
     radial-gradient(circle at 20% 12%, rgba(255, 107, 107, 0.22), transparent 34%),
@@ -145,7 +153,14 @@ function goBack() {
 }
 
 .login__nav {
-  height: 72rpx;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+}
+
+.login__nav-row {
   display: flex;
   align-items: center;
 }
@@ -163,7 +178,6 @@ function goBack() {
 }
 
 .login__hero {
-  padding-top: 48rpx;
   display: flex;
   flex-direction: column;
   gap: 18rpx;

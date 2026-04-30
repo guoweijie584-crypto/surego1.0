@@ -1,6 +1,7 @@
 <template>
   <view class="reports su-page">
-    <view class="reports__nav">
+    <view class="reports__nav" :style="navStyle">
+      <view class="reports__nav-row" :style="navRowStyle">
       <view class="reports__back" @tap="goOpsDashboard">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
@@ -11,9 +12,10 @@
       <view class="reports__refresh" @tap="loadReports">
         <uni-icons type="refreshempty" size="22" color="#111827" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="reports__scroll">
+    <scroll-view scroll-y class="reports__scroll" :style="contentTopStyle">
       <view class="report-filters">
         <view
           v-for="item in reportFilters"
@@ -74,7 +76,7 @@
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { listReports, updateReportStatus } from '@/common/api/moderation.js'
-import { goOpsDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goOpsDashboard } from '@/common/utils/route.js'
 
 const reportFilters = [
   { key: 'all', label: '全部' },
@@ -86,6 +88,9 @@ const activeStatus = ref('pending')
 const reports = ref([])
 const activeReportId = ref('')
 const reviewNote = ref('')
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 onLoad((query) => {
   if (query?.status) activeStatus.value = query.status
@@ -145,10 +150,19 @@ async function submitReview(item, status) {
 }
 
 .reports__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 250, 252, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.reports__nav-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 58rpx 34rpx 22rpx;
 }
 
 .reports__back,
@@ -183,7 +197,8 @@ async function submitReview(item, status) {
 }
 
 .reports__scroll {
-  height: calc(100vh - 154rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .report-filters {

@@ -1,10 +1,15 @@
 ﻿<template>
-  <view class="register su-page">
+  <view class="register su-page" :style="contentTopStyle">
     <view class="register__glow register__glow--green" />
     <view class="register__glow register__glow--blue" />
 
-    <view class="register__close" @tap="goBackOrFallback">
-      <uni-icons type="closeempty" size="28" color="rgba(255,255,255,.58)" />
+    <view class="register__nav" :style="navStyle">
+      <view class="register__nav-row" :style="navRowStyle">
+        <view class="register__nav-spacer" />
+        <view class="register__close" @tap="goBackOrFallback">
+          <uni-icons type="closeempty" size="28" color="rgba(255,255,255,.58)" />
+        </view>
+      </view>
     </view>
 
     <view class="register__panel">
@@ -116,7 +121,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('101'))
 const gender = ref('')
@@ -124,6 +129,9 @@ const mbtiIndex = ref(0)
 const message = ref('')
 const answers = ref([])
 const isSubmitting = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 
 const genderOptions = [
   { label: '男', value: 'male' },
@@ -268,7 +276,9 @@ function validateJoinEligibility(silent = false) {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  padding: 80rpx 34rpx 56rpx;
+  padding-right: 34rpx;
+  padding-bottom: 56rpx;
+  padding-left: 34rpx;
   background: #0f172a;
 }
 
@@ -293,11 +303,26 @@ function validateJoinEligibility(silent = false) {
   background: #6366f1;
 }
 
-.register__close {
-  position: absolute;
-  top: 40rpx;
-  right: 34rpx;
+.register__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
   z-index: 3;
+}
+
+.register__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.register__nav-spacer {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+.register__close {
   display: flex;
   width: 64rpx;
   height: 64rpx;

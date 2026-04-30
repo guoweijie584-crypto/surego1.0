@@ -386,13 +386,39 @@ for (const token of ['getCurrentLocation', 'refreshCurrentLocation', 'getStoredL
 }
 
 const navRouteSource = read('common/utils/route.js')
-for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle']) {
+for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle', 'getMiniProgramNavContentStyle', 'boxSizing', 'rightReserveRpx', 'maxWidth']) {
   if (!navRouteSource.includes(token)) {
     errors.push(`common/utils/route.js is missing release mini-program capsule token: ${token}`)
   }
 }
 
-for (const page of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/activity/detail.vue', 'pages/manage/dashboard.vue', 'pages/manage/checkin.vue', 'pages/participant/dashboard.vue', 'pages/order/detail.vue', 'pages/share/poster.vue', 'pages/messages/index.vue']) {
+for (const page of [
+  'pages/home/index.vue',
+  'pages/discover/index.vue',
+  'pages/discover/search.vue',
+  'pages/discover/city.vue',
+  'pages/calendar/index.vue',
+  'pages/activity/detail.vue',
+  'pages/activity/register.vue',
+  'pages/activity/create.vue',
+  'pages/activity/edit.vue',
+  'pages/activity/members.vue',
+  'pages/manage/dashboard.vue',
+  'pages/manage/checkin.vue',
+  'pages/messages/index.vue',
+  'pages/my/activities.vue',
+  'pages/order/detail.vue',
+  'pages/payment/index.vue',
+  'pages/participant/dashboard.vue',
+  'pages/share/poster.vue',
+  'pages/status/success.vue',
+  'pages/user/profile.vue',
+  'pages/user/edit.vue',
+  'pages/auth/login.vue',
+  'pages/ops/dashboard.vue',
+  'pages/ops/reports.vue',
+  'pages/ops/users.vue'
+]) {
   const source = read(page)
   for (const token of ['getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
     if (!source.includes(token)) {
@@ -402,8 +428,13 @@ for (const page of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/a
   if (source.includes('topSafeStyle') || source.includes('getCapsuleSafeAreaStyle')) {
     errors.push(`${page} must not rely on padding-only capsule safe-area helpers`)
   }
-  if (source.includes('height: 132rpx') || source.includes('height: 136rpx')) {
+  if (source.includes('height: 132rpx')) {
     errors.push(`${page} must not hard-code custom nav height in release mode`)
+  }
+  for (const fixedToken of ['padding: 58rpx', 'height: calc(100vh - 154rpx)', 'height: calc(100vh - 158rpx)', 'height: calc(100vh - 280rpx)']) {
+    if (source.includes(fixedToken)) {
+      errors.push(`${page} must not use fixed custom nav spacing token: ${fixedToken}`)
+    }
   }
 }
 

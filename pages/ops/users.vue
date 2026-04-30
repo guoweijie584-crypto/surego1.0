@@ -1,6 +1,7 @@
 <template>
   <view class="ops-users su-page">
-    <view class="ops-users__nav">
+    <view class="ops-users__nav" :style="navStyle">
+      <view class="ops-users__nav-row" :style="navRowStyle">
       <view class="ops-users__back" @tap="goOpsDashboard">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
@@ -11,9 +12,10 @@
       <view class="ops-users__refresh" @tap="loadUsers">
         <uni-icons type="refresh" size="20" color="#111827" />
       </view>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="ops-users__scroll">
+    <scroll-view scroll-y class="ops-users__scroll" :style="contentTopStyle">
       <view class="hero">
         <text class="hero__eyebrow">ADMIN ONLY</text>
         <text class="hero__title">设置用户角色，控制运营台访问权限</text>
@@ -62,7 +64,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, getRoleLabel, isAdminUser, listUsers, updateUserRoles } from '@/common/api/user.js'
-import { goOpsDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goOpsDashboard } from '@/common/utils/route.js'
 
 const roleOptions = [
   { value: 'user', label: '普通用户' },
@@ -73,6 +75,9 @@ const roleOptions = [
 const users = ref([])
 const isAdmin = ref(false)
 const savingId = ref('')
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 onShow(async () => {
   const current = await getCurrentUser()
@@ -131,10 +136,19 @@ function formatDate(value) {
 }
 
 .ops-users__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 250, 252, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.ops-users__nav-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 58rpx 34rpx 22rpx;
 }
 
 .ops-users__back,
@@ -169,7 +183,8 @@ function formatDate(value) {
 }
 
 .ops-users__scroll {
-  height: calc(100vh - 154rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .hero {

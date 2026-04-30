@@ -1,16 +1,18 @@
 ﻿<template>
   <view class="create su-page">
-    <view class="create__nav">
-      <view class="create__nav-btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#0f172a" />
-      </view>
-      <text>发起新局</text>
-      <view class="create__nav-btn" @tap="showPreview = true">
-        <uni-icons type="eye" size="22" color="#0f172a" />
+    <view class="create__nav" :style="navStyle">
+      <view class="create__nav-row" :style="navRowStyle">
+        <view class="create__nav-btn" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#0f172a" />
+        </view>
+        <text>发起新局</text>
+        <view class="create__nav-btn" @tap="showPreview = true">
+          <uni-icons type="eye" size="22" color="#0f172a" />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="create__scroll">
+    <scroll-view scroll-y class="create__scroll" :style="contentTopStyle">
       <view class="create__hero">
         <text class="create__eyebrow">CREATE A SPOT</text>
         <text class="create__title">把想法开成一局</text>
@@ -163,7 +165,7 @@ import { computed, reactive, ref } from 'vue'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
-import { goBackOrFallback, goSuccess } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
@@ -185,6 +187,9 @@ const categoryIndex = ref(0)
 const cityIndex = ref(Math.max(0, cityOptions.findIndex((item) => item.code === (uni.getStorageSync(CITY_CODE_KEY) || '330100'))))
 const showPreview = ref(false)
 const isSubmitting = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const initialCity = cityOptions[cityIndex.value] || cityOptions[0]
 
 const form = reactive({
@@ -290,16 +295,17 @@ async function handleSubmit() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
   color: #0f172a;
   font-size: 28rpx;
   font-weight: 900;
+}
+
+.create__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .create__nav-btn {
@@ -312,10 +318,11 @@ async function handleSubmit() {
 
 .create__scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
 .create__hero {
-  padding: 170rpx 40rpx 36rpx;
+  padding: 18rpx 40rpx 36rpx;
 }
 
 .create__eyebrow {

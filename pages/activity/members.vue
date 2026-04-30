@@ -1,19 +1,21 @@
 ﻿<template>
   <view class="members-page">
-    <view class="topbar su-safe-top">
-      <view class="topbar__button" @tap="goBackOrFallback">
-        <uni-icons type="left" size="20" color="#0f172a" />
-      </view>
-      <view class="topbar__title">
-        <text>成员列表</text>
-        <text>{{ confirmedMembers.length }} CONFIRMED</text>
-      </view>
-      <view class="topbar__button" @tap="refreshMembers">
-        <uni-icons type="refresh" size="18" color="#0f172a" />
+    <view class="topbar" :style="navStyle">
+      <view class="topbar__row" :style="navRowStyle">
+        <view class="topbar__button" @tap="goBackOrFallback">
+          <uni-icons type="left" size="20" color="#0f172a" />
+        </view>
+        <view class="topbar__title">
+          <text>成员列表</text>
+          <text>{{ confirmedMembers.length }} CONFIRMED</text>
+        </view>
+        <view class="topbar__button" @tap="refreshMembers">
+          <uni-icons type="refresh" size="18" color="#0f172a" />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="members-scroll">
+    <scroll-view scroll-y class="members-scroll" :style="contentTopStyle">
       <view class="hero">
         <image class="hero__cover" :src="activity.image" mode="aspectFill" />
         <view class="hero__content">
@@ -105,12 +107,15 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity())
 const applications = ref([])
 const memberProfiles = ref([])
 const selectedMember = ref(null)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 const members = [
   {
     id: 'default_leader',
@@ -186,13 +191,14 @@ async function refreshMembers() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 30rpx 18rpx;
-  height: 132rpx;
   background: rgba(248, 250, 252, 0.9);
   backdrop-filter: blur(18rpx);
+}
+
+.topbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .topbar__button {
@@ -228,7 +234,9 @@ async function refreshMembers() {
 .members-scroll {
   height: 100vh;
   box-sizing: border-box;
-  padding: 154rpx 28rpx 48rpx;
+  padding-right: 28rpx;
+  padding-bottom: 48rpx;
+  padding-left: 28rpx;
 }
 
 .hero {

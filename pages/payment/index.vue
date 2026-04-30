@@ -1,14 +1,16 @@
 ﻿<template>
   <view class="payment su-page">
-    <view class="payment__nav">
-      <view class="payment__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#0f172a" />
+    <view class="payment__nav" :style="navStyle">
+      <view class="payment__nav-row" :style="navRowStyle">
+        <view class="payment__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#0f172a" />
+        </view>
+        <text>支付确认</text>
+        <view class="payment__back" />
       </view>
-      <text>支付确认</text>
-      <view class="payment__back" />
     </view>
 
-    <view class="payment__content">
+    <view class="payment__content" :style="contentTopStyle">
       <view class="pay-card">
         <view class="pay-card__top">
           <view class="pay-card__icon" :class="`pay-card__icon--${activity.partyMode}`">
@@ -59,11 +61,14 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackOrFallback, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('102'))
 const order = ref(null)
 const isPaying = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票支付' : '诚意金支付'))
 const modeDesc = computed(() => {
@@ -129,16 +134,17 @@ async function handlePay() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
   color: #0f172a;
   font-size: 28rpx;
   font-weight: 900;
+}
+
+.payment__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .payment__back {
@@ -150,7 +156,9 @@ async function handlePay() {
 }
 
 .payment__content {
-  padding: 174rpx 34rpx 56rpx;
+  padding-right: 34rpx;
+  padding-bottom: 56rpx;
+  padding-left: 34rpx;
 }
 
 .pay-card {

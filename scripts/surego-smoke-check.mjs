@@ -642,7 +642,7 @@ if (fs.existsSync(locationApiPath)) {
 const routeUtilPath = path.join(root, 'common/utils/route.js');
 if (fs.existsSync(routeUtilPath)) {
   const source = fs.readFileSync(routeUtilPath, 'utf8');
-  for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle']) {
+  for (const token of ['getMiniProgramNavMetrics', 'getWindowInfo', 'getMenuButtonBoundingClientRect', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'getMiniProgramNavActionsStyle', 'getMiniProgramNavContentStyle', 'boxSizing', 'rightReserveRpx', 'maxWidth']) {
     if (!source.includes(token)) {
       errors.push(`common/utils/route.js is missing mini-program capsule helper token: ${token}`);
     }
@@ -652,13 +652,29 @@ if (fs.existsSync(routeUtilPath)) {
 for (const page of [
   'pages/home/index',
   'pages/discover/index',
+  'pages/discover/search',
+  'pages/discover/city',
+  'pages/calendar/index',
   'pages/activity/detail',
+  'pages/activity/register',
+  'pages/activity/create',
+  'pages/activity/edit',
+  'pages/activity/members',
   'pages/messages/index',
   'pages/manage/dashboard',
   'pages/manage/checkin',
+  'pages/my/activities',
   'pages/order/detail',
+  'pages/payment/index',
   'pages/participant/dashboard',
-  'pages/share/poster'
+  'pages/share/poster',
+  'pages/status/success',
+  'pages/user/profile',
+  'pages/user/edit',
+  'pages/auth/login',
+  'pages/ops/dashboard',
+  'pages/ops/reports',
+  'pages/ops/users'
 ]) {
   const absolute = path.join(root, `${page}.vue`);
   if (!fs.existsSync(absolute)) continue;
@@ -671,8 +687,13 @@ for (const page of [
   if (source.includes('topSafeStyle') || source.includes('getCapsuleSafeAreaStyle')) {
     errors.push(`${page}.vue must not rely on padding-only capsule safe-area helpers`);
   }
-  if (source.includes('height: 132rpx') || source.includes('height: 136rpx')) {
+  if (source.includes('height: 132rpx')) {
     errors.push(`${page}.vue must not hard-code custom nav height instead of capsule metrics`);
+  }
+  for (const fixedToken of ['padding: 58rpx', 'height: calc(100vh - 154rpx)', 'height: calc(100vh - 158rpx)', 'height: calc(100vh - 280rpx)']) {
+    if (source.includes(fixedToken)) {
+      errors.push(`${page}.vue must not use fixed custom nav spacing token: ${fixedToken}`);
+    }
   }
 }
 

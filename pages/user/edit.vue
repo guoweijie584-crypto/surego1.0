@@ -1,14 +1,16 @@
 ﻿<template>
   <view class="edit-profile su-page">
-    <view class="edit-profile__nav">
-      <view class="edit-profile__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
+    <view class="edit-profile__nav" :style="navStyle">
+      <view class="edit-profile__nav-row" :style="navRowStyle">
+        <view class="edit-profile__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
+        </view>
+        <text>编辑资料</text>
+        <view class="edit-profile__back" />
       </view>
-      <text>编辑资料</text>
-      <view class="edit-profile__back" />
     </view>
 
-    <scroll-view scroll-y class="edit-profile__scroll">
+    <scroll-view scroll-y class="edit-profile__scroll" :style="contentTopStyle">
       <view class="profile-card">
         <button class="avatar-box" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
           <image class="avatar-box__image" :src="form.avatar" mode="aspectFill" />
@@ -52,11 +54,14 @@ import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'
 import { uploadImageFile } from '@/common/api/upload.js'
-import { goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
 const mbtiIndex = ref(0)
 const isSaving = ref(false)
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const form = reactive({
   nickname: '',
   avatar: '',
@@ -109,14 +114,22 @@ async function handleSave() {
 }
 
 .edit-profile__nav {
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.9);
+  backdrop-filter: blur(18px);
   color: #111827;
   font-size: 28rpx;
   font-weight: 900;
+}
+
+.edit-profile__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .edit-profile__back {
@@ -128,7 +141,8 @@ async function handleSave() {
 }
 
 .edit-profile__scroll {
-  height: calc(100vh - 132rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .profile-card {

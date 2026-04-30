@@ -1,16 +1,18 @@
 ﻿<template>
   <view class="calendar-page su-page">
-    <view class="calendar-page__nav">
-      <view class="calendar-page__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
-      </view>
-      <view>
-        <text class="calendar-page__eyebrow">CALENDAR</text>
-        <text class="calendar-page__title">活动日历</text>
+    <view class="calendar-page__nav" :style="navStyle">
+      <view class="calendar-page__nav-row" :style="navRowStyle">
+        <view class="calendar-page__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
+        </view>
+        <view>
+          <text class="calendar-page__eyebrow">CALENDAR</text>
+          <text class="calendar-page__title">活动日历</text>
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="calendar-page__scroll">
+    <scroll-view scroll-y class="calendar-page__scroll" :style="contentTopStyle">
       <scroll-view scroll-x class="date-strip" :show-scrollbar="false">
         <view class="date-strip__inner">
           <view
@@ -71,10 +73,13 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityCalendar } from '@/common/api/activity.js'
-import { goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const groups = ref([])
 const activeDate = ref('')
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const activeGroup = computed(() => groups.value.find((item) => item.date === activeDate.value) || groups.value[0] || { items: [] })
 const activeActivities = computed(() => activeGroup.value.items || [])
@@ -108,10 +113,19 @@ function getShortLocation(location) {
 }
 
 .calendar-page__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.calendar-page__nav-row {
   display: flex;
   align-items: center;
   gap: 22rpx;
-  padding: 58rpx 40rpx 24rpx;
 }
 
 .calendar-page__back {
@@ -144,7 +158,8 @@ function getShortLocation(location) {
 }
 
 .calendar-page__scroll {
-  height: calc(100vh - 158rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .date-strip {

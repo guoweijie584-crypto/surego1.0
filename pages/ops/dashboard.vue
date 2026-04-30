@@ -1,19 +1,21 @@
 ﻿<template>
   <view class="ops su-page">
-    <view class="ops__nav">
-      <view class="ops__back" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#111827" />
-      </view>
-      <view>
-        <text class="ops__title">运营控制台</text>
-        <text class="ops__sub">SureGo Trial Ops</text>
-      </view>
-      <view class="ops__report" @tap="goOpsReports('pending')">
-        <uni-icons type="flag" size="20" color="#ef4444" />
+    <view class="ops__nav" :style="navStyle">
+      <view class="ops__nav-row" :style="navRowStyle">
+        <view class="ops__back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#111827" />
+        </view>
+        <view>
+          <text class="ops__title">运营控制台</text>
+          <text class="ops__sub">SureGo Trial Ops</text>
+        </view>
+        <view class="ops__report" @tap="goOpsReports('pending')">
+          <uni-icons type="flag" size="20" color="#ef4444" />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="ops__scroll">
+    <scroll-view scroll-y class="ops__scroll" :style="contentTopStyle">
       <view class="hero">
         <text class="hero__eyebrow">试运营看板</text>
         <text class="hero__title">内容、订单、签到状态一屏收口</text>
@@ -81,7 +83,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getOpsStats, listOpsActivities, moderateActivity } from '@/common/api/moderation.js'
-import { goBackOrFallback, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
 
 const stats = ref({
   activityCount: 0,
@@ -96,6 +98,9 @@ const stats = ref({
   checkinRate: 0
 })
 const activities = ref([])
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const metricCards = computed(() => [
   { key: 'reports', label: '待处理举报', value: stats.value.pendingReports },
@@ -152,10 +157,19 @@ async function handleModerate(item, moderationStatus) {
 }
 
 .ops__nav {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 250, 252, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.ops__nav-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 58rpx 34rpx 22rpx;
 }
 
 .ops__back,
@@ -190,7 +204,8 @@ async function handleModerate(item, moderationStatus) {
 }
 
 .ops__scroll {
-  height: calc(100vh - 154rpx);
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .hero {

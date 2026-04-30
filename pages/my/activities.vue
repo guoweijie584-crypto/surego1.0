@@ -1,6 +1,7 @@
 <template>
   <view class="my su-page">
-    <view class="my__top">
+    <view class="my__top" :style="navStyle">
+      <view class="my__top-row" :style="navRowStyle">
       <view>
         <text class="my__kicker">MY SPOTS</text>
         <text class="my__title">我的活动</text>
@@ -8,8 +9,10 @@
       <view class="my__create" @tap="goActivityCreate">
         <uni-icons type="plusempty" size="22" color="#fff" />
       </view>
+      </view>
     </view>
 
+    <view class="my__body" :style="contentTopStyle">
     <view class="tabs">
       <view
         v-for="item in tabs"
@@ -41,6 +44,7 @@
         </view>
       </view>
     </scroll-view>
+    </view>
   </view>
 </template>
 
@@ -48,9 +52,12 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { listMyActivities } from '@/common/api/activity.js'
-import { goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activeTab = ref('hosting')
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const lists = ref({
   hosting: [],
   joined: [],
@@ -102,15 +109,31 @@ function openActivity(item) {
 <style scoped>
 .my {
   min-height: 100vh;
-  padding-bottom: 180rpx;
   background: #f8f9f9;
 }
 
 .my__top {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  background: rgba(248, 249, 249, 0.9);
+  backdrop-filter: blur(18px);
+}
+
+.my__top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 70rpx 40rpx 28rpx;
+}
+
+.my__body {
+  display: flex;
+  height: 100vh;
+  box-sizing: border-box;
+  flex-direction: column;
+  padding-bottom: 180rpx;
 }
 
 .my__kicker {
@@ -165,7 +188,8 @@ function openActivity(item) {
 }
 
 .my__scroll {
-  height: calc(100vh - 280rpx);
+  min-height: 0;
+  flex: 1;
 }
 
 .empty {

@@ -1,14 +1,16 @@
 ﻿<template>
   <view class="edit-activity su-page">
-    <view class="edit-activity__nav">
-      <view class="edit-activity__nav-btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#0f172a" />
+    <view class="edit-activity__nav" :style="navStyle">
+      <view class="edit-activity__nav-row" :style="navRowStyle">
+        <view class="edit-activity__nav-btn" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#0f172a" />
+        </view>
+        <text>编辑活动</text>
+        <view class="edit-activity__nav-btn" />
       </view>
-      <text>编辑活动</text>
-      <view class="edit-activity__nav-btn" />
     </view>
 
-    <scroll-view scroll-y class="edit-activity__scroll">
+    <scroll-view scroll-y class="edit-activity__scroll" :style="contentTopStyle">
       <view v-if="!isEditable" class="readonly">
         <uni-icons type="info-filled" size="20" color="#d97706" />
         <text>这是参考示例活动，当前保持只读。你创建的新活动可以在这里保存修改。</text>
@@ -144,7 +146,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
-import { goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
@@ -169,6 +171,9 @@ const cityIndex = ref(Math.max(0, cityOptions.findIndex((item) => item.code === 
 const isSaving = ref(false)
 const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
 const initialCity = cityOptions[cityIndex.value] || cityOptions[0]
+const navStyle = getMiniProgramNavStyle()
+const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const form = reactive({
   title: '',
   category: categories[0],
@@ -332,13 +337,14 @@ async function handleSave() {
   right: 0;
   left: 0;
   z-index: 20;
-  display: flex;
-  height: 132rpx;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 0 34rpx 18rpx;
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(18px);
+}
+
+.edit-activity__nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   color: #0f172a;
   font-size: 28rpx;
   font-weight: 900;
@@ -354,12 +360,13 @@ async function handleSave() {
 
 .edit-activity__scroll {
   height: 100vh;
+  box-sizing: border-box;
 }
 
 .readonly {
   display: flex;
   gap: 12rpx;
-  margin: 166rpx 28rpx 24rpx;
+  margin: 0 28rpx 24rpx;
   padding: 22rpx;
   border-radius: 28rpx;
   background: #fef3c7;
@@ -370,7 +377,7 @@ async function handleSave() {
 }
 
 .form-card {
-  margin: 166rpx 28rpx 60rpx;
+  margin: 0 28rpx 60rpx;
   padding: 28rpx;
   border-radius: 44rpx;
   background: #fff;
