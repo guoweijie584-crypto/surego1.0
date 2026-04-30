@@ -1,6 +1,9 @@
 {
 	"bsonType": "object",
-	"required": ["code", "name"],
+	"required": [
+		"code",
+		"name"
+	],
 	"permission": {
 		"read": true,
 		"create": false,
@@ -42,5 +45,6 @@
 			"description": "邮政编码",
 			"title": "邮编"
 		}
-	}
+	},
+	"version": "0.0.1"
 }

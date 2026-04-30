@@ -108,10 +108,10 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivitiesByCity } from '@/common/api/activity.js'
-import { getStoredLocation, refreshCurrentLocation, sortActivitiesByDistance } from '@/common/api/location.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goCalendar, goCityPicker, goMessages, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
+const CITY_CODE_KEY = 'surego_selected_city_code'
 const categories = ['全部', '户外', '美食', '运动', '学习', '展览', '夜生活']
 const topics = [
   { name: '周末出逃', category: '户外', icon: '野', color: 'linear-gradient(135deg, #22c55e, #16a34a)' },
@@ -122,8 +122,8 @@ const topics = [
 
 const activeCategory = ref('全部')
 const selectedCity = ref('杭州')
+const selectedCityCode = ref('330100')
 const activities = ref([])
-const currentLocation = ref(getStoredLocation())
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 118 })
@@ -136,16 +136,8 @@ const filteredActivities = computed(() => {
 
 onShow(async () => {
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
-  currentLocation.value = getStoredLocation()
-  if (!currentLocation.value.latitude || !currentLocation.value.longitude) {
-    try {
-      currentLocation.value = await refreshCurrentLocation({ silent: true })
-    } catch (error) {
-      currentLocation.value = getStoredLocation()
-    }
-  }
-  const cityActivities = await listActivitiesByCity(selectedCity.value)
-  activities.value = sortActivitiesByDistance(cityActivities, currentLocation.value)
+  selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
+  activities.value = await listActivitiesByCity(selectedCity.value, selectedCityCode.value)
 })
 
 function countByCategory(category) {

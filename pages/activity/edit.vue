@@ -73,6 +73,13 @@
         </view>
 
         <view class="field">
+          <text class="label">活动城市</text>
+          <picker :range="cityNames" :value="cityIndex" @change="handleCityChange">
+            <view class="input input--picker">{{ form.city }}</view>
+          </picker>
+        </view>
+
+        <view class="field">
           <text class="label">地点 *</text>
           <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="28" placeholder="活动地点" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
@@ -140,6 +147,15 @@ import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { goActivityDetail, goBackHome, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
+const CITY_KEY = 'surego_selected_city'
+const CITY_CODE_KEY = 'surego_selected_city_code'
+const cityOptions = [
+  { name: '杭州', code: '330100' },
+  { name: '上海', code: '310100' },
+  { name: '南京', code: '320100' },
+  { name: '北京', code: '110100' }
+]
+const cityNames = cityOptions.map((item) => item.name)
 const partyModes = [
   { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
   { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
@@ -149,8 +165,10 @@ const partyModes = [
 const activityId = ref('')
 const sourceActivity = ref(null)
 const categoryIndex = ref(0)
+const cityIndex = ref(Math.max(0, cityOptions.findIndex((item) => item.code === (uni.getStorageSync(CITY_CODE_KEY) || '330100'))))
 const isSaving = ref(false)
 const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
+const initialCity = cityOptions[cityIndex.value] || cityOptions[0]
 const form = reactive({
   title: '',
   category: categories[0],
@@ -162,6 +180,9 @@ const form = reactive({
   address: '',
   latitude: '',
   longitude: '',
+  city: uni.getStorageSync(CITY_KEY) || initialCity.name,
+  cityCode: uni.getStorageSync(CITY_CODE_KEY) || initialCity.code,
+  district: '',
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
@@ -195,6 +216,9 @@ onLoad(async (query = {}) => {
     address: activity.address || activity.location || '',
     latitude: activity.latitude || '',
     longitude: activity.longitude || '',
+    city: activity.city || uni.getStorageSync(CITY_KEY) || initialCity.name,
+    cityCode: activity.cityCode || activity.city_code || uni.getStorageSync(CITY_CODE_KEY) || initialCity.code,
+    district: activity.district || '',
     maxParticipants: String(activity.maxParticipants || 10),
     hasParticipantLimit: Boolean(activity.hasParticipantLimit),
     requireApproval: Boolean(activity.requireApproval),
@@ -205,11 +229,19 @@ onLoad(async (query = {}) => {
     image: activity.image || ''
   })
   categoryIndex.value = Math.max(0, categories.indexOf(form.category))
+  cityIndex.value = Math.max(0, cityOptions.findIndex((item) => item.code === form.cityCode || item.name === form.city))
 })
 
 function handleCategoryChange(event) {
   categoryIndex.value = Number(event.detail.value)
   form.category = categories[categoryIndex.value]
+}
+
+function handleCityChange(event) {
+  cityIndex.value = Number(event.detail.value)
+  const city = cityOptions[cityIndex.value] || cityOptions[0]
+  form.city = city.name
+  form.cityCode = city.code
 }
 
 function handleDateChange(event) {

@@ -15,11 +15,11 @@
         <view>
           <text class="city__label">当前城市</text>
           <text class="city__current-name">{{ selectedCity }}</text>
-          <text v-if="hasLocated" class="city__located">已定位当前位置</text>
+          <text class="city__located">手动选择，暂不使用实时定位</text>
         </view>
-        <view class="city__locate" @tap="locateCurrentCity">
+        <view class="city__locate" @tap="openCitySelector">
           <uni-icons type="location-filled" size="18" color="#fff" />
-          <text>定位</text>
+          <text>选择</text>
         </view>
       </view>
 
@@ -34,7 +34,7 @@
             :key="item.name"
             class="city-card"
             :class="{ 'city-card--active': selectedCity === item.name }"
-            @tap="selectCity(item.name)"
+            @tap="selectCity(item.name, item.code)"
           >
             <view>
               <text class="city-card__name">{{ item.name }}</text>
@@ -45,6 +45,7 @@
         </view>
       </view>
     </scroll-view>
+    <unicloud-city-select ref="citySelectRef" :location="false" :hot-city="hotCities" @select="handlePluginSelect" />
   </view>
 </template>
 
@@ -52,25 +53,38 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
-import { getStoredLocation, refreshCurrentLocation } from '@/common/api/location.js'
 import { goBackHome } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
+const CITY_CODE_KEY = 'surego_selected_city_code'
 const selectedCity = ref('杭州')
+const selectedCityCode = ref('330100')
 const cities = ref([])
-const hasLocated = ref(false)
+const citySelectRef = ref(null)
+const hotCities = [
+  { code: '330100', name: '杭州市' },
+  { code: '310100', name: '上海市' },
+  { code: '320100', name: '南京市' },
+  { code: '110100', name: '北京市' }
+]
 
 onShow(async () => {
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
-  const storedLocation = getStoredLocation()
-  hasLocated.value = Boolean(storedLocation.latitude && storedLocation.longitude)
+  selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   cities.value = await getCityActivityStats()
 })
 
-function selectCity(city) {
-  selectedCity.value = city
-  uni.setStorageSync(CITY_KEY, city)
-  uni.showToast({ title: `已切换到${city}`, icon: 'none' })
+function normalizeCityName(name = '') {
+  return String(name || '').replace(/市$/, '')
+}
+
+function selectCity(city, code = '') {
+  const cityName = normalizeCityName(city)
+  selectedCity.value = cityName
+  selectedCityCode.value = String(code || '')
+  uni.setStorageSync(CITY_KEY, cityName)
+  uni.setStorageSync(CITY_CODE_KEY, selectedCityCode.value)
+  uni.showToast({ title: `已切换到${cityName}`, icon: 'none' })
   setTimeout(() => {
     const pages = getCurrentPages()
     if (pages.length > 1) {
@@ -81,14 +95,12 @@ function selectCity(city) {
   }, 260)
 }
 
-async function locateCurrentCity() {
-  try {
-    await refreshCurrentLocation()
-    hasLocated.value = true
-    uni.showToast({ title: '已定位当前位置，可继续选择城市', icon: 'none' })
-  } catch (error) {
-    uni.showToast({ title: '定位失败，可手动选择城市', icon: 'none' })
-  }
+function openCitySelector() {
+  citySelectRef.value?.open()
+}
+
+function handlePluginSelect(city = {}) {
+  selectCity(city.name || selectedCity.value, city.code || '')
 }
 </script>
 

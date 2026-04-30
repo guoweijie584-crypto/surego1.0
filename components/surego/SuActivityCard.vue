@@ -26,7 +26,7 @@
           <view class="su-card__meta">
             <uni-icons type="location" size="14" color="#94a3b8" />
             <text class="su-line-1">{{ displayLocation }}</text>
-            <text class="su-card__distance">{{ activity.distance }}km</text>
+            <text v-if="distanceText" class="su-card__distance">{{ distanceText }}</text>
           </view>
         </view>
 
@@ -52,6 +52,12 @@ const props = defineProps({
 
 const displayLocation = computed(() => {
   return (props.activity.location || '').split(' 路 ')[0] || props.activity.location
+})
+
+const distanceText = computed(() => {
+  if (props.activity.distanceText) return props.activity.distanceText
+  if (props.activity.distance) return `${props.activity.distance}km`
+  return props.activity.city || ''
 })
 
 const priceText = computed(() => {

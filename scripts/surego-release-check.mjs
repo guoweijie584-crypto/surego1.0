@@ -31,6 +31,10 @@ const businessPages = [
   'pages/status/success'
 ]
 
+const pluginPages = [
+  'uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list'
+]
+
 const staleDemoRoutes = [
   'pages/cloudFunction/cloudFunction',
   'pages/cloudObject/cloudObject',
@@ -54,7 +58,8 @@ const requiredApiFiles = [
 ]
 
 const requiredComponents = [
-  'components/surego/SuWechatProfileSheet.vue'
+  'components/surego/SuWechatProfileSheet.vue',
+  'uni_modules/unicloud-city-select/components/unicloud-city-select/unicloud-city-select.vue'
 ]
 
 const requiredCloudFunctions = [
@@ -114,6 +119,12 @@ for (const page of businessPages) {
   }
 }
 
+for (const page of pluginPages) {
+  if (!pagePathSet.has(page)) {
+    errors.push(`pages.json is missing plugin route: ${page}`)
+  }
+}
+
 for (const route of staleDemoRoutes) {
   if (pagePathSet.has(route)) {
     errors.push(`pages.json must not register demo route: ${route}`)
@@ -121,7 +132,7 @@ for (const route of staleDemoRoutes) {
 }
 
 for (const route of pagePaths) {
-  if (!businessPages.includes(route)) {
+  if (![...businessPages, ...pluginPages].includes(route)) {
     errors.push(`pages.json contains non-release route: ${route}`)
   }
 }
@@ -353,15 +364,23 @@ if (!editActivitySource.includes('ensureOwnerAccess')) {
 }
 
 const discoverSource = read('pages/discover/index.vue')
-for (const token of ['refreshCurrentLocation', 'getStoredLocation', 'sortActivitiesByDistance']) {
+for (const token of ['CITY_CODE_KEY', 'selectedCityCode', 'listActivitiesByCity']) {
   if (!discoverSource.includes(token)) {
-    errors.push(`pages/discover/index.vue is missing release location token: ${token}`)
+    errors.push(`pages/discover/index.vue is missing release manual-city token: ${token}`)
   }
+}
+if (discoverSource.includes('@/common/api/location.js') || discoverSource.includes('refreshCurrentLocation') || discoverSource.includes('sortActivitiesByDistance')) {
+  errors.push('pages/discover/index.vue must not auto-refresh location in manual city mode')
 }
 
 const citySource = read('pages/discover/city.vue')
-if (!citySource.includes('refreshCurrentLocation') || citySource.includes("selectCity('杭州')")) {
-  errors.push('pages/discover/city.vue must use real location refresh instead of hard-coded city locate')
+for (const token of ['unicloud-city-select', ':location="false"', 'surego_selected_city_code', 'openCitySelector', 'handlePluginSelect']) {
+  if (!citySource.includes(token)) {
+    errors.push(`pages/discover/city.vue is missing release city-select token: ${token}`)
+  }
+}
+if (citySource.includes('refreshCurrentLocation') || citySource.includes("selectCity('杭州')")) {
+  errors.push('pages/discover/city.vue must use manual unicloud-city-select instead of hard-coded or automatic location')
 }
 
 const checkinDeskSource = read('pages/manage/checkin.vue')

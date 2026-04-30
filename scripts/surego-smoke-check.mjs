@@ -23,6 +23,8 @@ const requiredFiles = [
   'common/api/user.js',
   'common/api/upload.js',
   'common/api/location.js',
+  'uni_modules/unicloud-city-select/components/unicloud-city-select/unicloud-city-select.vue',
+  'uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list.vue',
   'common/api/member.js',
   'common/api/moderation.js',
   'scripts/surego-cloud-integration-check.mjs',
@@ -212,6 +214,9 @@ if (fs.existsSync(pagesPath)) {
       if (!pagePaths.has(page)) {
         errors.push(`Missing route in pages.json: ${page}`);
       }
+    }
+    if (!pagePaths.has('uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list')) {
+      errors.push('pages.json is missing unicloud-city-select city list route');
     }
     for (const page of staleDemoPages) {
       if (pagePaths.has(page)) {
@@ -410,6 +415,11 @@ if (fs.existsSync(activityApiPath)) {
   for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus', 'isCurrentUserActivityCreator']) {
     if (!activitySource.includes(helper)) {
       errors.push(`common/api/activity.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['DEFAULT_CITY_CODE', 'cityCode', 'city_code', 'listActivitiesByCity(city = DEFAULT_CITY, cityCode = \'\')']) {
+    if (!activitySource.includes(token)) {
+      errors.push(`common/api/activity.js is missing city selection token: ${token}`);
     }
   }
   if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)') || activitySource.includes('activity.isCreator ||')) {
@@ -830,18 +840,26 @@ if (fs.existsSync(registerPagePath)) {
 const discoverPagePath = path.join(root, 'pages/discover/index.vue');
 if (fs.existsSync(discoverPagePath)) {
   const source = fs.readFileSync(discoverPagePath, 'utf8');
-  for (const token of ['refreshCurrentLocation', 'getStoredLocation', 'sortActivitiesByDistance', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+  for (const token of ['CITY_CODE_KEY', 'selectedCityCode', 'listActivitiesByCity', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
     if (!source.includes(token)) {
-      errors.push(`pages/discover/index.vue is missing location/safe-area token: ${token}`);
+      errors.push(`pages/discover/index.vue is missing manual city/safe-area token: ${token}`);
     }
+  }
+  if (source.includes('@/common/api/location.js') || source.includes('refreshCurrentLocation') || source.includes('sortActivitiesByDistance')) {
+    errors.push('pages/discover/index.vue must use manual city filtering instead of automatic location refresh');
   }
 }
 
 const cityPagePath = path.join(root, 'pages/discover/city.vue');
 if (fs.existsSync(cityPagePath)) {
   const source = fs.readFileSync(cityPagePath, 'utf8');
-  if (!source.includes('refreshCurrentLocation') || source.includes("selectCity('杭州')")) {
-    errors.push('pages/discover/city.vue must use real location refresh instead of hard-coded city locate');
+  for (const token of ['unicloud-city-select', ':location="false"', 'surego_selected_city_code', 'openCitySelector', 'handlePluginSelect']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/discover/city.vue is missing city-select token: ${token}`);
+    }
+  }
+  if (source.includes('refreshCurrentLocation') || source.includes("selectCity('杭州')")) {
+    errors.push('pages/discover/city.vue must use manual unicloud-city-select instead of hard-coded or automatic location');
   }
 }
 

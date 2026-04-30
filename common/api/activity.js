@@ -5,6 +5,14 @@ import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
+const DEFAULT_CITY = '杭州'
+const DEFAULT_CITY_CODE = '330100'
+const CITY_OPTIONS = [
+  { name: '杭州', code: '330100', desc: '西湖、武林、滨江正在成行' },
+  { name: '上海', code: '310100', desc: '周末展览与城市漫游' },
+  { name: '南京', code: '320100', desc: '咖啡、徒步、夜游小局' },
+  { name: '北京', code: '110100', desc: '读书会与运动局预热' }
+]
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
@@ -34,6 +42,43 @@ function readLocalApplication(activityId) {
   }
 }
 
+function normalizeCityName(city = '') {
+  return String(city || '').trim().replace(/市$/, '')
+}
+
+function normalizeCityCode(code = '') {
+  return String(code || '').trim()
+}
+
+function inferCityName(item = {}) {
+  const directCity = normalizeCityName(item.city || item.city_name)
+  if (directCity) return directCity
+
+  const location = `${item.location || ''} ${item.address || ''}`
+  const matched = CITY_OPTIONS.find((city) => location.includes(city.name) || location.includes(`${city.name}市`))
+  return matched?.name || DEFAULT_CITY
+}
+
+function inferCityCode(item = {}, cityName = DEFAULT_CITY) {
+  const directCode = normalizeCityCode(item.cityCode || item.city_code)
+  if (directCode) return directCode
+
+  const matched = CITY_OPTIONS.find((city) => city.name === normalizeCityName(cityName))
+  return matched?.code || DEFAULT_CITY_CODE
+}
+
+function activityMatchesCity(item = {}, city = DEFAULT_CITY, cityCode = '') {
+  const targetCity = normalizeCityName(city || DEFAULT_CITY)
+  const targetCode = normalizeCityCode(cityCode)
+  const itemCity = normalizeCityName(item.city || inferCityName(item))
+  const itemCode = normalizeCityCode(item.cityCode || item.city_code || inferCityCode(item, itemCity))
+  const location = `${item.location || ''} ${item.address || ''}`
+
+  if (targetCode && itemCode && itemCode === targetCode) return true
+  if (targetCity && itemCity && itemCity === targetCity) return true
+  return Boolean(targetCity && location.includes(targetCity))
+}
+
 export function isCurrentUserActivityCreator(item = {}) {
   const currentUserId = getCurrentUserId()
   const creatorId = item.creatorId || item.creator_id || ''
@@ -46,6 +91,8 @@ export function normalizeActivityRecord(item = {}) {
   const legacyStatus = item.applicationStatus || item.application_status || localApplication?.status || item.status
   const moderationStatus = item.moderationStatus || item.moderation_status || 'visible'
   const creatorId = item.creatorId || item.creator_id || ''
+  const city = inferCityName(item)
+  const cityCode = inferCityCode(item, city)
   return {
     ...item,
     id,
@@ -59,6 +106,10 @@ export function normalizeActivityRecord(item = {}) {
     moderatedBy: item.moderatedBy || item.moderated_by || '',
     creatorId,
     creator_id: creatorId,
+    city,
+    cityCode,
+    city_code: cityCode,
+    district: item.district || '',
     isCreator: isCurrentUserActivityCreator({ ...item, creatorId })
   }
 }
@@ -87,6 +138,8 @@ function writeCreatedActivities(items) {
 function buildActivityFromForm(form, id = `local_${Date.now()}`) {
   const currentUser = getCurrentUserProfile()
   const creatorId = form.creatorId || form.creator_id || currentUser.userId
+  const city = normalizeCityName(form.city || DEFAULT_CITY)
+  const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city))
   return {
     id,
     title: form.title,
@@ -105,6 +158,10 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     address: form.address || form.location,
     latitude: form.latitude || '',
     longitude: form.longitude || '',
+    city,
+    cityCode,
+    city_code: cityCode,
+    district: form.district || '',
     distance: form.distance || '0.6',
     participantCount: Number(form.participantCount) || 1,
     maxParticipants: Number(form.maxParticipants) || 10,
@@ -164,10 +221,12 @@ export async function listActivitiesByCategory(category = '全部') {
   return all.filter((item) => item.category === category)
 }
 
-export async function listActivitiesByCity(city = '杭州') {
+export async function listActivitiesByCity(city = DEFAULT_CITY, cityCode = '') {
   const all = await listActivities()
-  if (!city || city === '杭州') return all
-  return all.filter((item) => (item.location || '').includes(city))
+  const targetCity = normalizeCityName(city || DEFAULT_CITY)
+  const targetCode = normalizeCityCode(cityCode)
+  if (!targetCity && !targetCode) return all
+  return all.filter((item) => activityMatchesCity(item, targetCity, targetCode))
 }
 
 export async function listActivitiesByDate(date = '') {
@@ -192,12 +251,10 @@ export async function getActivityCalendar() {
 
 export async function getCityActivityStats() {
   const all = await listActivities()
-  return [
-    { name: '杭州', count: all.length, desc: '西湖、武林、滨江正在成行' },
-    { name: '上海', count: all.filter((item) => (item.location || '').includes('上海')).length, desc: '周末展览与城市漫游' },
-    { name: '南京', count: all.filter((item) => (item.location || '').includes('南京')).length, desc: '咖啡、徒步、夜游小局' },
-    { name: '北京', count: all.filter((item) => (item.location || '').includes('北京')).length, desc: '读书会与运动局预热' }
-  ]
+  return CITY_OPTIONS.map((city) => ({
+    ...city,
+    count: all.filter((item) => activityMatchesCity(item, city.name, city.code)).length
+  }))
 }
 
 function getLocalActivityDetail(id) {
@@ -274,6 +331,10 @@ function updateLocalActivity(id, form) {
     address: form.address || form.location,
     latitude: form.latitude || found.latitude || '',
     longitude: form.longitude || found.longitude || '',
+    city: normalizeCityName(form.city || found.city || DEFAULT_CITY),
+    cityCode: normalizeCityCode(form.cityCode || form.city_code || found.cityCode || found.city_code || DEFAULT_CITY_CODE),
+    city_code: normalizeCityCode(form.cityCode || form.city_code || found.cityCode || found.city_code || DEFAULT_CITY_CODE),
+    district: form.district || found.district || '',
     maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
     hasParticipantLimit: Boolean(form.hasParticipantLimit),
     requireApproval: Boolean(form.requireApproval),
@@ -293,14 +354,22 @@ function updateLocalActivity(id, form) {
 }
 
 export async function updateActivity(id, form) {
+  const city = normalizeCityName(form.city || DEFAULT_CITY)
+  const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city))
+  const payload = {
+    ...form,
+    city,
+    cityCode,
+    city_code: cityCode
+  }
   if (USE_UNICLOUD && !String(id).startsWith('local_')) {
     try {
-      return await callSuregoFunction('surego-activity', 'update', { id, ...form })
+      return await callSuregoFunction('surego-activity', 'update', { id, ...payload })
     } catch (error) {
-      return handleSuregoCloudError(error, () => updateLocalActivity(id, form))
+      return handleSuregoCloudError(error, () => updateLocalActivity(id, payload))
     }
   }
-  return updateLocalActivity(id, form)
+  return updateLocalActivity(id, payload)
 }
 
 export async function listMyActivities() {
