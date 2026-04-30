@@ -15,9 +15,29 @@ function writeApplications(items) {
 
 function writeApplicationCache(application) {
   const items = readApplications()
-  const next = [application, ...items.filter((item) => item.id !== application.id)]
+  const next = [
+    application,
+    ...items.filter((item) => (
+      item.id !== application.id
+        && !(String(item.activityId) === String(application.activityId) && String(item.userId) === String(application.userId))
+    ))
+  ]
   writeApplications(next)
   uni.setStorageSync(`surego_application_${application.activityId}`, application)
+}
+
+function normalizeApplication(item = {}) {
+  return {
+    ...item,
+    id: item.id || item._id || '',
+    activityId: String(item.activityId || item.activity_id || ''),
+    userId: item.userId || item.user_id || '',
+    reviewNote: item.reviewNote || item.review_note || '',
+    rejectReason: item.rejectReason || item.reject_reason || '',
+    reviewerId: item.reviewerId || item.reviewer_id || '',
+    createdAt: item.createdAt || item.created_at || '',
+    reviewedAt: item.reviewedAt || item.reviewed_at || ''
+  }
 }
 
 function buildApplication(payload, id = `app_${Date.now()}`) {
@@ -44,6 +64,27 @@ function getSenderName() {
 
 function getActivityTitle(source = {}) {
   return source.activityTitle || source.activity_title || source.title || '活动'
+}
+
+function adjustLocalActivityParticipantCount(activityId, delta = 0) {
+  if (!activityId || !delta) return
+  try {
+    const key = 'surego_created_activities'
+    const created = uni.getStorageSync(key) || []
+    const next = created.map((item) => {
+      if (String(item.id || item._id || '') !== String(activityId)) return item
+      const currentCount = Number(item.participantCount || item.participant_count || 0)
+      const nextCount = Math.max(0, currentCount + delta)
+      return {
+        ...item,
+        participantCount: nextCount,
+        participant_count: nextCount
+      }
+    })
+    uni.setStorageSync(key, next)
+  } catch (error) {
+    console.warn('[surego-application] participant count sync failed', error)
+  }
 }
 
 async function safeCreateMessage(payload) {
@@ -96,10 +137,17 @@ async function notifyApplicationReviewed(application = {}, status = '') {
 
 function submitLocalApplication(payload) {
   const items = readApplications()
+  const userId = payload.userId || getCurrentUserId()
+  const existing = items.find((item) => (
+    String(item.activityId) === String(payload.activityId)
+      && String(item.userId) === String(userId)
+  )) || uni.getStorageSync(`surego_application_${payload.activityId}`)
+  if (existing && String(existing.userId || '') === String(userId)) {
+    return Promise.resolve(normalizeApplication(existing))
+  }
   const application = buildApplication(payload)
 
-  writeApplications([application, ...items])
-  uni.setStorageSync(`surego_application_${payload.activityId}`, application)
+  writeApplicationCache(application)
   return Promise.resolve(application)
 }
 
@@ -108,6 +156,7 @@ export async function submitApplication(payload) {
   if (USE_UNICLOUD) {
     try {
       application = await callSuregoFunction('surego-application', 'submit', buildApplication(payload, ''))
+      application = normalizeApplication(application)
       writeApplicationCache(application)
     } catch (error) {
       application = await handleSuregoCloudError(error, () => submitLocalApplication(payload))
@@ -119,6 +168,37 @@ export async function submitApplication(payload) {
   return application
 }
 
+function getLocalApplicationForActivity(activityId, userId = getCurrentUserId()) {
+  const cached = uni.getStorageSync(`surego_application_${activityId}`)
+  if (cached && String(cached.userId || cached.user_id || '') === String(userId)) {
+    return Promise.resolve(normalizeApplication(cached))
+  }
+  const found = readApplications().find((item) => (
+    String(item.activityId || item.activity_id || '') === String(activityId)
+      && String(item.userId || item.user_id || '') === String(userId)
+  ))
+  return Promise.resolve(found ? normalizeApplication(found) : null)
+}
+
+export async function getApplicationForActivity(activityId) {
+  const userId = getCurrentUserId()
+  if (!activityId || !userId) return null
+  if (USE_UNICLOUD) {
+    try {
+      const application = await callSuregoFunction('surego-application', 'getMineByActivity', { activityId, userId })
+      if (application) {
+        const normalized = normalizeApplication(application)
+        writeApplicationCache(normalized)
+        return normalized
+      }
+      return null
+    } catch (error) {
+      return handleSuregoCloudError(error, () => getLocalApplicationForActivity(activityId, userId))
+    }
+  }
+  return getLocalApplicationForActivity(activityId, userId)
+}
+
 function listLocalApplications(activityId) {
   return Promise.resolve(readApplications().filter((item) => item.activityId === String(activityId)))
 }
@@ -126,7 +206,8 @@ function listLocalApplications(activityId) {
 export async function listApplications(activityId) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-application', 'listByActivity', { activityId })
+      const items = await callSuregoFunction('surego-application', 'listByActivity', { activityId })
+      return (items || []).map(normalizeApplication)
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalApplications(activityId))
     }
@@ -147,11 +228,17 @@ function buildReviewPayload(input = {}) {
 
 function reviewLocalApplication(payload) {
   const review = buildReviewPayload(payload)
+  const before = readApplications().find((item) => item.id === review.id)
   const next = readApplications().map((item) => (item.id === review.id ? { ...item, ...review } : item))
   writeApplications(next)
   const found = next.find((item) => item.id === review.id)
   if (found) {
     uni.setStorageSync(`surego_application_${found.activityId}`, found)
+    if (before?.status !== 'approved' && found.status === 'approved') {
+      adjustLocalActivityParticipantCount(found.activityId, 1)
+    } else if (before?.status === 'approved' && found.status !== 'approved') {
+      adjustLocalActivityParticipantCount(found.activityId, -1)
+    }
   }
   return Promise.resolve(found)
 }

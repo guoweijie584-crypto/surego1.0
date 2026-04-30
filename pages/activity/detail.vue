@@ -228,6 +228,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
+import { getApplicationForActivity } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -320,8 +321,22 @@ const primaryButtonClass = computed(() => ({
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
-  activity.value = await getActivityDetail(id)
-  const members = await listActivityMembers(activity.value.id || id)
+  const detail = await getActivityDetail(id)
+  const [application, members] = await Promise.all([
+    getApplicationForActivity(detail.id || id),
+    listActivityMembers(detail.id || id)
+  ])
+  const memberCount = members.length
+  activity.value = {
+    ...detail,
+    ...(application ? {
+      application,
+      applicationStatus: application.status || detail.applicationStatus,
+      reviewNote: application.reviewNote || detail.reviewNote || '',
+      rejectReason: application.rejectReason || detail.rejectReason || ''
+    } : {}),
+    participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
+  }
   visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
 })
 

@@ -18,8 +18,8 @@ const modules = [
     api: 'common/api/application.js',
     cloud: 'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
     schema: 'uniCloud-aliyun/database/surego-applications.schema.json',
-    actions: ['submit', 'listByActivity', 'review'],
-    apiExports: ['submitApplication', 'listApplications', 'reviewApplication'],
+    actions: ['submit', 'getMineByActivity', 'listByActivity', 'review'],
+    apiExports: ['submitApplication', 'getApplicationForActivity', 'listApplications', 'reviewApplication'],
     requiredSchemaFields: ['activity_id', 'user_id', 'status']
   },
   {

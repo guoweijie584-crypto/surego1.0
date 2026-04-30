@@ -394,7 +394,19 @@ async function submitReview() {
     ? { reviewNote: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
     : { rejectReason: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
   const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
+  const previousStatus = reviewTarget.value.status
   applications.value = applications.value.map((app) => (app.id === reviewTarget.value.id ? { ...app, ...reviewed } : app))
+  if (previousStatus !== 'approved' && status === 'approved') {
+    activity.value = {
+      ...activity.value,
+      participantCount: Number(activity.value.participantCount || 0) + 1
+    }
+  } else if (previousStatus === 'approved' && status !== 'approved') {
+    activity.value = {
+      ...activity.value,
+      participantCount: Math.max(0, Number(activity.value.participantCount || 0) - 1)
+    }
+  }
   showReviewSheet.value = false
   uni.showToast({
     title: status === 'approved' ? '已通过' : '已拒绝',

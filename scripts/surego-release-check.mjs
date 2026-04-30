@@ -480,6 +480,11 @@ for (const token of ['notifyApplicationSubmitted', 'notifyApplicationReviewed', 
     errors.push(`common/api/application.js must emit application lifecycle messages via ${token}`)
   }
 }
+for (const token of ['getApplicationForActivity', 'getMineByActivity', 'writeApplicationCache', 'adjustLocalActivityParticipantCount']) {
+  if (!appMessageSource.includes(token)) {
+    errors.push(`common/api/application.js must guard duplicate applications/member count with ${token}`)
+  }
+}
 
 const orderMessageSource = read('common/api/order.js')
 if (!orderMessageSource.includes('notifyOrderStatus') || !orderMessageSource.includes('createMessage')) {
@@ -764,6 +769,13 @@ for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "stat
 for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
   if (!activityCloudSource.includes(token)) {
     errors.push(`surego-activity must guard creator lifecycle transitions with ${token}`)
+  }
+}
+
+const applicationCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-application/index.js')
+for (const token of ["action === 'getMineByActivity'", 'getExistingApplication', 'dbCmd.inc(1)', 'Creator cannot apply to own activity']) {
+  if (!applicationCloudSource.includes(token)) {
+    errors.push(`surego-application must guard duplicate applications/member count with ${token}`)
   }
 }
 

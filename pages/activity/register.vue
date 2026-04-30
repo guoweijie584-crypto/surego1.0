@@ -121,7 +121,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { submitApplication } from '@/common/api/application.js'
+import { getApplicationForActivity, submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
 
@@ -161,6 +161,7 @@ const mbtiOptions = [
 ]
 
 const selectedMbti = computed(() => (mbtiIndex.value > 0 ? mbtiOptions[mbtiIndex.value] : ''))
+const hasExistingApplication = computed(() => ['pending', 'approved', 'rejected'].includes(activity.value.applicationStatus))
 
 const shortLocation = computed(() => {
   return (activity.value.location || '').split(' 路 ')[0] || activity.value.location
@@ -177,6 +178,9 @@ const noticeText = computed(() => {
 })
 
 const submitText = computed(() => {
+  if (activity.value.applicationStatus === 'pending') return '已申请，等待审核'
+  if (activity.value.applicationStatus === 'approved') return '已加入该活动'
+  if (activity.value.applicationStatus === 'rejected') return '申请未通过'
   if (activity.value.partyMode === 'free') return '申请入局'
   return '提交申请并确认订单'
 })
@@ -187,14 +191,28 @@ const requiredAnswersDone = computed(() => {
 })
 
 const canSubmit = computed(() => {
-  return gender.value && message.value.trim().length > 0 && requiredAnswersDone.value
+  return !hasExistingApplication.value && gender.value && message.value.trim().length > 0 && requiredAnswersDone.value
 })
 
 onLoad(async (query) => {
-  activity.value = await getActivityDetail((query && query.id) || '101')
+  const id = (query && query.id) || '101'
+  activity.value = await getActivityDetail(id)
+  await syncApplicationStatus(id)
   answers.value = (activity.value.questions || []).map(() => '')
   validateJoinEligibility(true)
 })
+
+async function syncApplicationStatus(id = activity.value.id) {
+  const application = await getApplicationForActivity(id)
+  if (!application) return
+  activity.value = {
+    ...activity.value,
+    application,
+    applicationStatus: application.status || activity.value.applicationStatus,
+    reviewNote: application.reviewNote || activity.value.reviewNote || '',
+    rejectReason: application.rejectReason || activity.value.rejectReason || ''
+  }
+}
 
 function handleMbtiChange(event) {
   mbtiIndex.value = Number(event.detail.value)
@@ -226,6 +244,7 @@ async function handleSubmit() {
   }
 
   await submitApplication(application)
+  await syncApplicationStatus(activity.value.id)
 
   setTimeout(() => {
     if (activity.value.partyMode !== 'free') {

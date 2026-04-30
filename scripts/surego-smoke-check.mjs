@@ -623,6 +623,11 @@ if (fs.existsSync(applicationApiPath)) {
       errors.push(`common/api/application.js is missing ${token}`);
     }
   }
+  for (const token of ['getApplicationForActivity', 'getMineByActivity', 'writeApplicationCache', 'adjustLocalActivityParticipantCount']) {
+    if (!applicationSource.includes(token)) {
+      errors.push(`common/api/application.js is missing duplicate-application/member-count guard: ${token}`);
+    }
+  }
 }
 
 for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js', 'common/api/moderation.js', 'common/api/member.js']) {
@@ -777,6 +782,11 @@ if (fs.existsSync(applicationCloudPath)) {
   for (const token of ['reviewNote', 'rejectReason', 'reviewerId']) {
     if (!source.includes(token)) {
       errors.push(`surego-application cloud function is missing ${token}`);
+    }
+  }
+  for (const token of ["action === 'getMineByActivity'", 'getExistingApplication', 'dbCmd.inc(1)', 'Creator cannot apply to own activity']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-application cloud function is missing duplicate/member sync token: ${token}`);
     }
   }
 }

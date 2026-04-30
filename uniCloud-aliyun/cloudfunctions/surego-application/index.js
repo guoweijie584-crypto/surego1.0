@@ -1,6 +1,7 @@
 'use strict';
 
 const db = uniCloud.database();
+const dbCmd = db.command;
 const collection = db.collection('surego-applications');
 const activityCollection = db.collection('surego-activities');
 const uniIdUsers = db.collection('uni-id-users');
@@ -55,6 +56,14 @@ async function getActivity(activityId) {
   return (result.data || [])[0] || null;
 }
 
+async function getExistingApplication(activityId, userId) {
+  const result = await collection.where({
+    activity_id: String(activityId || ''),
+    user_id: String(userId || '')
+  }).orderBy('created_at', 'desc').limit(1).get();
+  return (result.data || [])[0] || null;
+}
+
 async function canManageActivity(activityId, user) {
   if (user.isOps) return true;
   const activity = await getActivity(activityId);
@@ -99,8 +108,25 @@ exports.main = async (event) => {
 
   if (action === 'submit') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const activityId = String(payload.activityId || payload.activity_id || '');
+    const activity = await getActivity(activityId);
+    if (!activity) {
+      return { code: 'NOT_FOUND', message: 'Activity not found.' };
+    }
+    if (String(activity.creator_id || activity.creatorId || '') === user.uid) {
+      return { code: 'FORBIDDEN', message: 'Creator cannot apply to own activity.' };
+    }
+    const existing = await getExistingApplication(activityId, user.uid);
+    if (existing) {
+      return {
+        code: 0,
+        data: normalizeApplication(existing)
+      };
+    }
     const application = buildRecord({
       ...payload,
+      activityId,
+      activity_id: activityId,
       userId: user.uid,
       user_id: user.uid,
       status: payload.status || 'pending',
@@ -113,6 +139,15 @@ exports.main = async (event) => {
         ...application,
         id: result.id
       })
+    };
+  }
+
+  if (action === 'getMineByActivity') {
+    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const target = await getExistingApplication(payload.activityId || payload.activity_id, user.uid);
+    return {
+      code: 0,
+      data: target ? normalizeApplication(target) : null
     };
   }
 
@@ -137,6 +172,7 @@ exports.main = async (event) => {
       return { code: 'FORBIDDEN', message: 'Only the activity creator can review applications.' };
     }
     const reviewedAt = Date.now();
+    const beforeStatus = target.status;
     await collection.doc(payload.id).update({
       status: payload.status,
       review_note: payload.reviewNote || payload.review_note || '',
@@ -144,10 +180,27 @@ exports.main = async (event) => {
       reviewer_id: user.uid,
       reviewed_at: reviewedAt
     });
+    if (beforeStatus !== 'approved' && payload.status === 'approved') {
+      await activityCollection.doc(target.activity_id || target.activityId).update({
+        participantCount: dbCmd.inc(1),
+        participant_count: dbCmd.inc(1),
+        updated_at: reviewedAt
+      });
+    } else if (beforeStatus === 'approved' && payload.status !== 'approved') {
+      await activityCollection.doc(target.activity_id || target.activityId).update({
+        participantCount: dbCmd.inc(-1),
+        participant_count: dbCmd.inc(-1),
+        updated_at: reviewedAt
+      });
+    }
     return {
       code: 0,
       data: normalizeApplication({
         id: payload.id,
+        activityId: target.activity_id || target.activityId,
+        activity_id: target.activity_id || target.activityId,
+        userId: target.user_id || target.userId,
+        user_id: target.user_id || target.userId,
         status: payload.status,
         reviewNote: payload.reviewNote || payload.review_note || '',
         rejectReason: payload.rejectReason || payload.reject_reason || '',
