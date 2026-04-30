@@ -59,6 +59,7 @@ const requiredApiFiles = [
 
 const requiredUtilityFiles = [
   'common/utils/city.js',
+  'common/utils/cover-presets.js',
   'common/utils/route.js',
   'common/utils/share.js'
 ]
@@ -360,6 +361,28 @@ const cityUtilSource = read('common/utils/city.js')
 for (const token of ['CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation']) {
   if (!cityUtilSource.includes(token)) {
     errors.push(`common/utils/city.js is missing release city helper token: ${token}`)
+  }
+}
+
+const coverPresetSource = read('common/utils/cover-presets.js')
+for (const token of ['COVER_PRESETS', 'COVER_CATEGORIES', 'getDefaultCoverPreset', 'listCoverPresets', 'pickRandomCoverPreset', 'isPresetCover']) {
+  if (!coverPresetSource.includes(token)) {
+    errors.push(`common/utils/cover-presets.js is missing release cover preset token: ${token}`)
+  }
+}
+
+for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
+  const source = read(page)
+  for (const token of ['showCoverPicker', 'coverPresets', 'listCoverPresets', 'pickRandomCoverPreset', 'uploadCoverFromAlbum', 'isPresetCover', 'handleCoverImageError']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must use the release cover picker token: ${token}`)
+    }
+  }
+  if (source.includes("image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622")) {
+    errors.push(`${page} must not ship a single hard-coded default cover image`)
+  }
+  if (source.includes('tempFilePaths[0]')) {
+    errors.push(`${page} must upload custom covers through common/api/upload.js`)
   }
 }
 

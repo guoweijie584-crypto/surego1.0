@@ -16,6 +16,7 @@ const requiredFiles = [
   'common/api/cloud.js',
   'common/utils/share.js',
   'common/utils/city.js',
+  'common/utils/cover-presets.js',
   'common/api/activity.js',
   'common/api/application.js',
   'common/api/order.js',
@@ -1052,6 +1053,33 @@ if (fs.existsSync(cityUtilPath)) {
     if (!source.includes(token)) {
       errors.push(`common/utils/city.js is missing city helper token: ${token}`);
     }
+  }
+}
+
+const coverPresetPath = path.join(root, 'common/utils/cover-presets.js');
+if (fs.existsSync(coverPresetPath)) {
+  const source = fs.readFileSync(coverPresetPath, 'utf8');
+  for (const token of ['COVER_PRESETS', 'COVER_CATEGORIES', 'getDefaultCoverPreset', 'listCoverPresets', 'pickRandomCoverPreset', 'isPresetCover']) {
+    if (!source.includes(token)) {
+      errors.push(`common/utils/cover-presets.js is missing cover preset token: ${token}`);
+    }
+  }
+}
+
+for (const file of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of ['showCoverPicker', 'coverPresets', 'listCoverPresets', 'pickRandomCoverPreset', 'uploadCoverFromAlbum', 'isPresetCover', 'handleCoverImageError']) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must use the recommended cover picker token: ${token}`);
+    }
+  }
+  if (source.includes("image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622")) {
+    errors.push(`${file} must not hard-code a single default cover image`);
+  }
+  if (source.includes('tempFilePaths[0]')) {
+    errors.push(`${file} must upload custom covers through common/api/upload.js`);
   }
 }
 

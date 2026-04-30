@@ -17,8 +17,8 @@
       </view>
 
       <view class="form-card">
-        <view class="cover" @tap="chooseCover">
-          <image class="cover__image" :src="form.image" mode="aspectFill" />
+        <view class="cover" @tap="openCoverPicker">
+          <image class="cover__image" :src="form.image" mode="aspectFill" @error="handleCoverImageError" />
           <view class="cover__mask">
             <uni-icons type="image" size="26" color="#fff" />
             <text>更换封面</text>
@@ -141,14 +141,58 @@
         </button>
       </view>
     </scroll-view>
+
+    <SuActionSheet v-model="showCoverPicker" title="选择封面 / COVER">
+      <view class="cover-picker">
+        <view class="cover-picker__toolbar">
+          <scroll-view scroll-x class="cover-picker__tabs" :show-scrollbar="false">
+            <view class="cover-picker__tab-list">
+              <view
+                v-for="item in categories"
+                :key="item"
+                class="cover-picker__tab"
+                :class="{ 'cover-picker__tab--active': coverCategory === item }"
+                @tap="coverCategory = item"
+              >
+                {{ item }}
+              </view>
+            </view>
+          </scroll-view>
+          <view class="cover-picker__random" @tap="useRandomCover">
+            <uni-icons type="refresh" size="16" color="#0f172a" />
+            <text>换一张</text>
+          </view>
+        </view>
+
+        <view class="cover-picker__grid">
+          <view
+            v-for="item in coverPresets"
+            :key="item.id"
+            class="cover-option"
+            :class="{ 'cover-option--active': form.image === item.image }"
+            @tap="selectCoverPreset(item)"
+          >
+            <image class="cover-option__image" :src="item.image" mode="aspectFill" />
+            <view class="cover-option__shade" />
+            <text>{{ item.title }}</text>
+          </view>
+        </view>
+
+        <button class="cover-picker__upload" @tap="uploadCoverFromAlbum">
+          从相册上传
+        </button>
+      </view>
+    </SuActionSheet>
   </view>
 </template>
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
+import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
 import { CITY_OPTIONS, inferCityFromLocation } from '@/common/utils/city.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
 
@@ -167,6 +211,8 @@ const activityId = ref('')
 const sourceActivity = ref(null)
 const categoryIndex = ref(0)
 const cityIndex = ref(Math.max(0, cityOptions.findIndex((item) => item.code === (uni.getStorageSync(CITY_CODE_KEY) || '330100'))))
+const showCoverPicker = ref(false)
+const coverCategory = ref(categories[0])
 const isSaving = ref(false)
 const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
 const initialCity = cityOptions[cityIndex.value] || cityOptions[0]
@@ -198,6 +244,7 @@ const form = reactive({
 })
 
 const canSave = computed(() => isEditable.value && form.title.trim() && form.location.trim() && form.description.trim())
+const coverPresets = computed(() => listCoverPresets(coverCategory.value))
 const saveButtonText = computed(() => {
   if (!isEditable.value) return '示例活动不可保存'
   if (isSaving.value) return '保存中...'
@@ -230,15 +277,21 @@ onLoad(async (query = {}) => {
     amount: String(activity.amount || ''),
     description: activity.description || '',
     questions: [...(activity.questions || [])],
-    image: activity.image || ''
+    image: activity.image || getDefaultCoverPreset(activity.category || categories[0]).image
   })
   categoryIndex.value = Math.max(0, categories.indexOf(form.category))
+  coverCategory.value = form.category
   cityIndex.value = Math.max(0, cityOptions.findIndex((item) => item.code === form.cityCode || item.name === form.city))
 })
 
 function handleCategoryChange(event) {
+  const previousImage = form.image
   categoryIndex.value = Number(event.detail.value)
   form.category = categories[categoryIndex.value]
+  coverCategory.value = form.category
+  if (isPresetCover(previousImage)) {
+    selectCoverPreset(getDefaultCoverPreset(form.category), { keepSheetOpen: true })
+  }
 }
 
 function handleCityChange(event) {
@@ -255,17 +308,40 @@ function handleDateChange(event) {
   form.date = `${Number(parts[1])}月${Number(parts[2])}日`
 }
 
-async function chooseCover() {
+function openCoverPicker() {
   if (!isEditable.value) {
     uni.showToast({ title: '示例活动暂不支持修改', icon: 'none' })
     return
   }
+  coverCategory.value = form.category
+  showCoverPicker.value = true
+}
 
+function selectCoverPreset(preset, options = {}) {
+  if (!preset?.image) return
+  form.image = preset.image
+  if (!options.keepSheetOpen) showCoverPicker.value = false
+}
+
+function useRandomCover() {
+  if (!isEditable.value) return
+  selectCoverPreset(pickRandomCoverPreset(coverCategory.value))
+}
+
+async function uploadCoverFromAlbum() {
+  if (!isEditable.value) return
   const uploaded = await chooseAndUploadImage({
     prefix: 'surego/activity-covers'
   })
   if (!uploaded) return
   form.image = uploaded.url
+  showCoverPicker.value = false
+}
+
+function handleCoverImageError() {
+  if (form.image !== FALLBACK_COVER_IMAGE) {
+    form.image = FALLBACK_COVER_IMAGE
+  }
 }
 
 function ensureOwnerAccess() {
@@ -428,6 +504,111 @@ async function handleSave() {
   color: #fff;
   font-size: 22rpx;
   font-weight: 900;
+}
+
+.cover-picker {
+  padding: 4rpx 2rpx 18rpx;
+}
+
+.cover-picker__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.cover-picker__tabs {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.cover-picker__tab-list {
+  display: flex;
+  gap: 12rpx;
+}
+
+.cover-picker__tab,
+.cover-picker__random {
+  display: flex;
+  height: 64rpx;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.cover-picker__tab {
+  padding: 0 24rpx;
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.cover-picker__tab--active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.cover-picker__random {
+  flex-shrink: 0;
+  gap: 6rpx;
+  padding: 0 20rpx;
+  background: #eef2ff;
+  color: #0f172a;
+}
+
+.cover-picker__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18rpx;
+  margin-top: 22rpx;
+}
+
+.cover-option {
+  position: relative;
+  height: 180rpx;
+  overflow: hidden;
+  border: 4rpx solid transparent;
+  border-radius: 26rpx;
+  background: #e2e8f0;
+}
+
+.cover-option--active {
+  border-color: #ff6b6b;
+}
+
+.cover-option__image,
+.cover-option__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-option__shade {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.05), rgba(15, 23, 42, 0.62));
+}
+
+.cover-option text {
+  position: absolute;
+  right: 18rpx;
+  bottom: 16rpx;
+  left: 18rpx;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.cover-picker__upload {
+  height: 84rpx;
+  margin-top: 24rpx;
+  border-radius: 28rpx;
+  background: #0f172a;
+  color: #fff;
+  font-size: 25rpx;
+  font-weight: 900;
+  line-height: 84rpx;
 }
 
 .field {

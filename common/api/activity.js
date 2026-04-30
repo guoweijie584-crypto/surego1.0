@@ -2,6 +2,7 @@ import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
+import { getDefaultCoverPreset } from '@/common/utils/cover-presets.js'
 import { CITY_OPTIONS, DEFAULT_CITY, DEFAULT_CITY_CODE, getCityCode, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 
 const STORAGE_KEY = 'surego_created_activities'
@@ -185,7 +186,7 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     creator_id: creatorId,
     organizer: form.organizer || currentUser.nickname,
     organizerAvatar: normalizeOrganizerAvatar(form.organizerAvatar || currentUser.avatar),
-    image: form.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',
+    image: form.image || getDefaultCoverPreset(form.category).image,
     category: form.category,
     date: form.date,
     dateValue: form.dateValue,
