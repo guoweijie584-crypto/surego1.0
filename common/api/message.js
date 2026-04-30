@@ -75,6 +75,11 @@ export async function listMessages() {
   return listLocalMessages(userId)
 }
 
+export async function getUnreadMessageCount() {
+  const items = await listMessages()
+  return items.filter((item) => !item.read).length
+}
+
 function markLocalMessageRead(id, userId = getCurrentUserId()) {
   const items = readMessages()
   let marked = null

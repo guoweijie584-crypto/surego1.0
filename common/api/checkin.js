@@ -25,6 +25,32 @@ export function isValidCheckinCode(code = '') {
   return /^SG\d{4,}$/.test(String(code).trim())
 }
 
+function hashToDigits(value = '') {
+  let hash = 2166136261
+  String(value).split('').forEach((char) => {
+    hash ^= char.charCodeAt(0)
+    hash = Math.imul(hash, 16777619) >>> 0
+  })
+  return String(hash).padStart(10, '0').slice(0, 10)
+}
+
+export function normalizeCheckinCode(code = '') {
+  const matched = String(code || '').toUpperCase().match(/SG\d{4,}/)
+  return matched ? matched[0] : ''
+}
+
+export function buildParticipantCheckinCode(activityId, userId = getCurrentUserId()) {
+  return `SG${hashToDigits(`${activityId}:${userId}`)}`
+}
+
+export function parseScannedCheckinCode(value = '') {
+  return normalizeCheckinCode(value)
+}
+
+export function isMatchingParticipantCheckinCode(code = '', activityId, userId = getCurrentUserId()) {
+  return normalizeCheckinCode(code) === buildParticipantCheckinCode(activityId, userId)
+}
+
 function createLocalCheckinCode(activityId) {
   return Promise.resolve(buildCode(activityId))
 }
@@ -87,6 +113,10 @@ function confirmLocalCheckin(payload) {
   }
   const items = readCheckins()
   const userId = payload.userId || getCurrentUserId()
+  if (!isMatchingParticipantCheckinCode(payload.code, payload.activityId, userId)) {
+    uni.showToast({ title: '核销码与成员不匹配', icon: 'none' })
+    return Promise.resolve(null)
+  }
   const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === userId)
   if (found) {
     return Promise.resolve(found)

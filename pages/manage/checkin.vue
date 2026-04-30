@@ -37,19 +37,19 @@
       <view class="panel panel--code">
         <view class="panel__head">
           <view>
-            <text class="panel__title">现场核销码</text>
-            <text class="panel__sub">SHOW THIS CODE</text>
+            <text class="panel__title">成员凭证核销</text>
+            <text class="panel__sub">SCAN MEMBER PASS</text>
           </view>
-          <text class="panel__hint">5 分钟有效</text>
+          <text class="panel__hint">扫码或手动输入</text>
         </view>
 
         <view class="code-box">
-          <text>{{ checkinCode }}</text>
+          <text>{{ nextCheckablePerson ? nextCheckablePerson.entryCode : '暂无待核销' }}</text>
         </view>
 
         <view class="code-actions">
           <view class="code-actions__input">
-            <input v-model="codeInput" adjust-position="false" cursor-spacing="28" placeholder="输入 SG 开头核销码" placeholder-class="input-placeholder" />
+            <input v-model="codeInput" adjust-position="false" cursor-spacing="28" placeholder="输入成员入场凭证码" placeholder-class="input-placeholder" />
           </view>
           <view class="code-actions__button" @tap="confirmByCode">
             <uni-icons type="checkmarkempty" size="18" color="#fff" />
@@ -57,7 +57,7 @@
           </view>
         </view>
 
-        <view class="scan-button" @tap="simulateScan">
+        <view class="scan-button" @tap="scanCheckinCode">
           <uni-icons type="scan" size="22" color="#0f172a" />
           <text>扫码核销</text>
         </view>
@@ -97,7 +97,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
-import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode } from '@/common/api/checkin.js'
+import { buildParticipantCheckinCode, confirmCheckin, getCheckinSummary, isValidCheckinCode, parseScannedCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback } from '@/common/utils/route.js'
@@ -107,7 +107,6 @@ const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
 const memberProfiles = ref([])
 const checkins = ref([])
-const checkinCode = ref('')
 const codeInput = ref('')
 const hasOwnerAccess = ref(false)
 const navStyle = getMiniProgramNavStyle()
@@ -151,7 +150,8 @@ const participantList = computed(() => {
   const merged = [...baseMembers, ...applicantMembers, ...checkedGuests]
   return merged.map((person) => ({
     ...person,
-    checked: checkins.value.some((item) => item.userId === person.userId)
+    checked: checkins.value.some((item) => item.userId === person.userId),
+    entryCode: buildParticipantCheckinCode(activityId.value, person.userId)
   }))
 })
 
@@ -175,10 +175,6 @@ async function loadState() {
   memberProfiles.value = await listActivityMembers(activityId.value)
   const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
   checkins.value = summary.items || []
-  if (!checkinCode.value) {
-    const code = await createCheckinCode(activityId.value)
-    checkinCode.value = code.code
-  }
 }
 
 function ensureOwnerAccess() {
@@ -200,10 +196,9 @@ function handleBack() {
 }
 
 async function refreshCode() {
-  const code = await createCheckinCode(activityId.value)
-  checkinCode.value = code.code
   codeInput.value = ''
-  uni.showToast({ title: '核销码已刷新', icon: 'none' })
+  await loadState()
+  uni.showToast({ title: '核销状态已刷新', icon: 'none' })
 }
 
 function getStatusLabel(person) {
@@ -216,7 +211,7 @@ async function toggleCheckin(person) {
     return
   }
 
-  await confirmPerson(person, checkinCode.value, checkinSourceOptions.manual.source)
+  await confirmPerson(person, person.entryCode, checkinSourceOptions.manual.source)
 }
 
 async function confirmByCode() {
@@ -226,9 +221,9 @@ async function confirmByCode() {
     return
   }
 
-  const target = nextCheckablePerson.value
+  const target = participantList.value.find((person) => person.entryCode === parseScannedCheckinCode(code))
   if (!target) {
-    uni.showToast({ title: '暂无待签到成员', icon: 'none' })
+    uni.showToast({ title: '未找到对应成员', icon: 'none' })
     return
   }
 
@@ -236,31 +231,39 @@ async function confirmByCode() {
   codeInput.value = ''
 }
 
-async function simulateScan() {
-  if (typeof uni.scanCode === 'function') {
-    uni.scanCode({
-      onlyFromCamera: false,
-      success: async (result) => {
-        codeInput.value = result.result || checkinCode.value
-        await confirmByCode()
-      },
-      fail: async () => {
-        await confirmNextByScan()
-      }
-    })
+async function scanCheckinCode() {
+  if (typeof uni.scanCode !== 'function') {
+    uni.showToast({ title: '当前环境不支持扫码，请手动输入凭证码', icon: 'none' })
     return
   }
 
-  await confirmNextByScan()
+  uni.scanCode({
+    onlyFromCamera: true,
+    scanType: ['qrCode', 'barCode'],
+    success: async (result) => {
+      const code = parseScannedCheckinCode(result.result)
+      if (!isValidCheckinCode(code)) {
+        uni.showToast({ title: '未识别到有效凭证码', icon: 'none' })
+        return
+      }
+      const target = participantList.value.find((person) => person.entryCode === code)
+      if (!target) {
+        uni.showToast({ title: '该凭证不属于本活动成员', icon: 'none' })
+        return
+      }
+      codeInput.value = code
+      await confirmPerson(target, code, checkinSourceOptions.scan.source)
+    },
+    fail: (error) => {
+      const message = String(error?.errMsg || '')
+      if (message.includes('cancel')) return
+      uni.showToast({ title: '扫码失败，请手动输入凭证码', icon: 'none' })
+    }
+  })
 }
 
 async function confirmNextByScan() {
-  if (!nextCheckablePerson.value) {
-    uni.showToast({ title: '暂无待签到成员', icon: 'none' })
-    return
-  }
-  codeInput.value = checkinCode.value
-  await confirmPerson(nextCheckablePerson.value, checkinCode.value, checkinSourceOptions.scan.source)
+  uni.showToast({ title: '请扫描成员入场凭证码', icon: 'none' })
 }
 
 async function confirmPerson(person, code, source = 'manual') {

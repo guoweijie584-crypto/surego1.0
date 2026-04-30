@@ -9,6 +9,9 @@
       <view class="participant__nav-actions" :style="navActionsStyle">
         <view class="participant__nav-btn" @tap="goMessages">
           <uni-icons type="notification-filled" size="20" color="#0f172a" />
+          <view v-if="unreadCount > 0" class="message-badge">
+            <text>{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
+          </view>
         </view>
         <view class="participant__nav-btn" @tap="goActivityDetail(activity.id)">
           <uni-icons type="paperplane-filled" size="20" color="#0f172a" />
@@ -125,8 +128,8 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
-import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
-import { listMessages, markMessageRead } from '@/common/api/message.js'
+import { buildParticipantCheckinCode, confirmCheckin, getCheckinForUser } from '@/common/api/checkin.js'
+import { getUnreadMessageCount, listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
@@ -138,6 +141,7 @@ const order = ref(null)
 const checkin = ref(null)
 const entryCode = ref('')
 const relatedMessages = ref([])
+const unreadCount = ref(0)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 420 })
@@ -267,10 +271,10 @@ async function loadState() {
   order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
   checkin.value = currentCheckin || null
   relatedMessages.value = messages.filter((item) => item.activityId === String(activityId.value)).slice(0, 3)
+  unreadCount.value = messages.filter((item) => !item.read).length
 
   if (activity.value.isCreator || applicationState.value.key === 'approved') {
-    const code = await createCheckinCode(activityId.value)
-    entryCode.value = code.code
+    entryCode.value = buildParticipantCheckinCode(activityId.value, userId)
   } else {
     entryCode.value = ''
   }
@@ -288,8 +292,8 @@ function refreshEntryCode() {
     return
   }
 
-  createCheckinCode(activityId.value).then((code) => {
-    entryCode.value = code.code
+  Promise.resolve().then(() => {
+    entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
     uni.showToast({ title: '凭证已刷新', icon: 'none' })
   })
 }
@@ -354,8 +358,7 @@ async function handlePrimaryAction() {
   }
 
   if (!entryCode.value) {
-    const code = await createCheckinCode(activityId.value)
-    entryCode.value = code.code
+    entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
   }
 
   await confirmCheckin({
@@ -373,6 +376,7 @@ async function handlePrimaryAction() {
 async function handleMessageTap(item) {
   await markMessageRead(item.id)
   relatedMessages.value = relatedMessages.value.map((msg) => (msg.id === item.id ? { ...msg, read: true } : msg))
+  unreadCount.value = await getUnreadMessageCount()
 
   if (item.type === 'application') {
     goManageDashboard(item.activityId)
@@ -427,6 +431,7 @@ async function handleMessageTap(item) {
 }
 
 .participant__nav-btn {
+  position: relative;
   width: 72rpx;
   height: 72rpx;
   justify-content: center;
@@ -446,6 +451,26 @@ async function handleMessageTap(item) {
   gap: 12rpx;
   flex-shrink: 0;
   overflow: hidden;
+}
+
+.message-badge {
+  position: absolute;
+  top: 7rpx;
+  right: 6rpx;
+  display: flex;
+  min-width: 30rpx;
+  height: 30rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+  border: 4rpx solid #fff;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .participant__scroll {

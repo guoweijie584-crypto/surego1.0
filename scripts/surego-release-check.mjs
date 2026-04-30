@@ -411,6 +411,18 @@ for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority'
   }
 }
 
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
+  const source = read(file)
+  for (const token of ['unreadCount', 'getUnreadMessageCount']) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must render release message badge from unread count with ${token}`)
+    }
+  }
+  if (source.includes('__notice-dot') || source.includes('discover__dot')) {
+    errors.push(`${file} must not ship hard-coded message red dot`)
+  }
+}
+
 const activityDetailSource = read('pages/activity/detail.vue')
 for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
   if (!activityDetailSource.includes(token)) {
@@ -699,9 +711,24 @@ if (citySource.includes('refreshCurrentLocation') || citySource.includes("select
 }
 
 const checkinDeskSource = read('pages/manage/checkin.vue')
-for (const token of ['uni.scanCode', 'listActivityMembers', 'confirmNextByScan']) {
+for (const token of ['uni.scanCode', 'listActivityMembers', 'confirmNextByScan', 'scanCheckinCode', 'parseScannedCheckinCode', 'onlyFromCamera: true']) {
   if (!checkinDeskSource.includes(token)) {
     errors.push(`pages/manage/checkin.vue is missing operation capability: ${token}`)
+  }
+}
+if (checkinDeskSource.includes('await confirmNextByScan()') || checkinDeskSource.includes('result.result || checkinCode.value')) {
+  errors.push('pages/manage/checkin.vue must not auto-confirm check-in when scan fails or returns an empty result')
+}
+
+const participantDeskSource = read('pages/participant/dashboard.vue')
+if (!participantDeskSource.includes('buildParticipantCheckinCode')) {
+  errors.push('pages/participant/dashboard.vue must render a stable participant check-in code')
+}
+
+const calendarSource = read('pages/calendar/index.vue')
+for (const token of ['month-grid', 'weekday-row', 'calendarCells', 'shiftMonth', 'calendar-tabs']) {
+  if (!calendarSource.includes(token)) {
+    errors.push(`pages/calendar/index.vue must align with reference month calendar using ${token}`)
   }
 }
 
@@ -810,6 +837,9 @@ for (const token of ['event_key', 'eventKey', 'record.event_key']) {
 const messageApiSource = read('common/api/message.js')
 if (!messageApiSource.includes('eventKey') || !messageApiSource.includes('existing')) {
   errors.push('common/api/message.js must dedupe local messages by eventKey')
+}
+if (!messageApiSource.includes('getUnreadMessageCount')) {
+  errors.push('common/api/message.js must expose getUnreadMessageCount for release notification badges')
 }
 
 const moderationSource = read('common/api/moderation.js')

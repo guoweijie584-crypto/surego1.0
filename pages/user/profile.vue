@@ -11,6 +11,9 @@
           </view>
           <view class="profile__nav-btn" @tap="goMessages">
             <uni-icons type="notification-filled" size="20" color="#111827" />
+            <view v-if="unreadCount > 0" class="profile__message-badge">
+              <text>{{ unreadLabel }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -164,6 +167,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
@@ -174,6 +178,7 @@ const activeActivityFilter = ref('all')
 const activeOrderFilter = ref('all')
 const loggedIn = ref(false)
 const canUseOps = ref(false)
+const unreadCount = ref(0)
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
 const orders = ref([])
 const reviews = ref([])
@@ -203,6 +208,7 @@ const filteredOrders = computed(() => {
   if (activeOrderFilter.value === 'all') return orders.value
   return orders.value.filter((item) => item.status === activeOrderFilter.value)
 })
+const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 const tabs = computed(() => [
   { key: 'activities', label: '活动', count: activityList.value.length },
   { key: 'reviews', label: '评价', count: reviews.value.length },
@@ -217,13 +223,20 @@ onShow(async () => {
     myActivities.value = { hosting: [], joined: [], pending: [] }
     orders.value = []
     reviews.value = []
+    unreadCount.value = 0
     return
   }
 
   user.value = await getCurrentUser()
   canUseOps.value = hasOpsRole(user.value)
-  myActivities.value = await listMyActivities()
-  orders.value = await listOrders()
+  const [activities, orderItems, unread] = await Promise.all([
+    listMyActivities(),
+    listOrders(),
+    getUnreadMessageCount()
+  ])
+  myActivities.value = activities
+  orders.value = orderItems
+  unreadCount.value = unread
   reviews.value = []
 })
 
@@ -278,6 +291,7 @@ function handleProfileSaved(nextUser) {
 
 .profile__back,
 .profile__nav-btn {
+  position: relative;
   display: flex;
   width: 78rpx;
   height: 78rpx;
@@ -287,6 +301,26 @@ function handleProfileSaved(nextUser) {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.06);
+}
+
+.profile__message-badge {
+  position: absolute;
+  top: 9rpx;
+  right: 8rpx;
+  display: flex;
+  min-width: 30rpx;
+  height: 30rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
+  border: 4rpx solid #fff;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .profile__nav-actions {

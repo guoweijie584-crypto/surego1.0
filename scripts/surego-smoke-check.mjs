@@ -414,7 +414,7 @@ for (const [file, fields] of Object.entries({
 const messagePath = path.join(root, 'common/api/message.js');
 if (fs.existsSync(messagePath)) {
   const messageSource = fs.readFileSync(messagePath, 'utf8');
-  for (const helper of ['createMessage', 'listMessages', 'markMessageRead', 'markAllMessagesRead']) {
+  for (const helper of ['createMessage', 'listMessages', 'markMessageRead', 'markAllMessagesRead', 'getUnreadMessageCount']) {
     if (!messageSource.includes(helper)) {
       errors.push(`common/api/message.js is missing ${helper}`);
     }
@@ -437,7 +437,7 @@ if (fs.existsSync(messagePath)) {
 const checkinPath = path.join(root, 'common/api/checkin.js');
 if (fs.existsSync(checkinPath)) {
   const checkinSource = fs.readFileSync(checkinPath, 'utf8');
-  for (const helper of ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary', 'getCheckinForUser', 'hasCheckedIn', 'isValidCheckinCode']) {
+  for (const helper of ['createCheckinCode', 'confirmCheckin', 'listCheckins', 'getCheckinSummary', 'getCheckinForUser', 'hasCheckedIn', 'isValidCheckinCode', 'buildParticipantCheckinCode', 'parseScannedCheckinCode']) {
     if (!checkinSource.includes(helper)) {
       errors.push(`common/api/checkin.js is missing ${helper}`);
     }
@@ -955,10 +955,13 @@ if (fs.existsSync(checkinCloudPath)) {
 const manageCheckinPath = path.join(root, 'pages/manage/checkin.vue');
 if (fs.existsSync(manageCheckinPath)) {
   const source = fs.readFileSync(manageCheckinPath, 'utf8');
-  for (const token of ['isValidCheckinCode', "source: 'manual'", "source: 'scan'", 'nextCheckablePerson', 'ensureOwnerAccess', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
+  for (const token of ['isValidCheckinCode', "source: 'manual'", "source: 'scan'", 'nextCheckablePerson', 'ensureOwnerAccess', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle', 'scanCheckinCode', 'parseScannedCheckinCode', 'onlyFromCamera: true']) {
     if (!source.includes(token)) {
       errors.push(`pages/manage/checkin.vue is missing ${token}`);
     }
+  }
+  if (source.includes('await confirmNextByScan()') || source.includes('result.result || checkinCode.value')) {
+    errors.push('pages/manage/checkin.vue must not auto-confirm check-in when scan fails or returns an empty result');
   }
   if (source.includes('@tap="goManageDashboard(activity.id)"')) {
     errors.push('pages/manage/checkin.vue back arrow must use goBackOrFallback/handleBack instead of pushing manage dashboard');
@@ -986,9 +989,19 @@ if (fs.existsSync(participantCheckinPath)) {
   if (source.includes('listCheckins(activityId.value)')) {
     errors.push('pages/participant/dashboard.vue should use getCheckinForUser instead of scanning all checkins');
   }
-  for (const token of ['getActivityStatusMeta', 'isTerminalActivity', 'goParticipantDashboard']) {
+  for (const token of ['getActivityStatusMeta', 'isTerminalActivity', 'goParticipantDashboard', 'buildParticipantCheckinCode']) {
     if (!source.includes(token)) {
       errors.push(`pages/participant/dashboard.vue is missing terminal activity guard token: ${token}`);
+    }
+  }
+}
+
+const calendarPagePath = path.join(root, 'pages/calendar/index.vue');
+if (fs.existsSync(calendarPagePath)) {
+  const source = fs.readFileSync(calendarPagePath, 'utf8');
+  for (const token of ['month-grid', 'weekday-row', 'calendarCells', 'shiftMonth', 'calendar-tabs']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/calendar/index.vue must align with the reference month calendar using ${token}`);
     }
   }
 }
@@ -1167,6 +1180,20 @@ if (fs.existsSync(homePagePath)) {
     if (!source.includes(token)) {
       errors.push(`pages/home/index.vue must route applied/joined activities through participant dashboard with ${token}`);
     }
+  }
+}
+
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of ['unreadCount', 'getUnreadMessageCount']) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must render message badge from unread count using ${token}`);
+    }
+  }
+  if (source.includes('__notice-dot') || source.includes('discover__dot')) {
+    errors.push(`${file} must not show a hard-coded message red dot`);
   }
 }
 

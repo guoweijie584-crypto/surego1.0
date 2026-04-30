@@ -15,7 +15,9 @@
         </view>
         <view class="home__icon" @tap="goMessages">
           <uni-icons type="notification-filled" size="22" color="#111827" />
-          <view class="home__notice-dot" />
+          <view v-if="unreadCount > 0" class="home__notice-badge">
+            <text>{{ unreadLabel }}</text>
+          </view>
         </view>
       </view>
       </view>
@@ -67,7 +69,7 @@
             :key="item.id"
             class="mine-card"
             hover-class="mine-card--active"
-            @tap="goActivityDetail(item.id)"
+            @tap="openUserActivity(item)"
           >
             <view class="mine-card__bar" />
             <view class="mine-card__head">
@@ -118,6 +120,7 @@ import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard, goMessages, goMyActivities, goParticipantDashboard, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
@@ -126,6 +129,7 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPadd
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 390 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
 const currentAvatar = ref(DEFAULT_AVATAR)
+const unreadCount = ref(0)
 const allActivities = ref([])
 const myGroups = ref({
   hosting: [],
@@ -140,11 +144,18 @@ const userActivities = computed(() => sortActivitiesByStatusPriority([
   ...myGroups.value.pending
 ]).filter(isHomeVisibleMyActivity).slice(0, 4))
 const recommendedActivities = computed(() => allActivities.value)
+const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 onShow(async () => {
   refreshCurrentAvatar()
-  allActivities.value = await listActivities()
-  myGroups.value = await listMyActivities()
+  const [activities, groups, unread] = await Promise.all([
+    listActivities(),
+    listMyActivities(),
+    getUnreadMessageCount()
+  ])
+  allActivities.value = activities
+  myGroups.value = groups
+  unreadCount.value = unread
 })
 
 function refreshCurrentAvatar() {
@@ -264,15 +275,24 @@ function getDaysLabel(id) {
   box-shadow: 0 16rpx 36rpx rgba(15, 23, 42, 0.06);
 }
 
-.home__notice-dot {
+.home__notice-badge {
   position: absolute;
-  top: 18rpx;
-  right: 18rpx;
-  width: 13rpx;
-  height: 13rpx;
+  top: 10rpx;
+  right: 8rpx;
+  display: flex;
+  min-width: 31rpx;
+  height: 31rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
   border: 4rpx solid #fff;
-  border-radius: 50%;
-  background: #ff5e7e;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .home__section {

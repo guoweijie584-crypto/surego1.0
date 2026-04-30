@@ -68,16 +68,28 @@ async function canManageActivity(activityId, user) {
 }
 
 async function canParticipantCheckIn(activityId, userId) {
-  const applications = await applicationCollection
+  let applications = await applicationCollection
+    .where({ activity_id: String(activityId || ''), user_id: userId })
+    .limit(1)
+    .get();
+  if (!(applications.data || []).length) {
+    applications = await applicationCollection
     .where({ activityId: String(activityId || ''), userId })
     .limit(1)
     .get();
+  }
   const application = (applications.data || [])[0];
   if (!application || application.status !== 'approved') return false;
-  const orders = await orderCollection
+  let orders = await orderCollection
+    .where({ activity_id: String(activityId || ''), user_id: userId })
+    .limit(1)
+    .get();
+  if (!(orders.data || []).length) {
+    orders = await orderCollection
     .where({ activityId: String(activityId || ''), userId })
     .limit(1)
     .get();
+  }
   const order = (orders.data || [])[0];
   return !order || order.status === 'paid';
 }
@@ -139,6 +151,24 @@ function isValidCheckinCode(code = '') {
   return /^SG\d{4,}$/.test(String(code || '').trim());
 }
 
+function hashToDigits(value = '') {
+  let hash = 2166136261;
+  String(value).split('').forEach((char) => {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  });
+  return String(hash).padStart(10, '0').slice(0, 10);
+}
+
+function normalizeCheckinCode(code = '') {
+  const matched = String(code || '').toUpperCase().match(/SG\d{4,}/);
+  return matched ? matched[0] : '';
+}
+
+function buildParticipantCheckinCode(activityId, userId) {
+  return `SG${hashToDigits(`${activityId}:${userId}`)}`;
+}
+
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
@@ -170,8 +200,15 @@ exports.main = async (event) => {
     if (source !== 'participant' && !(await canManageActivity(payload.activityId || payload.activity_id, user))) {
       return { code: 'FORBIDDEN', message: 'Only the activity creator can check in participants.' };
     }
+    if (source !== 'participant' && !(await canParticipantCheckIn(payload.activityId || payload.activity_id, targetUserId))) {
+      return { code: 'FORBIDDEN', message: 'This participant is not eligible for check-in.' };
+    }
     if (source === 'participant' && !(await canParticipantCheckIn(payload.activityId || payload.activity_id, user.uid))) {
       return { code: 'FORBIDDEN', message: 'This participant is not eligible for check-in.' };
+    }
+    const expectedCode = buildParticipantCheckinCode(payload.activityId || payload.activity_id, targetUserId);
+    if (normalizeCheckinCode(payload.code) !== expectedCode) {
+      return { code: 'INVALID_CHECKIN_CODE', message: 'Check-in code does not match this participant.' };
     }
     const record = buildRecord({
       ...payload,

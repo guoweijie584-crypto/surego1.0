@@ -15,7 +15,9 @@
         </view>
         <view class="discover__tool" @tap="goMessages">
           <uni-icons type="notification-filled" size="21" color="#111827" />
-          <view class="discover__dot" />
+          <view v-if="unreadCount > 0" class="discover__badge">
+            <text>{{ unreadLabel }}</text>
+          </view>
         </view>
       </view>
       </view>
@@ -109,6 +111,7 @@ import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivitiesByCity } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goCalendar, goCityPicker, goMessages, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
@@ -126,6 +129,7 @@ const activeCategory = ref('全部')
 const selectedCity = ref('杭州')
 const selectedCityCode = ref('330100')
 const currentAvatar = ref(DEFAULT_AVATAR)
+const unreadCount = ref(0)
 const activities = ref([])
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
@@ -136,12 +140,18 @@ const filteredActivities = computed(() => {
   if (activeCategory.value === '全部') return activities.value
   return activities.value.filter((item) => item.category === activeCategory.value)
 })
+const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 onShow(async () => {
   refreshCurrentAvatar()
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
-  activities.value = await listActivitiesByCity(selectedCity.value, selectedCityCode.value)
+  const [items, unread] = await Promise.all([
+    listActivitiesByCity(selectedCity.value, selectedCityCode.value),
+    getUnreadMessageCount()
+  ])
+  activities.value = items
+  unreadCount.value = unread
 })
 
 function refreshCurrentAvatar() {
@@ -245,15 +255,24 @@ function openBlindPick() {
   width: 62rpx;
 }
 
-.discover__dot {
+.discover__badge {
   position: absolute;
-  top: 13rpx;
-  right: 12rpx;
-  width: 12rpx;
-  height: 12rpx;
+  top: 2rpx;
+  right: 0;
+  display: flex;
+  min-width: 30rpx;
+  height: 30rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8rpx;
   border: 4rpx solid #fff;
-  border-radius: 50%;
-  background: #ff5e7e;
+  border-radius: 999rpx;
+  background: #ef4444;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
+  box-sizing: border-box;
 }
 
 .discover__scroll {
