@@ -350,17 +350,25 @@ if (!createSource.includes('adjust-position="false"') || !createSource.includes(
 
 for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   const source = read(page)
-  for (const token of ['CITY_OPTIONS', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
+  for (const token of ['unicloud-city-select', ':location="false"', 'hotCities', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
     if (!source.includes(token)) {
       errors.push(`${page} must sync selected map location to activity city with ${token}`)
     }
   }
+  if (source.includes('<picker :range="cityNames"') || source.includes('cityNames =') || source.includes('cityIndex')) {
+    errors.push(`${page} must use unicloud-city-select instead of a fixed city picker`)
+  }
 }
 
 const cityUtilSource = read('common/utils/city.js')
-for (const token of ['CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation']) {
+for (const token of ['CITY_OPTIONS', 'HOT_CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation', 'stripAdministrativeSuffix']) {
   if (!cityUtilSource.includes(token)) {
     errors.push(`common/utils/city.js is missing release city helper token: ${token}`)
+  }
+}
+for (const city of ['广州', '深圳', '成都', '重庆', '武汉', '西安', '苏州', '长沙']) {
+  if (!cityUtilSource.includes(city)) {
+    errors.push(`common/utils/city.js must include expanded release hot city: ${city}`)
   }
 }
 

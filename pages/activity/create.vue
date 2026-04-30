@@ -79,9 +79,10 @@
 
         <view class="field">
           <text class="label">活动城市</text>
-          <picker :range="cityNames" :value="cityIndex" @change="handleCityChange">
-            <view class="input input--picker">{{ form.city }}</view>
-          </picker>
+          <view class="input input--picker city-select" @tap="openCitySelector">
+            <text>{{ form.city }}</text>
+            <uni-icons type="right" size="16" color="#94a3b8" />
+          </view>
           <view class="field-helper field-helper--muted">
             <text>选择地图地点后自动同步，可手动修正</text>
           </view>
@@ -202,6 +203,8 @@
         </button>
       </view>
     </SuActionSheet>
+
+    <unicloud-city-select ref="citySelectRef" :location="false" :hot-city="hotCities" @select="handleCitySelect" />
   </view>
 </template>
 
@@ -211,14 +214,13 @@ import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
-import { CITY_OPTIONS, inferCityFromLocation } from '@/common/utils/city.js'
+import { DEFAULT_CITY, DEFAULT_CITY_CODE, HOT_CITY_OPTIONS, findCityOption, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
-const cityOptions = CITY_OPTIONS
-const cityNames = cityOptions.map((item) => item.name)
+const hotCities = HOT_CITY_OPTIONS
 const partyModes = [
   { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
   { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
@@ -226,7 +228,7 @@ const partyModes = [
 ]
 
 const categoryIndex = ref(0)
-const cityIndex = ref(Math.max(0, cityOptions.findIndex((item) => item.code === (uni.getStorageSync(CITY_CODE_KEY) || '330100'))))
+const citySelectRef = ref(null)
 const showPreview = ref(false)
 const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
@@ -234,7 +236,7 @@ const isSubmitting = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
-const initialCity = cityOptions[cityIndex.value] || cityOptions[0]
+const initialCity = findCityOption(uni.getStorageSync(CITY_KEY), uni.getStorageSync(CITY_CODE_KEY)) || { name: DEFAULT_CITY, code: DEFAULT_CITY_CODE }
 
 const form = reactive({
   title: '',
@@ -247,8 +249,8 @@ const form = reactive({
   address: '',
   latitude: '',
   longitude: '',
-  city: uni.getStorageSync(CITY_KEY) || initialCity.name,
-  cityCode: uni.getStorageSync(CITY_CODE_KEY) || initialCity.code,
+  city: normalizeCityName(uni.getStorageSync(CITY_KEY) || initialCity.name),
+  cityCode: normalizeCityCode(uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
   district: '',
   maxParticipants: '10',
   hasParticipantLimit: true,
@@ -274,11 +276,14 @@ function handleCategoryChange(event) {
   }
 }
 
-function handleCityChange(event) {
-  cityIndex.value = Number(event.detail.value)
-  const city = cityOptions[cityIndex.value] || cityOptions[0]
-  form.city = city.name
-  form.cityCode = city.code
+function openCitySelector() {
+  citySelectRef.value?.open()
+}
+
+function handleCitySelect(city = {}) {
+  const cityName = normalizeCityName(city.name || form.city)
+  form.city = cityName || DEFAULT_CITY
+  form.cityCode = normalizeCityCode(city.code || findCityOption(cityName)?.code || form.cityCode)
   form.district = ''
 }
 
@@ -342,8 +347,9 @@ function syncCityFromLocation(result = {}) {
   form.city = inferred.city
   form.cityCode = inferred.cityCode
   form.district = inferred.district
-  const nextIndex = cityOptions.findIndex((item) => item.code === inferred.cityCode || item.name === inferred.city)
-  if (nextIndex >= 0) cityIndex.value = nextIndex
+  if (!inferred.cityCode) {
+    uni.showToast({ title: '已保留当前城市，可手动修正', icon: 'none' })
+  }
 }
 
 function addQuestion() {
@@ -639,6 +645,10 @@ async function handleSubmit() {
 .switch-pill {
   display: flex;
   align-items: center;
+}
+
+.city-select {
+  justify-content: space-between;
 }
 
 .switch-pill {

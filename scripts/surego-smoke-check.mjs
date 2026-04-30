@@ -1039,19 +1039,27 @@ for (const file of activityFormPages) {
   if (source.includes('line-height: 82rpx')) {
     errors.push(`${file} must not vertically position input text with line-height: 82rpx`);
   }
-  for (const token of ['CITY_OPTIONS', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
+  for (const token of ['unicloud-city-select', ':location="false"', 'hotCities', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
     if (!source.includes(token)) {
       errors.push(`${file} must sync map location back to activity city with ${token}`);
     }
+  }
+  if (source.includes('<picker :range="cityNames"') || source.includes('cityNames =') || source.includes('cityIndex')) {
+    errors.push(`${file} must use unicloud-city-select instead of a fixed city picker`);
   }
 }
 
 const cityUtilPath = path.join(root, 'common/utils/city.js');
 if (fs.existsSync(cityUtilPath)) {
   const source = fs.readFileSync(cityUtilPath, 'utf8');
-  for (const token of ['CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation']) {
+  for (const token of ['CITY_OPTIONS', 'HOT_CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation', 'stripAdministrativeSuffix']) {
     if (!source.includes(token)) {
       errors.push(`common/utils/city.js is missing city helper token: ${token}`);
+    }
+  }
+  for (const city of ['广州', '深圳', '成都', '重庆', '武汉', '西安', '苏州', '长沙']) {
+    if (!source.includes(city)) {
+      errors.push(`common/utils/city.js must include expanded hot city: ${city}`);
     }
   }
 }
