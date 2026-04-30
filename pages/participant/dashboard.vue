@@ -126,10 +126,10 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
-import { listMessages } from '@/common/api/message.js'
+import { listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goPayment } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -348,6 +348,7 @@ async function handlePrimaryAction() {
 
   await confirmCheckin({
     activityId: activityId.value,
+    activityTitle: activity.value.title,
     code: entryCode.value,
     userId: getCurrentUserId(),
     source: 'participant',
@@ -357,22 +358,30 @@ async function handlePrimaryAction() {
   uni.showToast({ title: '签到成功', icon: 'none' })
 }
 
-function handleMessageTap(item) {
+async function handleMessageTap(item) {
+  await markMessageRead(item.id)
+  relatedMessages.value = relatedMessages.value.map((msg) => (msg.id === item.id ? { ...msg, read: true } : msg))
+
   if (item.type === 'application') {
-    if (activity.value.isCreator) {
-      goManageDashboard(item.activityId)
-    } else {
-      goActivityDetail(item.activityId)
-    }
+    goManageDashboard(item.activityId)
     return
   }
 
-  if (item.type === 'activity') {
+  if ((item.type === 'activity' || item.type === 'system') && item.activityId) {
+    const target = item.activityId === activity.value.id ? activity.value : await getActivityDetail(item.activityId)
+    if (target?.isCreator) {
+      goManageDashboard(item.activityId)
+      return
+    }
+    if (['approved', 'pending'].includes(target?.applicationStatus)) {
+      goParticipantDashboard(item.activityId)
+      return
+    }
     goActivityDetail(item.activityId)
     return
   }
 
-  showComingSoon('系统消息暂无跳转')
+  uni.showToast({ title: '已标记为已读', icon: 'none' })
 }
 </script>
 

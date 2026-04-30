@@ -1,6 +1,7 @@
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
+import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_checkins'
 
@@ -55,6 +56,29 @@ function buildCheckin(payload) {
   }
 }
 
+async function safeCreateMessage(payload) {
+  try {
+    return await createMessage(payload)
+  } catch (error) {
+    console.warn('[surego-message] create failed', error)
+    return null
+  }
+}
+
+async function notifyCheckinConfirmed(checkin = {}, payload = {}) {
+  const userId = checkin.userId || payload.userId || payload.user_id || getCurrentUserId()
+  const activityTitle = payload.activityTitle || payload.activity_title || '活动'
+  return safeCreateMessage({
+    userId,
+    type: 'activity',
+    title: '签到成功',
+    content: `「${activityTitle}」签到成功，感谢准时到场。`,
+    sender: 'SureGo',
+    activityId: checkin.activityId || payload.activityId,
+    read: false
+  })
+}
+
 function confirmLocalCheckin(payload) {
   if (!isValidCheckinCode(payload.code)) {
     uni.showToast({ title: '核销码格式不正确', icon: 'none' })
@@ -77,14 +101,20 @@ export async function confirmCheckin(payload) {
     uni.showToast({ title: '核销码格式不正确', icon: 'none' })
     return null
   }
+  let checkin
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-checkin', 'confirm', buildCheckin(payload))
+      checkin = await callSuregoFunction('surego-checkin', 'confirm', buildCheckin(payload))
     } catch (error) {
-      return handleSuregoCloudError(error, () => confirmLocalCheckin(payload))
+      checkin = await handleSuregoCloudError(error, () => confirmLocalCheckin(payload))
     }
+  } else {
+    checkin = await confirmLocalCheckin(payload)
   }
-  return confirmLocalCheckin(payload)
+  if (checkin) {
+    await notifyCheckinConfirmed(checkin, payload)
+  }
+  return checkin
 }
 
 function getLocalCheckinForUser(activityId, userId = getCurrentUserId()) {

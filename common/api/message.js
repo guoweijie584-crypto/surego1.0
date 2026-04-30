@@ -1,42 +1,8 @@
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
-import { getCurrentUserId, MOCK_USER_ID } from '@/common/api/auth.js'
+import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_messages'
-
-const defaultMessages = [
-  {
-    id: 'msg_default_apply',
-    type: 'application',
-    title: '新的加入申请',
-    content: '有人申请加入你的活动，去管理页看看吧。',
-    sender: '张伟',
-    activityId: '103',
-    userId: MOCK_USER_ID,
-    read: false,
-    createdAt: '2 分钟前'
-  },
-  {
-    id: 'msg_default_start',
-    type: 'activity',
-    title: '活动即将开始',
-    content: '你报名的活动将在 30 分钟后开始。',
-    activityId: '102',
-    userId: MOCK_USER_ID,
-    read: false,
-    createdAt: '1 小时前'
-  },
-  {
-    id: 'msg_default_system',
-    type: 'system',
-    title: '系统更新提示',
-    content: '成行活动管理能力已进入小程序迁移阶段。',
-    activityId: '',
-    userId: MOCK_USER_ID,
-    read: true,
-    createdAt: '昨天'
-  }
-]
 
 function readMessages() {
   return uni.getStorageSync(STORAGE_KEY) || []
@@ -46,21 +12,21 @@ function writeMessages(items) {
   uni.setStorageSync(STORAGE_KEY, items)
 }
 
-function getSeedMessages() {
-  return defaultMessages.map((item) => ({ ...item }))
+function isCurrentUserMessage(item, userId = getCurrentUserId()) {
+  return Boolean(item?.userId && String(item.userId) === String(userId))
 }
 
-function buildMessage(payload) {
+function buildMessage(payload = {}) {
   return {
     id: payload.id || `msg_${Date.now()}`,
-    userId: payload.userId || getCurrentUserId(),
+    userId: payload.userId || payload.user_id || getCurrentUserId(),
     type: payload.type || 'system',
-    title: payload.title,
-    content: payload.content,
+    title: payload.title || '',
+    content: payload.content || '',
     sender: payload.sender || '',
-    activityId: payload.activityId || '',
+    activityId: payload.activityId || payload.activity_id || '',
     read: Boolean(payload.read),
-    createdAt: payload.createdAt || new Date().toISOString()
+    createdAt: payload.createdAt || payload.created_at || new Date().toISOString()
   }
 }
 
@@ -84,16 +50,15 @@ export async function createMessage(payload) {
 }
 
 function listLocalMessages(userId = getCurrentUserId()) {
-  const items = readMessages()
-  const source = items.length ? items : getSeedMessages()
-  return Promise.resolve(source.filter((item) => !item.userId || item.userId === userId || item.userId === MOCK_USER_ID))
+  return Promise.resolve(readMessages().filter((item) => isCurrentUserMessage(item, userId)))
 }
 
-export async function listMessages(userId = getCurrentUserId()) {
+export async function listMessages() {
+  const userId = getCurrentUserId()
   if (USE_UNICLOUD) {
     try {
       const items = await callSuregoFunction('surego-message', 'list', { userId })
-      return items.length ? items : getSeedMessages()
+      return Array.isArray(items) ? items : []
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalMessages(userId))
     }
@@ -101,12 +66,18 @@ export async function listMessages(userId = getCurrentUserId()) {
   return listLocalMessages(userId)
 }
 
-function markLocalMessageRead(id) {
+function markLocalMessageRead(id, userId = getCurrentUserId()) {
   const items = readMessages()
-  const source = items.length ? items : getSeedMessages()
-  const next = source.map((item) => (item.id === id ? { ...item, read: true } : item))
+  let marked = null
+  const next = items.map((item) => {
+    if (item.id === id && isCurrentUserMessage(item, userId)) {
+      marked = { ...item, read: true }
+      return marked
+    }
+    return item
+  })
   writeMessages(next)
-  return Promise.resolve(next.find((item) => item.id === id) || null)
+  return Promise.resolve(marked)
 }
 
 export async function markMessageRead(id) {
@@ -122,20 +93,21 @@ export async function markMessageRead(id) {
 
 function markAllLocalMessagesRead(userId = getCurrentUserId()) {
   const items = readMessages()
-  const source = items.length ? items : getSeedMessages()
-  const next = source.map((item) => (
-    !item.userId || item.userId === userId || item.userId === MOCK_USER_ID
+  const next = items.map((item) => (
+    isCurrentUserMessage(item, userId)
       ? { ...item, read: true }
       : item
   ))
   writeMessages(next)
-  return Promise.resolve(next)
+  return Promise.resolve(next.filter((item) => isCurrentUserMessage(item, userId)))
 }
 
-export async function markAllMessagesRead(userId = getCurrentUserId()) {
+export async function markAllMessagesRead() {
+  const userId = getCurrentUserId()
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-message', 'markAllRead', { userId })
+      const items = await callSuregoFunction('surego-message', 'markAllRead', { userId })
+      return Array.isArray(items) ? items : []
     } catch (error) {
       return handleSuregoCloudError(error, () => markAllLocalMessagesRead(userId))
     }

@@ -203,6 +203,8 @@ async function handleSubmit() {
   isSubmitting.value = true
   const application = {
     activityId: activity.value.id,
+    activityCreatorId: activity.value.creatorId || activity.value.creator_id,
+    activityTitle: activity.value.title,
     gender: gender.value,
     mbti: selectedMbti.value,
     message: message.value,

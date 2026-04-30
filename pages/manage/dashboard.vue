@@ -301,7 +301,9 @@ async function submitReview() {
     uni.showToast({ title: '请填写拒绝原因', icon: 'none' })
     return
   }
-  const options = status === 'approved' ? { reviewNote: note } : { rejectReason: note }
+  const options = status === 'approved'
+    ? { reviewNote: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
+    : { rejectReason: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
   const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
   applications.value = applications.value.map((app) => (app.id === reviewTarget.value.id ? { ...app, ...reviewed } : app))
   showReviewSheet.value = false

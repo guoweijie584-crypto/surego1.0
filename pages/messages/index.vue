@@ -99,16 +99,20 @@ async function openMessage(item) {
   await markMessageRead(item.id)
   messages.value = messages.value.map((msg) => (msg.id === item.id ? { ...msg, read: true } : msg))
   if (item.type === 'application' && item.activityId) {
+    goManageDashboard(item.activityId)
+    return
+  }
+  if ((item.type === 'activity' || item.type === 'system') && item.activityId) {
     const activity = await getActivityDetail(item.activityId)
     if (activity?.isCreator) {
       goManageDashboard(item.activityId)
-    } else {
-      goParticipantDashboard(item.activityId)
+      return
     }
-    return
-  }
-  if (item.type === 'activity' && item.activityId) {
-    goParticipantDashboard(item.activityId)
+    if (['approved', 'pending'].includes(activity?.applicationStatus)) {
+      goParticipantDashboard(item.activityId)
+      return
+    }
+    goActivityDetail(item.activityId)
     return
   }
   uni.showToast({ title: '已标记为已读', icon: 'none' })

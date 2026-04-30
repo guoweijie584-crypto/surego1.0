@@ -1,6 +1,7 @@
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
+import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_orders'
 const ORDER_STATUSES = ['pending', 'paid', 'refunded', 'closed']
@@ -69,6 +70,63 @@ function buildOrder(payload, status = 'pending') {
     refundedAt: payload.refundedAt || '',
     closedAt: payload.closedAt || ''
   }
+}
+
+async function safeCreateMessage(payload) {
+  try {
+    return await createMessage(payload)
+  } catch (error) {
+    console.warn('[surego-message] create failed', error)
+    return null
+  }
+}
+
+function getOrderMessageCopy(status, order = {}) {
+  const title = order.activityTitle || '活动订单'
+  const labels = {
+    paid: {
+      title: '支付成功',
+      content: `「${title}」订单支付成功，入场凭证已更新。`
+    },
+    closed: {
+      title: '订单已关闭',
+      content: order.closeReason
+        ? `「${title}」订单已关闭：${order.closeReason}`
+        : `「${title}」订单已关闭。`
+    },
+    refunded: {
+      title: '退款已记录',
+      content: order.refundNote
+        ? `「${title}」退款已记录：${order.refundNote}`
+        : `「${title}」退款已记录。`
+    }
+  }
+  return labels[status] || null
+}
+
+async function notifyOrderStatus(order = {}, status = '', options = {}) {
+  const nextOrder = normalizeOrder({
+    ...(options.order || {}),
+    ...order,
+    activityId: order.activityId || order.activity_id || options.activityId || options.order?.activityId || options.order?.activity_id,
+    userId: order.userId || order.user_id || options.userId || options.order?.userId || options.order?.user_id,
+    activityTitle: order.activityTitle || options.activityTitle || options.title || options.order?.activityTitle,
+    activityCover: order.activityCover || options.activityCover || options.image || options.order?.activityCover,
+    refundNote: order.refundNote || options.refundNote || options.order?.refundNote,
+    closeReason: order.closeReason || options.closeReason || options.order?.closeReason
+  })
+  const copy = getOrderMessageCopy(status, nextOrder)
+  if (!copy) return null
+
+  return safeCreateMessage({
+    userId: nextOrder.userId || getCurrentUserId(),
+    type: 'activity',
+    title: copy.title,
+    content: copy.content,
+    sender: 'SureGo',
+    activityId: nextOrder.activityId,
+    read: false
+  })
 }
 
 function createLocalOrder(payload) {
@@ -159,40 +217,52 @@ function updateLocalOrderStatus(id, status, options = {}) {
 }
 
 export async function updateOrderStatus(id, status, options = {}) {
+  let order
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options })
+      order = await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options })
     } catch (error) {
-      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, status, options))
+      order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, status, options))
     }
+  } else {
+    order = await updateLocalOrderStatus(id, status, options)
   }
-  return updateLocalOrderStatus(id, status, options)
+  await notifyOrderStatus(order, normalizeOrderStatus(status), options)
+  return order
 }
 
-export function markOrderPaid(id) {
-  return updateOrderStatus(id, 'paid')
+export function markOrderPaid(id, options = {}) {
+  return updateOrderStatus(id, 'paid', options)
 }
 
-export async function refundOrder(id, refundNote = '模拟退款已记录') {
+export async function refundOrder(id, refundNote = '模拟退款已记录', options = {}) {
+  let order
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'refund', { id, refundNote })
+      order = await callSuregoFunction('surego-order', 'refund', { id, refundNote })
     } catch (error) {
-      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'refunded', { refundNote }))
+      order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'refunded', { refundNote, ...options }))
     }
+  } else {
+    order = await updateLocalOrderStatus(id, 'refunded', { refundNote, ...options })
   }
-  return updateLocalOrderStatus(id, 'refunded', { refundNote })
+  await notifyOrderStatus(order, 'refunded', { ...options, refundNote })
+  return order
 }
 
-export async function closeOrder(id, closeReason = '订单已关闭') {
+export async function closeOrder(id, closeReason = '订单已关闭', options = {}) {
+  let order
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'close', { id, closeReason })
+      order = await callSuregoFunction('surego-order', 'close', { id, closeReason })
     } catch (error) {
-      return handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'closed', { closeReason }))
+      order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'closed', { closeReason, ...options }))
     }
+  } else {
+    order = await updateLocalOrderStatus(id, 'closed', { closeReason, ...options })
   }
-  return updateLocalOrderStatus(id, 'closed', { closeReason })
+  await notifyOrderStatus(order, 'closed', { ...options, closeReason })
+  return order
 }
 
 function getLocalOrderDetail(id) {

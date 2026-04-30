@@ -143,14 +143,22 @@ async function reloadOrder() {
 
 async function handleRefund() {
   if (!order.value) return
-  await refundOrder(order.value.id, '模拟退款已记录，真实退款将在支付专项接入')
+  await refundOrder(order.value.id, '模拟退款已记录，真实退款将在支付专项接入', {
+    order: order.value,
+    activityTitle: order.value.activityTitle || activity.value.title,
+    activityCover: order.value.activityCover || activity.value.image
+  })
   await reloadOrder()
   uni.showToast({ title: '退款状态已更新', icon: 'none' })
 }
 
 async function handleClose() {
   if (!order.value) return
-  await closeOrder(order.value.id, '用户主动关闭模拟订单')
+  await closeOrder(order.value.id, '用户主动关闭模拟订单', {
+    order: order.value,
+    activityTitle: order.value.activityTitle || activity.value.title,
+    activityCover: order.value.activityCover || activity.value.image
+  })
   await reloadOrder()
   uni.showToast({ title: '订单已关闭', icon: 'none' })
 }

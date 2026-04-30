@@ -104,7 +104,11 @@ async function handlePay() {
   }
 
   isPaying.value = true
-  const paid = await markOrderPaid(order.value.id)
+  const paid = await markOrderPaid(order.value.id, {
+    order: order.value,
+    activityTitle: activity.value.title,
+    activityCover: activity.value.image
+  })
   order.value = { ...order.value, ...paid }
   uni.showToast({ title: '支付成功', icon: 'none' })
   setTimeout(() => {
