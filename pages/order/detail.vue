@@ -74,13 +74,13 @@
 
         <view class="action-stack">
           <view v-if="order.status === 'pending'" class="action action--primary" @tap="goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })">
-            继续模拟支付
+            继续确认订单
           </view>
           <view v-if="order.status === 'paid'" class="action action--primary" @tap="goParticipantDashboard(order.activityId, { replace: true })">
             查看入场凭证
           </view>
           <view v-if="order.status === 'paid'" class="action" @tap="handleRefund">
-            模拟退款
+            登记退款
           </view>
           <view v-if="order.status === 'pending'" class="action action--danger" @tap="handleClose">
             关闭订单
@@ -109,7 +109,7 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
 const rules = computed(() => {
   if (!order.value) return []
   if (order.value.type === 'ticket') {
-    return ['门票支付后锁定活动名额', '活动取消时进入退款状态', '当前为模拟支付，不调用微信支付']
+    return ['门票确认后锁定活动名额', '活动取消时进入退款状态', '试运营确认，不发生真实扣款']
   }
   return ['诚意金支付后保留名额', '签到后可进入退款状态', '爽约时可由运营关闭或备注']
 })
@@ -118,7 +118,7 @@ const timeline = computed(() => {
   if (!order.value) return []
   return [
     { label: '订单创建', time: order.value.createdAt, active: true },
-    { label: '支付确认', time: order.value.paidAt, desc: order.value.status === 'pending' ? '等待模拟支付' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
+    { label: '支付确认', time: order.value.paidAt, desc: order.value.status === 'pending' ? '等待确认' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
     { label: '退款记录', time: order.value.refundedAt, desc: order.value.status === 'refunded' ? '已记录退款' : '暂无退款', active: order.value.status === 'refunded' },
     { label: '订单关闭', time: order.value.closedAt, desc: order.value.status === 'closed' ? '已关闭' : '未关闭', active: order.value.status === 'closed' }
   ]
@@ -143,7 +143,7 @@ async function reloadOrder() {
 
 async function handleRefund() {
   if (!order.value) return
-  await refundOrder(order.value.id, '模拟退款已记录，真实退款将在支付专项接入', {
+  await refundOrder(order.value.id, '退款状态已登记，资金处理以运营确认为准', {
     order: order.value,
     activityTitle: order.value.activityTitle || activity.value.title,
     activityCover: order.value.activityCover || activity.value.image
@@ -154,7 +154,7 @@ async function handleRefund() {
 
 async function handleClose() {
   if (!order.value) return
-  await closeOrder(order.value.id, '用户主动关闭模拟订单', {
+  await closeOrder(order.value.id, '用户主动关闭订单', {
     order: order.value,
     activityTitle: order.value.activityTitle || activity.value.title,
     activityCover: order.value.activityCover || activity.value.image

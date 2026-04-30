@@ -59,7 +59,7 @@
 
         <view class="scan-button" @tap="simulateScan">
           <uni-icons type="scan" size="22" color="#0f172a" />
-          <text>模拟扫码核销</text>
+          <text>扫码核销</text>
         </view>
       </view>
 
@@ -279,7 +279,7 @@ async function confirmPerson(person, code, source = 'manual') {
     userId: person.userId,
     code,
     source,
-    remark: source === 'scan' ? '局长模拟扫码核销' : '局长手动输入核销',
+    remark: source === 'scan' ? '局长扫码核销' : '局长手动输入核销',
     checkedBy: 'leader'
   })
   if (!result) return

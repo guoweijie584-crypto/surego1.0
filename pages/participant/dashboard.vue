@@ -178,7 +178,7 @@ const paymentState = computed(() => {
   if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付', desc: '本局免费参与' }
   if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认试运营订单' }
   if (order.value.status === 'paid') return { key: 'paid', label: '已支付', desc: `订单号 ${order.value.id}` }
-  if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款', desc: order.value.refundNote || '模拟退款已记录' }
+  if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款', desc: order.value.refundNote || '退款状态已登记' }
   if (order.value.status === 'closed') return { key: 'closed', label: '已关闭', desc: order.value.closeReason || '订单已关闭' }
   return { key: 'pending', label: '待支付', desc: '仍可继续确认' }
 })
@@ -226,7 +226,7 @@ const primaryActionText = computed(() => {
   if (['refunded', 'closed'].includes(paymentState.value.key)) return '查看订单'
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return '去支付'
   if (checkin.value) return '已完成签到'
-  return '模拟签到'
+  return '确认签到'
 })
 
 const primaryIcon = computed(() => {
@@ -352,7 +352,7 @@ async function handlePrimaryAction() {
     code: entryCode.value,
     userId: getCurrentUserId(),
     source: 'participant',
-    remark: '参与者中心模拟签到'
+    remark: '参与者中心确认签到'
   })
   await loadState()
   uni.showToast({ title: '签到成功', icon: 'none' })

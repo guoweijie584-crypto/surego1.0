@@ -236,7 +236,7 @@ export function markOrderPaid(id, options = {}) {
   return updateOrderStatus(id, 'paid', options)
 }
 
-export async function refundOrder(id, refundNote = '模拟退款已记录', options = {}) {
+export async function refundOrder(id, refundNote = '退款状态已登记', options = {}) {
   let order
   if (USE_UNICLOUD) {
     try {

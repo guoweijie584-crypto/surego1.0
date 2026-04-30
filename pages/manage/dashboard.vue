@@ -44,7 +44,7 @@
         </view>
         <view class="state-summary">
           <view>
-            <text>当前阶段</text>
+            <text>当前状态</text>
             <text>{{ lifecycleLabel }}</text>
           </view>
           <view>
@@ -66,7 +66,7 @@
           </view>
         </view>
         <view v-else class="state-readonly">
-          <text>当前阶段暂时没有可执行状态动作</text>
+          <text>当前状态暂时没有可执行动作</text>
         </view>
       </view>
 

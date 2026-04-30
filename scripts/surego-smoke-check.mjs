@@ -15,6 +15,7 @@ const requiredFiles = [
   'common/api/auth.js',
   'common/api/cloud.js',
   'common/utils/share.js',
+  'common/utils/city.js',
   'common/api/activity.js',
   'common/api/application.js',
   'common/api/order.js',
@@ -712,6 +713,11 @@ for (const page of expectedPages) {
   if (source.includes('goBackHome')) {
     errors.push(`${page}.vue must use goBackOrFallback instead of legacy goBackHome`);
   }
+  for (const phrase of ['后续迁移', '闭环跑通', '前端闭环', '当前阶段不调用真实微信支付', '确认模拟支付', '继续模拟支付', '模拟退款']) {
+    if (source.includes(phrase)) {
+      errors.push(`${page}.vue contains internal trial copy: ${phrase}`);
+    }
+  }
 }
 
 for (const cloudFile of expectedCloudFunctions) {
@@ -1031,6 +1037,31 @@ for (const file of activityFormPages) {
   }
   if (source.includes('line-height: 82rpx')) {
     errors.push(`${file} must not vertically position input text with line-height: 82rpx`);
+  }
+  for (const token of ['CITY_OPTIONS', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must sync map location back to activity city with ${token}`);
+    }
+  }
+}
+
+const cityUtilPath = path.join(root, 'common/utils/city.js');
+if (fs.existsSync(cityUtilPath)) {
+  const source = fs.readFileSync(cityUtilPath, 'utf8');
+  for (const token of ['CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation']) {
+    if (!source.includes(token)) {
+      errors.push(`common/utils/city.js is missing city helper token: ${token}`);
+    }
+  }
+}
+
+const homePagePath = path.join(root, 'pages/home/index.vue');
+if (fs.existsSync(homePagePath)) {
+  const source = fs.readFileSync(homePagePath, 'utf8');
+  for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'position: fixed', 'backdrop-filter: blur']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/home/index.vue must use a fixed floating top header with ${token}`);
+    }
   }
 }
 

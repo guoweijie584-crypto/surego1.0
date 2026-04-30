@@ -2,18 +2,11 @@ import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
+import { CITY_OPTIONS, DEFAULT_CITY, DEFAULT_CITY_CODE, getCityCode, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
-const DEFAULT_CITY = '杭州'
-const DEFAULT_CITY_CODE = '330100'
-const CITY_OPTIONS = [
-  { name: '杭州', code: '330100', desc: '西湖、武林、滨江正在成行' },
-  { name: '上海', code: '310100', desc: '周末展览与城市漫游' },
-  { name: '南京', code: '320100', desc: '咖啡、徒步、夜游小局' },
-  { name: '北京', code: '110100', desc: '读书会与运动局预热' }
-]
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
@@ -94,29 +87,21 @@ function readLocalApplication(activityId) {
   }
 }
 
-function normalizeCityName(city = '') {
-  return String(city || '').trim().replace(/市$/, '')
-}
-
-function normalizeCityCode(code = '') {
-  return String(code || '').trim()
-}
-
 function inferCityName(item = {}) {
   const directCity = normalizeCityName(item.city || item.city_name)
   if (directCity) return directCity
 
   const location = `${item.location || ''} ${item.address || ''}`
-  const matched = CITY_OPTIONS.find((city) => location.includes(city.name) || location.includes(`${city.name}市`))
-  return matched?.name || DEFAULT_CITY
+  return inferCityFromLocation(location, { city: DEFAULT_CITY, cityCode: DEFAULT_CITY_CODE }).city
 }
 
 function inferCityCode(item = {}, cityName = DEFAULT_CITY) {
   const directCode = normalizeCityCode(item.cityCode || item.city_code)
   if (directCode) return directCode
 
-  const matched = CITY_OPTIONS.find((city) => city.name === normalizeCityName(cityName))
-  return matched?.code || DEFAULT_CITY_CODE
+  const inferredCode = getCityCode(cityName, '')
+  if (inferredCode) return inferredCode
+  return normalizeCityName(cityName) === DEFAULT_CITY ? DEFAULT_CITY_CODE : ''
 }
 
 function activityMatchesCity(item = {}, city = DEFAULT_CITY, cityCode = '') {
@@ -411,6 +396,15 @@ function updateLocalActivity(id, form) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
   if (!found) return Promise.resolve(null)
+  const nextCity = normalizeCityName(form.city || found.city || DEFAULT_CITY)
+  const nextCityCode = normalizeCityCode(
+    form.cityCode ||
+    form.city_code ||
+    inferCityCode({ city: nextCity }, nextCity) ||
+    found.cityCode ||
+    found.city_code ||
+    (nextCity === DEFAULT_CITY ? DEFAULT_CITY_CODE : '')
+  )
 
   const nextActivity = {
     ...found,
@@ -424,9 +418,9 @@ function updateLocalActivity(id, form) {
     address: form.address || form.location,
     latitude: form.latitude || found.latitude || '',
     longitude: form.longitude || found.longitude || '',
-    city: normalizeCityName(form.city || found.city || DEFAULT_CITY),
-    cityCode: normalizeCityCode(form.cityCode || form.city_code || found.cityCode || found.city_code || DEFAULT_CITY_CODE),
-    city_code: normalizeCityCode(form.cityCode || form.city_code || found.cityCode || found.city_code || DEFAULT_CITY_CODE),
+    city: nextCity,
+    cityCode: nextCityCode,
+    city_code: nextCityCode,
     district: form.district || found.district || '',
     maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
     hasParticipantLimit: Boolean(form.hasParticipantLimit),
@@ -448,7 +442,7 @@ function updateLocalActivity(id, form) {
 
 export async function updateActivity(id, form) {
   const city = normalizeCityName(form.city || DEFAULT_CITY)
-  const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city))
+  const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city) || (city === DEFAULT_CITY ? DEFAULT_CITY_CODE : ''))
   const payload = {
     ...form,
     city,

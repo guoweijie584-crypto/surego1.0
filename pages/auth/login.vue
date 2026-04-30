@@ -84,7 +84,7 @@ async function handleLogin() {
       return
     }
 
-    finishLogin(result.mode === 'mock' ? '开发模式已授权' : '授权成功')
+    finishLogin('授权成功')
   } catch (error) {
     isLoggingIn.value = false
     uni.showToast({ title: '授权失败，请稍后再试', icon: 'none' })

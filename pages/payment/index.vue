@@ -49,7 +49,7 @@
           {{ payButtonText }}
         </button>
         <view v-if="order" class="order-link" @tap="goOrderDetail(order.id)">查看订单详情</view>
-        <text class="payment__note">当前阶段不调用真实微信支付，仅写入订单状态用于前端闭环。</text>
+        <text class="payment__note">试运营订单确认，不发生真实扣款。</text>
       </view>
     </view>
   </view>
@@ -76,8 +76,8 @@ const modeDesc = computed(() => {
   return '签到后全额退回，爽约将扣除诚意金。'
 })
 const rules = computed(() => {
-  if (activity.value.partyMode === 'ticket') return ['门票支付成功后获得入场凭证', '活动取消时进入退款流程', '本次为模拟支付，不调用微信支付']
-  return ['签到后诚意金全额退回', '活动开始前可查看入场凭证', '本次为模拟支付，不调用微信支付']
+  if (activity.value.partyMode === 'ticket') return ['门票确认后获得入场凭证', '活动取消时进入退款流程', '试运营确认，不发生真实扣款']
+  return ['签到后诚意金全额退回', '活动开始前可查看入场凭证', '试运营确认，不发生真实扣款']
 })
 const orderStatus = computed(() => order.value?.status || 'pending')
 const orderStatusText = computed(() => {
@@ -86,7 +86,7 @@ const orderStatusText = computed(() => {
 const payButtonText = computed(() => {
   if (isPaying.value) return '处理中...'
   if (orderStatus.value === 'paid') return '查看入场凭证'
-  return '确认模拟支付'
+  return '确认订单'
 })
 
 onLoad(async (query) => {

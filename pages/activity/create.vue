@@ -16,7 +16,7 @@
       <view class="create__hero">
         <text class="create__eyebrow">CREATE A SPOT</text>
         <text class="create__title">把想法开成一局</text>
-        <text class="create__desc">保留原型里的沉浸式卡片感，先把创建、预览、发布闭环跑通。</text>
+        <text class="create__desc">设置时间、地点和报名方式，提交后等待运营审核。</text>
       </view>
 
       <view class="form-card">
@@ -82,6 +82,9 @@
           <picker :range="cityNames" :value="cityIndex" @change="handleCityChange">
             <view class="input input--picker">{{ form.city }}</view>
           </picker>
+          <view class="field-helper field-helper--muted">
+            <text>选择地图地点后自动同步，可手动修正</text>
+          </view>
         </view>
 
         <view class="field">
@@ -165,17 +168,13 @@ import { computed, reactive, ref } from 'vue'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
+import { CITY_OPTIONS, inferCityFromLocation } from '@/common/utils/city.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
-const cityOptions = [
-  { name: '杭州', code: '330100' },
-  { name: '上海', code: '310100' },
-  { name: '南京', code: '320100' },
-  { name: '北京', code: '110100' }
-]
+const cityOptions = CITY_OPTIONS
 const cityNames = cityOptions.map((item) => item.name)
 const partyModes = [
   { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
@@ -229,6 +228,7 @@ function handleCityChange(event) {
   const city = cityOptions[cityIndex.value] || cityOptions[0]
   form.city = city.name
   form.cityCode = city.code
+  form.district = ''
 }
 
 function handleDateChange(event) {
@@ -252,11 +252,25 @@ function chooseLocation() {
       form.address = result.address || result.name || form.location
       form.latitude = result.latitude
       form.longitude = result.longitude
+      syncCityFromLocation(result)
     },
     fail() {
       uni.showToast({ title: '未选择地图地点，可继续手动填写', icon: 'none' })
     }
   })
+}
+
+function syncCityFromLocation(result = {}) {
+  const inferred = inferCityFromLocation(`${result.address || ''} ${result.name || ''}`, {
+    city: form.city,
+    cityCode: form.cityCode,
+    district: form.district
+  })
+  form.city = inferred.city
+  form.cityCode = inferred.cityCode
+  form.district = inferred.district
+  const nextIndex = cityOptions.findIndex((item) => item.code === inferred.cityCode || item.name === inferred.city)
+  if (nextIndex >= 0) cityIndex.value = nextIndex
 }
 
 function addQuestion() {
@@ -397,6 +411,11 @@ async function handleSubmit() {
   color: #3b82f6;
   font-size: 22rpx;
   font-weight: 900;
+}
+
+.field-helper--muted {
+  color: #94a3b8;
+  font-size: 20rpx;
 }
 
 .grid {

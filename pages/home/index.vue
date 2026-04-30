@@ -21,7 +21,7 @@
       </view>
     </view>
 
-    <view class="home__section home__section--selected">
+    <view class="home__section home__section--selected" :style="contentTopStyle">
       <view class="home__section-head">
         <text class="home__section-title">精选活动</text>
         <text class="home__section-sub">SELECTED SPOTS</text>
@@ -118,12 +118,13 @@ import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivities, listMyActivities } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 390 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
 const currentAvatar = ref(DEFAULT_AVATAR)
 const allActivities = ref([])
 const myGroups = ref({
@@ -167,12 +168,19 @@ function getDaysLabel(id) {
 
 <style scoped>
 .home {
-  padding: 28rpx 0 180rpx;
+  padding: 0 0 180rpx;
 }
 
 .home__top {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 30;
   display: block;
   padding: 0;
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(18px);
 }
 
 .home__top-row {

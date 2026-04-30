@@ -57,6 +57,12 @@ const requiredApiFiles = [
   'common/api/moderation.js'
 ]
 
+const requiredUtilityFiles = [
+  'common/utils/city.js',
+  'common/utils/route.js',
+  'common/utils/share.js'
+]
+
 const requiredComponents = [
   'components/surego/SuWechatProfileSheet.vue',
   'uni_modules/unicloud-city-select/components/unicloud-city-select/unicloud-city-select.vue'
@@ -186,6 +192,10 @@ for (const apiFile of requiredApiFiles) {
   }
 }
 
+for (const utilityFile of requiredUtilityFiles) {
+  read(utilityFile)
+}
+
 for (const component of requiredComponents) {
   read(component)
 }
@@ -214,6 +224,11 @@ for (const page of businessPages) {
   for (const pattern of bannedPatterns) {
     if (pattern.test(source)) {
       errors.push(`${page}.vue contains banned pattern: ${pattern}`)
+    }
+  }
+  for (const phrase of ['后续迁移', '闭环跑通', '前端闭环', '当前阶段不调用真实微信支付', '确认模拟支付', '继续模拟支付', '模拟退款']) {
+    if (source.includes(phrase)) {
+      errors.push(`${page}.vue contains internal release copy: ${phrase}`)
     }
   }
 }
@@ -330,6 +345,29 @@ for (const token of ['uni.chooseLocation', 'latitude', 'longitude', 'chooseAndUp
 }
 if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing="80"')) {
   errors.push('pages/activity/create.vue must include keyboard compatibility attributes')
+}
+
+for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
+  const source = read(page)
+  for (const token of ['CITY_OPTIONS', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must sync selected map location to activity city with ${token}`)
+    }
+  }
+}
+
+const cityUtilSource = read('common/utils/city.js')
+for (const token of ['CITY_OPTIONS', 'DEFAULT_CITY_CODE', 'normalizeCityName', 'inferCityFromLocation', 'inferDistrictFromLocation']) {
+  if (!cityUtilSource.includes(token)) {
+    errors.push(`common/utils/city.js is missing release city helper token: ${token}`)
+  }
+}
+
+const homeSource = read('pages/home/index.vue')
+for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'position: fixed', 'backdrop-filter: blur']) {
+  if (!homeSource.includes(token)) {
+    errors.push(`pages/home/index.vue must use release floating header token: ${token}`)
+  }
 }
 
 const activityDetailSource = read('pages/activity/detail.vue')

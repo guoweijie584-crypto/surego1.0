@@ -134,13 +134,13 @@
         </view>
       </view>
 
-      <view v-else class="organizer-card" @tap="showComingSoon('局长主页后续迁移')">
+      <view v-else class="organizer-card" @tap="showComingSoon('局长主页暂未开放')">
         <image class="organizer-card__avatar" :src="activity.organizerAvatar" mode="aspectFill" />
         <view class="organizer-card__info">
           <text class="organizer-card__name">{{ activity.organizer }}</text>
           <text class="organizer-card__role">本局局长 / FOUNDER</text>
         </view>
-        <view class="organizer-card__chat" @tap.stop="showComingSoon('聊天后续迁移')">
+        <view class="organizer-card__chat" @tap.stop="showComingSoon('私信暂未开放')">
           <uni-icons type="chat" size="20" color="#64748b" />
         </view>
       </view>
