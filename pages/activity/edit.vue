@@ -25,7 +25,7 @@
 
         <view class="field">
           <text class="label">活动标题 *</text>
-          <input class="input" v-model="form.title" adjust-position="false" cursor-spacing="28" placeholder="活动标题" placeholder-class="placeholder" />
+          <input class="input" v-model="form.title" adjust-position="false" cursor-spacing="80" always-embed="true" placeholder="活动标题" placeholder-class="placeholder" />
         </view>
 
         <view class="grid">
@@ -37,7 +37,7 @@
           </view>
           <view class="field">
             <text class="label">人数上限</text>
-            <input class="input" type="number" v-model="form.maxParticipants" adjust-position="false" cursor-spacing="28" />
+            <input class="input" type="number" v-model="form.maxParticipants" adjust-position="false" cursor-spacing="80" always-embed="true" />
           </view>
         </view>
 
@@ -81,7 +81,7 @@
 
         <view class="field">
           <text class="label">地点 *</text>
-          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="28" placeholder="活动地点" placeholder-class="placeholder" />
+          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" always-embed="true" placeholder="活动地点" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
             <uni-icons type="location" size="16" color="#3b82f6" />
             <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
@@ -107,12 +107,12 @@
 
         <view v-if="form.partyMode !== 'free'" class="field">
           <text class="label">{{ form.partyMode === 'sincerity' ? '诚意金金额' : '门票金额' }}</text>
-          <input class="input" type="digit" v-model="form.amount" adjust-position="false" cursor-spacing="28" placeholder="0" placeholder-class="placeholder" />
+          <input class="input" type="digit" v-model="form.amount" adjust-position="false" cursor-spacing="80" always-embed="true" placeholder="0" placeholder-class="placeholder" />
         </view>
 
         <view class="field">
           <text class="label">活动介绍 *</text>
-          <textarea class="textarea" v-model="form.description" maxlength="300" auto-height adjust-position="false" cursor-spacing="28" placeholder="写清楚怎么玩、适合谁、需要带什么..." placeholder-class="placeholder" />
+          <textarea class="textarea" v-model="form.description" maxlength="300" auto-height adjust-position="false" cursor-spacing="80" always-embed="true" placeholder="写清楚怎么玩、适合谁、需要带什么..." placeholder-class="placeholder" />
         </view>
 
         <view class="field">
@@ -124,7 +124,7 @@
             </view>
           </view>
           <view v-for="(question, index) in form.questions" :key="index" class="question-row">
-            <input class="input question-row__input" v-model="form.questions[index]" adjust-position="false" cursor-spacing="28" placeholder="给申请者的问题" placeholder-class="placeholder" />
+            <input class="input question-row__input" v-model="form.questions[index]" adjust-position="false" cursor-spacing="80" always-embed="true" placeholder="给申请者的问题" placeholder-class="placeholder" />
             <view class="question-row__remove" @tap="removeQuestion(index)">
               <uni-icons type="trash" size="18" color="#ef4444" />
             </view>
@@ -446,6 +446,7 @@ async function handleSave() {
 .textarea,
 .switch-pill {
   width: 100%;
+  box-sizing: border-box;
   margin-top: 14rpx;
   padding: 0 24rpx;
   border: 1rpx solid #eef2f7;
@@ -459,6 +460,10 @@ async function handleSave() {
 .input,
 .switch-pill {
   height: 82rpx;
+}
+
+.input {
+  line-height: 82rpx;
 }
 
 .input--picker,
@@ -489,7 +494,7 @@ async function handleSave() {
 .textarea {
   min-height: 170rpx;
   padding: 24rpx;
-  line-height: 1.55;
+  line-height: 40rpx;
 }
 
 .mode-grid {

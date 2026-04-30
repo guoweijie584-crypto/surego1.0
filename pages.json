@@ -60,14 +60,16 @@
       "path": "pages/activity/create",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": false,
+        "disableScroll": true
       }
     },
     {
       "path": "pages/activity/edit",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": false,
+        "disableScroll": true
       }
     },
     {

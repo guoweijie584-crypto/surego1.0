@@ -85,6 +85,13 @@ const bannedPatterns = [
 
 const errors = []
 
+const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue']
+const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"', 'always-embed="true"']
+
+function getNativeFormControlTags(source) {
+  return source.match(/<(?:input|textarea)\b[^>]*>/g) || []
+}
+
 function read(relativePath) {
   const absolute = path.join(root, relativePath)
   if (!fs.existsSync(absolute)) {
@@ -134,6 +141,13 @@ for (const route of staleDemoRoutes) {
 for (const route of pagePaths) {
   if (![...businessPages, ...pluginPages].includes(route)) {
     errors.push(`pages.json contains non-release route: ${route}`)
+  }
+}
+
+for (const pagePath of ['pages/activity/create', 'pages/activity/edit']) {
+  const page = (pagesConfig.pages || []).find((item) => item.path === pagePath)
+  if (page && page.style?.disableScroll !== true) {
+    errors.push(`${pagePath} must set style.disableScroll to true`)
   }
 }
 
@@ -304,7 +318,7 @@ for (const token of ['uni.chooseLocation', 'latitude', 'longitude', 'chooseAndUp
     errors.push(`pages/activity/create.vue is missing operation capability: ${token}`)
   }
 }
-if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing')) {
+if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing="80"') || !createSource.includes('always-embed="true"')) {
   errors.push('pages/activity/create.vue must include keyboard compatibility attributes')
 }
 
@@ -387,6 +401,24 @@ if (checkinSource.includes('@tap="goManageDashboard(activity.id)"')) {
 const editActivitySource = read('pages/activity/edit.vue')
 if (!editActivitySource.includes('ensureOwnerAccess')) {
   errors.push('pages/activity/edit.vue must guard owner-only access')
+}
+if (!editActivitySource.includes('adjust-position="false"') || !editActivitySource.includes('cursor-spacing="80"') || !editActivitySource.includes('always-embed="true"')) {
+  errors.push('pages/activity/edit.vue must include keyboard compatibility attributes')
+}
+
+for (const file of activityFormPages) {
+  const source = read(file)
+  const tags = getNativeFormControlTags(source)
+  if (tags.length === 0) {
+    errors.push(`${file} must contain native input/textarea controls`)
+  }
+  for (const tag of tags) {
+    for (const token of requiredKeyboardAttributes) {
+      if (!tag.includes(token)) {
+        errors.push(`${file} native form control is missing ${token}: ${tag}`)
+      }
+    }
+  }
 }
 
 const discoverSource = read('pages/discover/index.vue')

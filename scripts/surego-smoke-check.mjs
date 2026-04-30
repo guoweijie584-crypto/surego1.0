@@ -126,6 +126,13 @@ const bannedPatterns = [
 
 const errors = [];
 
+const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue'];
+const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"', 'always-embed="true"'];
+
+function getNativeFormControlTags(source) {
+  return source.match(/<(?:input|textarea)\b[^>]*>/g) || [];
+}
+
 for (const file of requiredFiles) {
   if (!fs.existsSync(path.join(root, file))) {
     errors.push(`Missing required file: ${file}`);
@@ -225,6 +232,12 @@ if (fs.existsSync(pagesPath)) {
     }
     if ((config.pages || [])[0]?.path !== 'pages/home/index') {
       errors.push('pages/home/index must be the startup page');
+    }
+    for (const pagePath of ['pages/activity/create', 'pages/activity/edit']) {
+      const page = (config.pages || []).find((item) => item.path === pagePath);
+      if (page && page.style?.disableScroll !== true) {
+        errors.push(`${pagePath} must set style.disableScroll to true`);
+      }
     }
   } catch (error) {
     errors.push(`pages.json is not valid JSON: ${error.message}`);
@@ -893,6 +906,23 @@ for (const file of ['pages/activity/create.vue', 'pages/activity/edit.vue', 'pag
   const source = fs.readFileSync(absolute, 'utf8');
   if (!source.includes('adjust-position="false"') || !source.includes('cursor-spacing')) {
     errors.push(`${file} must include keyboard compatibility attributes on input/textarea controls`);
+  }
+}
+
+for (const file of activityFormPages) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  const tags = getNativeFormControlTags(source);
+  if (tags.length === 0) {
+    errors.push(`${file} must contain native input/textarea controls`);
+  }
+  for (const tag of tags) {
+    for (const token of requiredKeyboardAttributes) {
+      if (!tag.includes(token)) {
+        errors.push(`${file} native form control is missing ${token}: ${tag}`);
+      }
+    }
   }
 }
 
