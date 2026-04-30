@@ -9,8 +9,8 @@ const modules = [
     api: 'common/api/activity.js',
     cloud: 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js',
     schema: 'uniCloud-aliyun/database/surego-activities.schema.json',
-    actions: ['list', 'detail', 'create', 'update', 'updateStatus'],
-    apiExports: ['listActivities', 'getActivityDetail', 'createActivity', 'updateActivity', 'updateActivityStatus'],
+    actions: ['list', 'detail', 'listMine', 'create', 'update', 'updateStatus'],
+    apiExports: ['listActivities', 'getActivityDetail', 'listMyActivities', 'createActivity', 'updateActivity', 'updateActivityStatus'],
     requiredSchemaFields: ['creator_id']
   },
   {
@@ -18,8 +18,8 @@ const modules = [
     api: 'common/api/application.js',
     cloud: 'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
     schema: 'uniCloud-aliyun/database/surego-applications.schema.json',
-    actions: ['submit', 'getMineByActivity', 'listByActivity', 'review'],
-    apiExports: ['submitApplication', 'getApplicationForActivity', 'listApplications', 'reviewApplication'],
+    actions: ['submit', 'getMineByActivity', 'listMine', 'listByActivity', 'review'],
+    apiExports: ['submitApplication', 'getApplicationForActivity', 'listMyApplications', 'listApplications', 'reviewApplication'],
     requiredSchemaFields: ['activity_id', 'user_id', 'status']
   },
   {

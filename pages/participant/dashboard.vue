@@ -58,15 +58,7 @@
 
         <view class="code-box">
           <text class="code-box__label">{{ entryLabel }}</text>
-          <view v-if="barcodeBars.length" class="entry-barcode" aria-label="入场条码">
-            <view
-              v-for="(bar, index) in barcodeBars"
-              :key="index"
-              class="entry-barcode__bar"
-              :class="{ 'entry-barcode__bar--blank': !bar.black }"
-              :style="{ width: `${bar.width * 2}rpx` }"
-            />
-          </view>
+          <SuQrCode v-if="showEntryQr" class="code-box__qr" :value="entryCode" :size="304" />
           <text class="code-box__code">{{ entryCode || '等待审核通过后生成' }}</text>
           <text class="code-box__hint">{{ entryHint }}</text>
           <text v-if="reviewFeedback" class="code-box__feedback" :class="{ 'code-box__feedback--danger': applicationState.key === 'rejected' }">
@@ -141,8 +133,8 @@ import { buildParticipantCheckinCode, getCheckinForUser } from '@/common/api/che
 import { getUnreadMessageCount, listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { buildCode128Bars } from '@/common/utils/code128.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
+import SuQrCode from '@/components/surego/SuQrCode.vue'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -230,7 +222,7 @@ const entryHint = computed(() => {
   if (applicationState.value.key === 'rejected') return reviewFeedback.value || '当前申请未通过，返回详情页查看原因'
   if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '先完成支付，再进入签到'
   if (checkin.value) return '凭证已完成核销'
-  return '可复制后在现场展示'
+  return '请向局长出示入场二维码'
 })
 
 const statCards = computed(() => [
@@ -239,11 +231,11 @@ const statCards = computed(() => [
   { label: '签到状态', value: checkinState.value.label, desc: checkinState.value.desc, tone: checkinState.value.key === 'done' ? 'green' : 'dark' }
 ])
 
-const barcodeBars = computed(() => {
-  if (!entryCode.value || checkin.value) return []
-  if (applicationState.value.key !== 'approved' && !activity.value.isCreator) return []
-  if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return []
-  return buildCode128Bars(entryCode.value)
+const showEntryQr = computed(() => {
+  if (!entryCode.value || checkin.value) return false
+  if (applicationState.value.key !== 'approved' && !activity.value.isCreator) return false
+  if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return false
+  return true
 })
 
 const primaryActionText = computed(() => {
@@ -378,7 +370,7 @@ async function handlePrimaryAction() {
     entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
   }
 
-  uni.showToast({ title: '请向局长出示入场条码', icon: 'none' })
+  uni.showToast({ title: '请向局长出示入场二维码', icon: 'none' })
 }
 
 async function handleMessageTap(item) {
@@ -652,29 +644,8 @@ async function handleMessageTap(item) {
   font-weight: 900;
 }
 
-.entry-barcode {
-  display: flex;
-  width: 100%;
-  height: 128rpx;
-  align-items: stretch;
-  justify-content: center;
-  box-sizing: border-box;
-  margin-top: 18rpx;
-  padding: 18rpx 20rpx;
-  border-radius: 24rpx;
-  background: #fff;
-  box-shadow: inset 0 0 0 1rpx rgba(15, 23, 42, 0.06);
-  overflow: hidden;
-}
-
-.entry-barcode__bar {
-  height: 100%;
-  flex: 0 0 auto;
-  background: #0f172a;
-}
-
-.entry-barcode__bar--blank {
-  background: transparent;
+.code-box__qr {
+  margin: 22rpx auto 0;
 }
 
 .code-box__code {

@@ -467,6 +467,11 @@ for (const token of ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 
     errors.push(`common/api/activity.js is missing release activity status helper: ${token}`)
   }
 }
+for (const helper of ['listCurrentUserApplications', 'buildActivityWithApplication', 'listAppliedLocalActivities']) {
+  if (!activitySource.includes(helper)) {
+    errors.push(`common/api/activity.js must sync my joined/pending activities through applications with ${helper}`)
+  }
+}
 for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'"]) {
   if (!activitySource.includes(token)) {
     errors.push(`common/api/activity.js must create activities in review state: ${token}`)
@@ -745,9 +750,21 @@ const participantDeskSource = read('pages/participant/dashboard.vue')
 if (!participantDeskSource.includes('buildParticipantCheckinCode')) {
   errors.push('pages/participant/dashboard.vue must render a stable participant check-in code')
 }
-for (const token of ['buildCode128Bars', 'entry-barcode', 'barcodeBars']) {
+const qrCodeSource = read('common/utils/qrcode.js')
+for (const token of ['buildQrMatrix', 'addQuietZone', 'reedSolomonEncode', 'FORMAT_BITS_L_MASK_0']) {
+  if (!qrCodeSource.includes(token)) {
+    errors.push(`common/utils/qrcode.js must generate check-in QR matrices with ${token}`)
+  }
+}
+const qrCodeComponentSource = read('components/surego/SuQrCode.vue')
+for (const token of ['buildQrMatrix', 'su-qrcode__module', 'moduleSize']) {
+  if (!qrCodeComponentSource.includes(token)) {
+    errors.push(`components/surego/SuQrCode.vue must render QR modules with ${token}`)
+  }
+}
+for (const token of ['SuQrCode', 'showEntryQr', 'code-box__qr']) {
   if (!participantDeskSource.includes(token)) {
-    errors.push(`pages/participant/dashboard.vue must render a scan-ready barcode using ${token}`)
+    errors.push(`pages/participant/dashboard.vue must render a scan-ready QR pass using ${token}`)
   }
 }
 if (participantDeskSource.includes("source: 'participant'") || participantDeskSource.includes('remark: \'参与者中心确认签到\'')) {

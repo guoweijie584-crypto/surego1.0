@@ -189,6 +189,38 @@ function getLocalApplicationForActivity(activityId, userId = getCurrentUserId())
   return Promise.resolve(found ? normalizeApplication(found) : null)
 }
 
+function getApplicationSortTime(application = {}) {
+  const value = application.createdAt || application.created_at || application.reviewedAt || application.reviewed_at || 0
+  if (typeof value === 'number') return value
+  const parsed = Date.parse(String(value))
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function listCurrentUserLocalApplications(userId = getCurrentUserId()) {
+  if (!userId) return Promise.resolve([])
+  const applications = readApplications()
+    .filter((item) => String(item.userId || item.user_id || '') === String(userId))
+    .map(normalizeApplication)
+    .sort((a, b) => getApplicationSortTime(b) - getApplicationSortTime(a))
+  return Promise.resolve(applications)
+}
+
+export async function listMyApplications() {
+  const userId = getCurrentUserId()
+  if (!userId) return []
+  if (USE_UNICLOUD) {
+    try {
+      const items = await callSuregoFunction('surego-application', 'listMine', { userId, limit: 100 })
+      const applications = (items || []).map(normalizeApplication)
+      applications.filter((item) => item.activityId).forEach(writeApplicationCache)
+      return applications
+    } catch (error) {
+      return handleSuregoCloudError(error, () => listCurrentUserLocalApplications(userId))
+    }
+  }
+  return listCurrentUserLocalApplications(userId)
+}
+
 export async function getApplicationForActivity(activityId) {
   const userId = getCurrentUserId()
   if (!activityId || !userId) return null

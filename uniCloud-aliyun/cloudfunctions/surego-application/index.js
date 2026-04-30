@@ -171,6 +171,29 @@ exports.main = async (event) => {
     };
   }
 
+  if (action === 'listMine') {
+    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const requestedLimit = Math.min(Number(payload.limit) || 100, 100);
+    const [snakeResult, camelResult] = await Promise.all([
+      collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get(),
+      collection.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get()
+    ]);
+    const seen = new Set();
+    const items = [...(snakeResult.data || []), ...(camelResult.data || [])]
+      .filter((item) => {
+        const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))
+      .slice(0, requestedLimit);
+    return {
+      code: 0,
+      data: items.map(normalizeApplication)
+    };
+  }
+
   if (action === 'listByActivity') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
     const activityId = String(payload.activityId || payload.activity_id);

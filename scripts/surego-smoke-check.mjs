@@ -483,6 +483,11 @@ if (fs.existsSync(activityApiPath)) {
       errors.push(`common/api/activity.js is missing activity status display helper: ${helper}`);
     }
   }
+  for (const helper of ['listCurrentUserApplications', 'buildActivityWithApplication', 'listAppliedLocalActivities']) {
+    if (!activitySource.includes(helper)) {
+      errors.push(`common/api/activity.js must sync my joined/pending activities through applications with ${helper}`);
+    }
+  }
   for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'", "'surego-activity', 'listMine'"]) {
     if (!activitySource.includes(token)) {
       errors.push(`common/api/activity.js is missing review-gated creation token: ${token}`);
@@ -873,9 +878,9 @@ if (fs.existsSync(orderCloudPath)) {
   }
 }
 
-const participantDashboardPath = path.join(root, 'pages/participant/dashboard.vue');
-if (fs.existsSync(participantDashboardPath)) {
-  const source = fs.readFileSync(participantDashboardPath, 'utf8');
+const participantQrDashboardPath = path.join(root, 'pages/participant/dashboard.vue');
+if (fs.existsSync(participantQrDashboardPath)) {
+  const source = fs.readFileSync(participantQrDashboardPath, 'utf8');
   if (source.includes("userId === 'mock_user'")) {
     errors.push('pages/participant/dashboard.vue must not filter by hard-coded mock_user');
   }
@@ -971,6 +976,40 @@ if (fs.existsSync(manageCheckinPath)) {
   }
 }
 
+const qrCodePath = path.join(root, 'common/utils/qrcode.js');
+if (!fs.existsSync(qrCodePath)) {
+  errors.push('common/utils/qrcode.js is required to generate participant check-in QR codes');
+} else {
+  const source = fs.readFileSync(qrCodePath, 'utf8');
+  for (const token of ['buildQrMatrix', 'addQuietZone', 'reedSolomonEncode', 'FORMAT_BITS_L_MASK_0']) {
+    if (!source.includes(token)) {
+      errors.push(`common/utils/qrcode.js is missing ${token}`);
+    }
+  }
+}
+
+const qrComponentPath = path.join(root, 'components/surego/SuQrCode.vue');
+if (!fs.existsSync(qrComponentPath)) {
+  errors.push('components/surego/SuQrCode.vue is required for participant check-in QR display');
+} else {
+  const source = fs.readFileSync(qrComponentPath, 'utf8');
+  for (const token of ['buildQrMatrix', 'su-qrcode__module', 'moduleSize']) {
+    if (!source.includes(token)) {
+      errors.push(`components/surego/SuQrCode.vue is missing ${token}`);
+    }
+  }
+}
+
+const participantDashboardPath = path.join(root, 'pages/participant/dashboard.vue');
+if (fs.existsSync(participantDashboardPath)) {
+  const source = fs.readFileSync(participantDashboardPath, 'utf8');
+  for (const token of ['SuQrCode', 'showEntryQr', '请向局长出示入场二维码']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/participant/dashboard.vue must render scan-ready QR check-in pass with ${token}`);
+    }
+  }
+}
+
 for (const opsChildPage of ['pages/ops/users.vue', 'pages/ops/reports.vue']) {
   const absolute = path.join(root, opsChildPage);
   if (!fs.existsSync(absolute)) continue;
@@ -997,9 +1036,9 @@ if (fs.existsSync(participantCheckinPath)) {
       errors.push(`pages/participant/dashboard.vue is missing terminal activity guard token: ${token}`);
     }
   }
-  for (const token of ['buildCode128Bars', 'entry-barcode', 'barcodeBars']) {
+  for (const token of ['SuQrCode', 'showEntryQr', 'code-box__qr']) {
     if (!source.includes(token)) {
-      errors.push(`pages/participant/dashboard.vue must render a scan-ready barcode using ${token}`);
+      errors.push(`pages/participant/dashboard.vue must render a scan-ready QR pass using ${token}`);
     }
   }
   if (source.includes("source: 'participant'") || source.includes('remark: \'参与者中心确认签到\'')) {

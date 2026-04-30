@@ -183,11 +183,19 @@ exports.main = async (event) => {
 
   if (action === 'listMine') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    const [createdResult, applicationResult] = await Promise.all([
+    const [createdResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
       collection.where({ creator_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      applications.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
+      applications.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
+      applications.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
     ]);
-    const applicationItems = applicationResult.data || [];
+    const seenApplications = new Set();
+    const applicationItems = [...(snakeApplicationResult.data || []), ...(camelApplicationResult.data || [])]
+      .filter((item) => {
+        const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+        if (seenApplications.has(key)) return false;
+        seenApplications.add(key);
+        return true;
+      });
     const applicationStatusByActivity = {};
     const activityIds = Array.from(new Set(applicationItems.map((item) => String(item.activity_id || item.activityId || '')).filter(Boolean)));
     const joinedResult = activityIds.length
@@ -207,7 +215,8 @@ exports.main = async (event) => {
       data: {
         hosting: normalizeList(createdResult),
         joined: joined.filter((item) => item.applicationStatus === 'approved'),
-        pending: joined.filter((item) => item.applicationStatus === 'pending')
+        pending: joined.filter((item) => item.applicationStatus === 'pending'),
+        rejected: joined.filter((item) => item.applicationStatus === 'rejected')
       }
     };
   }

@@ -2,6 +2,7 @@ import { activities, findActivityById } from '@/common/mock/activities.js'
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
+import { listMyApplications } from '@/common/api/application.js'
 import { getDefaultCoverPreset } from '@/common/utils/cover-presets.js'
 import { CITY_OPTIONS, DEFAULT_CITY, DEFAULT_CITY_CODE, getCityCode, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 
@@ -540,7 +541,10 @@ export async function listMyActivities() {
       return {
         hosting: sortActivitiesByStatusPriority((result.hosting || []).map(normalizeActivityRecord)),
         joined: sortActivitiesByStatusPriority((result.joined || []).map(normalizeActivityRecord)),
-        pending: sortActivitiesByStatusPriority((result.pending || []).map(normalizeActivityRecord))
+        pending: sortActivitiesByStatusPriority([
+          ...(result.pending || []),
+          ...(result.rejected || [])
+        ].map(normalizeActivityRecord))
       }
     } catch (error) {
       return handleSuregoCloudError(error, listMyLocalActivities)
@@ -549,11 +553,56 @@ export async function listMyActivities() {
   return listMyLocalActivities()
 }
 
+async function listCurrentUserApplications() {
+  return listMyApplications()
+}
+
+function buildActivityWithApplication(activity = {}, application = {}) {
+  const status = normalizeApplicationStatus(application.status || application.applicationStatus || 'pending')
+  return normalizeActivityRecord({
+    ...activity,
+    application,
+    applicationId: application.id || application._id || '',
+    application_id: application.id || application._id || '',
+    applicationStatus: status,
+    application_status: status,
+    reviewNote: application.reviewNote || application.review_note || activity.reviewNote || '',
+    rejectReason: application.rejectReason || application.reject_reason || activity.rejectReason || ''
+  })
+}
+
+async function listAppliedLocalActivities(all = []) {
+  const currentUserId = getCurrentUserId()
+  const applications = await listCurrentUserApplications()
+  const activityById = all.reduce((map, item) => {
+    map[String(item.id || item._id)] = item
+    return map
+  }, {})
+  const applied = []
+  const seen = new Set()
+
+  applications.forEach((application) => {
+    const activityId = String(application.activityId || application.activity_id || '')
+    if (!activityId || seen.has(activityId)) return
+    const activity = activityById[activityId]
+    if (!activity) return
+    if (currentUserId && isCurrentUserActivityCreator(activity)) return
+    seen.add(activityId)
+    applied.push(buildActivityWithApplication(activity, application))
+  })
+
+  return {
+    joined: sortActivitiesByStatusPriority(applied.filter((item) => item.applicationStatus === 'approved')),
+    pending: sortActivitiesByStatusPriority(applied.filter((item) => ['pending', 'rejected'].includes(item.applicationStatus)))
+  }
+}
+
 async function listMyLocalActivities() {
   const all = await listAllActivities()
+  const applied = await listAppliedLocalActivities(all)
   return Promise.resolve({
     hosting: sortActivitiesByStatusPriority(all.filter((item) => isCurrentUserActivityCreator(item))),
-    joined: sortActivitiesByStatusPriority(all.filter((item) => item.applicationStatus === 'approved')),
-    pending: sortActivitiesByStatusPriority(all.filter((item) => item.applicationStatus === 'pending' || uni.getStorageSync(`surego_application_${item.id}`)))
+    joined: applied.joined,
+    pending: applied.pending
   })
 }
