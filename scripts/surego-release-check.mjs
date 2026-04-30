@@ -86,7 +86,7 @@ const bannedPatterns = [
 const errors = []
 
 const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue']
-const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"', 'always-embed="true"']
+const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"']
 
 function getNativeFormControlTags(source) {
   return source.match(/<(?:input|textarea)\b[^>]*>/g) || []
@@ -250,7 +250,7 @@ for (const token of ['open-type="share"', 'createReport', 'goSharePoster']) {
 }
 
 const profileSource = read('pages/user/profile.vue')
-if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('isOpsUser')) {
+if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('canUseOps.value = hasOpsRole(user.value)')) {
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
 }
 if (profileSource.includes('count: loggedIn.value ? 2 : 0') || profileSource.includes('靠谱、准时') || profileSource.includes('活动组织清晰')) {
@@ -266,7 +266,7 @@ if (!loginSource.includes('SuWechatProfileSheet') || !loginSource.includes('prof
 }
 
 const authSource = read('common/api/auth.js')
-for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center']) {
+for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center', 'hasOpsRole']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
   }
@@ -318,7 +318,7 @@ for (const token of ['uni.chooseLocation', 'latitude', 'longitude', 'chooseAndUp
     errors.push(`pages/activity/create.vue is missing operation capability: ${token}`)
   }
 }
-if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing="80"') || !createSource.includes('always-embed="true"')) {
+if (!createSource.includes('adjust-position="false"') || !createSource.includes('cursor-spacing="80"')) {
   errors.push('pages/activity/create.vue must include keyboard compatibility attributes')
 }
 
@@ -453,10 +453,13 @@ for (const page of ['pages/home/index.vue', 'pages/discover/index.vue']) {
 }
 
 const registerSource = read('pages/activity/register.vue')
-for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing']) {
+for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing', 'register__scroll', 'disable-default-padding="true"']) {
   if (!registerSource.includes(token)) {
     errors.push(`pages/activity/register.vue is missing release join/keyboard token: ${token}`)
   }
+}
+if (registerSource.includes('overflow: hidden;')) {
+  errors.push('pages/activity/register.vue must not hide overflow around keyboard form content')
 }
 
 const manageSource = read('pages/manage/dashboard.vue')
@@ -479,7 +482,7 @@ const editActivitySource = read('pages/activity/edit.vue')
 if (!editActivitySource.includes('ensureOwnerAccess')) {
   errors.push('pages/activity/edit.vue must guard owner-only access')
 }
-if (!editActivitySource.includes('adjust-position="false"') || !editActivitySource.includes('cursor-spacing="80"') || !editActivitySource.includes('always-embed="true"')) {
+if (!editActivitySource.includes('adjust-position="false"') || !editActivitySource.includes('cursor-spacing="80"')) {
   errors.push('pages/activity/edit.vue must include keyboard compatibility attributes')
 }
 
@@ -495,6 +498,27 @@ for (const file of activityFormPages) {
         errors.push(`${file} native form control is missing ${token}: ${tag}`)
       }
     }
+  }
+  if (source.includes('always-embed="true"')) {
+    errors.push(`${file} must not use always-embed on activity form inputs`)
+  }
+  if (source.includes('auto-height')) {
+    errors.push(`${file} must not use auto-height on activity form textareas`)
+  }
+  if (source.includes('line-height: 82rpx')) {
+    errors.push(`${file} must not vertically position input text with line-height: 82rpx`)
+  }
+}
+
+const searchSource = read('pages/discover/search.vue')
+if (searchSource.includes('\n            focus')) {
+  errors.push('pages/discover/search.vue must not autofocus the input on page entry')
+}
+
+for (const file of ['pages/manage/dashboard.vue', 'pages/ops/reports.vue']) {
+  const source = read(file)
+  if (!source.includes('fixed="true"')) {
+    errors.push(`${file} bottom sheet textarea must set fixed="true"`)
   }
 }
 

@@ -1,5 +1,5 @@
 ﻿<template>
-  <view class="register su-page" :style="contentTopStyle">
+  <view class="register su-page">
     <view class="register__glow register__glow--green" />
     <view class="register__glow register__glow--blue" />
 
@@ -12,6 +12,7 @@
       </view>
     </view>
 
+    <scroll-view scroll-y class="register__scroll" :style="contentTopStyle">
     <view class="register__panel">
       <view class="register__header">
         <view class="register__spark">
@@ -67,9 +68,9 @@
               class="textarea textarea--small"
               :value="answers[index]"
               maxlength="120"
-              auto-height
               adjust-position="false"
               cursor-spacing="28"
+              disable-default-padding="true"
               placeholder="回答一下局长的问题..."
               placeholder-class="textarea__placeholder"
               @input="handleAnswerInput(index, $event)"
@@ -86,9 +87,9 @@
             class="textarea"
             :value="message"
             maxlength="180"
-            auto-height
             adjust-position="false"
             cursor-spacing="28"
+            disable-default-padding="true"
             placeholder="介绍一下自己，或者告诉局长你为什么想来..."
             placeholder-class="textarea__placeholder"
             @input="message = $event.detail.value"
@@ -112,6 +113,7 @@
         </button>
       </view>
     </view>
+    </scroll-view>
   </view>
 </template>
 
@@ -275,11 +277,17 @@ function validateJoinEligibility(silent = false) {
 .register {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
   padding-right: 34rpx;
   padding-bottom: 56rpx;
   padding-left: 34rpx;
   background: #0f172a;
+}
+
+.register__scroll {
+  position: relative;
+  z-index: 2;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .register__glow {
@@ -513,6 +521,7 @@ function validateJoinEligibility(silent = false) {
 
 .textarea {
   width: 100%;
+  height: 168rpx;
   min-height: 168rpx;
   padding: 30rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.1);
@@ -525,6 +534,7 @@ function validateJoinEligibility(silent = false) {
 }
 
 .textarea--small {
+  height: 128rpx;
   min-height: 104rpx;
   border-radius: 26rpx;
 }

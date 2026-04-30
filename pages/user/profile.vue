@@ -152,7 +152,7 @@ import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import { listMyActivities } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
-import { getCurrentUserProfile, isLoggedIn, isOpsUser, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
@@ -190,9 +190,9 @@ const tabs = computed(() => [
 
 onShow(async () => {
   loggedIn.value = isLoggedIn()
-  canUseOps.value = loggedIn.value && isOpsUser()
   if (!loggedIn.value) {
     user.value = getCurrentUserProfile()
+    canUseOps.value = false
     myActivities.value = { hosting: [], joined: [], pending: [] }
     orders.value = []
     reviews.value = []
@@ -200,6 +200,7 @@ onShow(async () => {
   }
 
   user.value = await getCurrentUser()
+  canUseOps.value = hasOpsRole(user.value)
   myActivities.value = await listMyActivities()
   orders.value = await listOrders()
   reviews.value = []
@@ -226,6 +227,7 @@ function handleProfileSaved(nextUser) {
     ...user.value,
     ...(nextUser || {})
   }
+  canUseOps.value = hasOpsRole(user.value)
   profileSheetVisible.value = false
   uni.showToast({ title: '资料已保存', icon: 'none' })
 }

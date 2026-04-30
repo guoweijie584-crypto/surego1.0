@@ -166,7 +166,11 @@ function getUserRoles(...items) {
   return items.flatMap((item) => {
     const role = item?.role || item?.roles || item?.permission || item?.permissions || []
     return Array.isArray(role) ? role : [role]
-  }).filter(Boolean).map(String)
+  }).filter(Boolean).map((role) => String(role).trim().toLowerCase())
+}
+
+export function hasOpsRole(profile = {}) {
+  return getUserRoles(profile).some((role) => OPS_ROLES.includes(role))
 }
 
 export function isOpsUser() {

@@ -115,6 +115,7 @@
           class="review-sheet__textarea"
           :placeholder="reviewMode === 'approved' ? '给参与者留一句欢迎提示' : '填写拒绝原因，参与者可在凭证页查看'"
           maxlength="120"
+          fixed="true"
           adjust-position="false"
           cursor-spacing="28"
         />

@@ -10,7 +10,6 @@
           <input
             class="search__input"
             v-model="keyword"
-            focus
             confirm-type="search"
             adjust-position="false"
             cursor-spacing="28"

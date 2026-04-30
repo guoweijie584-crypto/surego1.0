@@ -127,7 +127,7 @@ const bannedPatterns = [
 const errors = [];
 
 const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue'];
-const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"', 'always-embed="true"'];
+const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"'];
 
 function getNativeFormControlTags(source) {
   return source.match(/<(?:input|textarea)\b[^>]*>/g) || [];
@@ -543,8 +543,10 @@ if (fs.existsSync(authApiPath)) {
       errors.push(`common/api/auth.js is missing ${helper}`);
     }
   }
-  if (!authSource.includes('isOpsUser')) {
-    errors.push('common/api/auth.js is missing isOpsUser');
+  for (const helper of ['isOpsUser', 'hasOpsRole']) {
+    if (!authSource.includes(helper)) {
+      errors.push(`common/api/auth.js is missing ${helper}`);
+    }
   }
   for (const token of ['uniCloud.getCurrentUserInfo', 'uni-id-pages-userInfo', 'mock_user', 'uni.login', 'uni-id-co', 'user-center']) {
     if (!authSource.includes(token)) {
@@ -831,7 +833,7 @@ if (fs.existsSync(participantDashboardPath)) {
 const userProfilePath = path.join(root, 'pages/user/profile.vue');
 if (fs.existsSync(userProfilePath)) {
   const source = fs.readFileSync(userProfilePath, 'utf8');
-  for (const token of ['orderFilters', 'filteredOrders', 'goOrderDetail']) {
+  for (const token of ['orderFilters', 'filteredOrders', 'goOrderDetail', 'hasOpsRole', 'canUseOps.value = hasOpsRole(user.value)']) {
     if (!source.includes(token)) {
       errors.push(`pages/user/profile.vue is missing ${token}`);
     }
@@ -936,10 +938,13 @@ if (fs.existsSync(activityDetailPath)) {
 const registerPagePath = path.join(root, 'pages/activity/register.vue');
 if (fs.existsSync(registerPagePath)) {
   const source = fs.readFileSync(registerPagePath, 'utf8');
-  for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing']) {
+  for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'cursor-spacing', 'register__scroll', 'disable-default-padding="true"']) {
     if (!source.includes(token)) {
       errors.push(`pages/activity/register.vue is missing join/keyboard guard token: ${token}`);
     }
+  }
+  if (source.includes('overflow: hidden;')) {
+    errors.push('pages/activity/register.vue must not hide overflow around keyboard form content');
   }
 }
 
@@ -992,6 +997,32 @@ for (const file of activityFormPages) {
         errors.push(`${file} native form control is missing ${token}: ${tag}`);
       }
     }
+  }
+  if (source.includes('always-embed="true"')) {
+    errors.push(`${file} must not use always-embed on activity form inputs`);
+  }
+  if (source.includes('auto-height')) {
+    errors.push(`${file} must not use auto-height on activity form textareas`);
+  }
+  if (source.includes('line-height: 82rpx')) {
+    errors.push(`${file} must not vertically position input text with line-height: 82rpx`);
+  }
+}
+
+const searchPagePath = path.join(root, 'pages/discover/search.vue');
+if (fs.existsSync(searchPagePath)) {
+  const source = fs.readFileSync(searchPagePath, 'utf8');
+  if (source.includes('\n            focus')) {
+    errors.push('pages/discover/search.vue must not autofocus the input on page entry');
+  }
+}
+
+for (const file of ['pages/manage/dashboard.vue', 'pages/ops/reports.vue']) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('fixed="true"')) {
+    errors.push(`${file} bottom sheet textarea must set fixed="true"`);
   }
 }
 
