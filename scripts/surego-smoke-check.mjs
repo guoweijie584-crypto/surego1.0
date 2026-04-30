@@ -17,6 +17,7 @@ const requiredFiles = [
   'common/utils/share.js',
   'common/utils/city.js',
   'common/utils/cover-presets.js',
+  'common/utils/code128.js',
   'common/api/activity.js',
   'common/api/application.js',
   'common/api/order.js',
@@ -993,6 +994,14 @@ if (fs.existsSync(participantCheckinPath)) {
     if (!source.includes(token)) {
       errors.push(`pages/participant/dashboard.vue is missing terminal activity guard token: ${token}`);
     }
+  }
+  for (const token of ['buildCode128Bars', 'entry-barcode', 'barcodeBars']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/participant/dashboard.vue must render a scan-ready barcode using ${token}`);
+    }
+  }
+  if (source.includes("source: 'participant'") || source.includes('remark: \'参与者中心确认签到\'')) {
+    errors.push('pages/participant/dashboard.vue must not allow participants to self-confirm onsite check-in');
   }
 }
 

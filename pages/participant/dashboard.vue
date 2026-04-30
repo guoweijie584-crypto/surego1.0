@@ -58,6 +58,15 @@
 
         <view class="code-box">
           <text class="code-box__label">{{ entryLabel }}</text>
+          <view v-if="barcodeBars.length" class="entry-barcode" aria-label="入场条码">
+            <view
+              v-for="(bar, index) in barcodeBars"
+              :key="index"
+              class="entry-barcode__bar"
+              :class="{ 'entry-barcode__bar--blank': !bar.black }"
+              :style="{ width: `${bar.width * 2}rpx` }"
+            />
+          </view>
           <text class="code-box__code">{{ entryCode || '等待审核通过后生成' }}</text>
           <text class="code-box__hint">{{ entryHint }}</text>
           <text v-if="reviewFeedback" class="code-box__feedback" :class="{ 'code-box__feedback--danger': applicationState.key === 'rejected' }">
@@ -128,10 +137,11 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
-import { buildParticipantCheckinCode, confirmCheckin, getCheckinForUser } from '@/common/api/checkin.js'
+import { buildParticipantCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
 import { getUnreadMessageCount, listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { buildCode128Bars } from '@/common/utils/code128.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const activityId = ref('103')
@@ -229,6 +239,13 @@ const statCards = computed(() => [
   { label: '签到状态', value: checkinState.value.label, desc: checkinState.value.desc, tone: checkinState.value.key === 'done' ? 'green' : 'dark' }
 ])
 
+const barcodeBars = computed(() => {
+  if (!entryCode.value || checkin.value) return []
+  if (applicationState.value.key !== 'approved' && !activity.value.isCreator) return []
+  if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return []
+  return buildCode128Bars(entryCode.value)
+})
+
 const primaryActionText = computed(() => {
   if (activity.value.isCreator) return '进入管理台'
   if (isTerminalActivity.value) return '查看活动详情'
@@ -237,7 +254,7 @@ const primaryActionText = computed(() => {
   if (['refunded', 'closed'].includes(paymentState.value.key)) return '查看订单'
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return '去支付'
   if (checkin.value) return '已完成签到'
-  return '确认签到'
+  return '出示凭证'
 })
 
 const primaryIcon = computed(() => {
@@ -361,16 +378,7 @@ async function handlePrimaryAction() {
     entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
   }
 
-  await confirmCheckin({
-    activityId: activityId.value,
-    activityTitle: activity.value.title,
-    code: entryCode.value,
-    userId: getCurrentUserId(),
-    source: 'participant',
-    remark: '参与者中心确认签到'
-  })
-  await loadState()
-  uni.showToast({ title: '签到成功', icon: 'none' })
+  uni.showToast({ title: '请向局长出示入场条码', icon: 'none' })
 }
 
 async function handleMessageTap(item) {
@@ -642,6 +650,31 @@ async function handleMessageTap(item) {
   color: #94a3b8;
   font-size: 20rpx;
   font-weight: 900;
+}
+
+.entry-barcode {
+  display: flex;
+  width: 100%;
+  height: 128rpx;
+  align-items: stretch;
+  justify-content: center;
+  box-sizing: border-box;
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 24rpx;
+  background: #fff;
+  box-shadow: inset 0 0 0 1rpx rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.entry-barcode__bar {
+  height: 100%;
+  flex: 0 0 auto;
+  background: #0f172a;
+}
+
+.entry-barcode__bar--blank {
+  background: transparent;
 }
 
 .code-box__code {

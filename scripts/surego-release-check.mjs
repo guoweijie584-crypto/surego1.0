@@ -724,6 +724,14 @@ const participantDeskSource = read('pages/participant/dashboard.vue')
 if (!participantDeskSource.includes('buildParticipantCheckinCode')) {
   errors.push('pages/participant/dashboard.vue must render a stable participant check-in code')
 }
+for (const token of ['buildCode128Bars', 'entry-barcode', 'barcodeBars']) {
+  if (!participantDeskSource.includes(token)) {
+    errors.push(`pages/participant/dashboard.vue must render a scan-ready barcode using ${token}`)
+  }
+}
+if (participantDeskSource.includes("source: 'participant'") || participantDeskSource.includes('remark: \'参与者中心确认签到\'')) {
+  errors.push('pages/participant/dashboard.vue must not allow participants to self-confirm onsite check-in')
+}
 
 const calendarSource = read('pages/calendar/index.vue')
 for (const token of ['month-grid', 'weekday-row', 'calendarCells', 'shiftMonth', 'calendar-tabs']) {
