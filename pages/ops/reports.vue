@@ -2,7 +2,7 @@
   <view class="reports su-page">
     <view class="reports__nav" :style="navStyle">
       <view class="reports__nav-row" :style="navRowStyle">
-      <view class="reports__back" @tap="goOpsDashboard">
+      <view class="reports__back" @tap="handleBack">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view>
@@ -77,7 +77,7 @@
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { listReports, updateReportStatus } from '@/common/api/moderation.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goOpsDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const reportFilters = [
   { key: 'all', label: '全部' },
@@ -98,6 +98,10 @@ onLoad((query) => {
 })
 
 onShow(loadReports)
+
+function handleBack() {
+  goBackOrFallback('/pages/ops/dashboard')
+}
 
 async function loadReports() {
   reports.value = await listReports(activeStatus.value)

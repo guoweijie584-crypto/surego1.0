@@ -222,17 +222,17 @@ export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
 }
 
-export function goOpsDashboard() {
-  guardLoginAction('/pages/ops/dashboard')
+export function goOpsDashboard(options = {}) {
+  guardLoginAction('/pages/ops/dashboard', options)
 }
 
-export function goOpsReports(status = '') {
+export function goOpsReports(status = '', options = {}) {
   const query = buildQuery({ status })
-  guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`)
+  guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`, options)
 }
 
-export function goOpsUsers() {
-  guardLoginAction('/pages/ops/users')
+export function goOpsUsers(options = {}) {
+  guardLoginAction('/pages/ops/users', options)
 }
 
 export function goActivityEdit(id) {

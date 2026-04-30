@@ -2,7 +2,7 @@
   <view class="ops-users su-page">
     <view class="ops-users__nav" :style="navStyle">
       <view class="ops-users__nav-row" :style="navRowStyle">
-      <view class="ops-users__back" @tap="goOpsDashboard">
+      <view class="ops-users__back" @tap="handleBack">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view>
@@ -64,7 +64,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, getRoleLabel, isAdminUser, listUsers, updateUserRoles } from '@/common/api/user.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goOpsDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const roleOptions = [
   { value: 'user', label: '普通用户' },
@@ -88,6 +88,10 @@ onShow(async () => {
   }
   await loadUsers()
 })
+
+function handleBack() {
+  goBackOrFallback('/pages/ops/dashboard')
+}
 
 async function loadUsers() {
   if (!isAdmin.value) return

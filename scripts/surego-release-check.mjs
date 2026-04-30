@@ -478,6 +478,16 @@ if (checkinSource.includes('@tap="goManageDashboard(activity.id)"')) {
   errors.push('pages/manage/checkin.vue back arrow must use goBackOrFallback/handleBack instead of pushing manage dashboard')
 }
 
+for (const file of ['pages/ops/users.vue', 'pages/ops/reports.vue']) {
+  const source = read(file)
+  if (!source.includes('goBackOrFallback') || !source.includes('/pages/ops/dashboard')) {
+    errors.push(`${file} back arrow must use goBackOrFallback('/pages/ops/dashboard')`)
+  }
+  if (source.includes('@tap="goOpsDashboard"') || source.includes('@tap="goOpsDashboard()"')) {
+    errors.push(`${file} back arrow must not push a new ops dashboard page`)
+  }
+}
+
 const editActivitySource = read('pages/activity/edit.vue')
 if (!editActivitySource.includes('ensureOwnerAccess')) {
   errors.push('pages/activity/edit.vue must guard owner-only access')

@@ -906,6 +906,18 @@ if (fs.existsSync(manageCheckinPath)) {
   }
 }
 
+for (const opsChildPage of ['pages/ops/users.vue', 'pages/ops/reports.vue']) {
+  const absolute = path.join(root, opsChildPage);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('goBackOrFallback') || !source.includes('/pages/ops/dashboard')) {
+    errors.push(`${opsChildPage} back arrow must use goBackOrFallback('/pages/ops/dashboard')`);
+  }
+  if (source.includes('@tap="goOpsDashboard"') || source.includes('@tap="goOpsDashboard()"')) {
+    errors.push(`${opsChildPage} back arrow must not push a new ops dashboard page`);
+  }
+}
+
 const participantCheckinPath = path.join(root, 'pages/participant/dashboard.vue');
 if (fs.existsSync(participantCheckinPath)) {
   const source = fs.readFileSync(participantCheckinPath, 'utf8');
