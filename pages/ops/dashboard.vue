@@ -68,7 +68,7 @@
               <view @tap="handleModerate(item, 'approved')">通过</view>
               <view @tap="handleModerate(item, 'rejected')">驳回</view>
               <view @tap="handleModerate(item, 'hidden')">下架</view>
-              <view @tap="handleModerate(item, 'visible')">恢复</view>
+              <view @tap="handleModerate(item, 'approved')">恢复</view>
             </view>
           </view>
         </view>
@@ -117,31 +117,31 @@ async function loadOpsData() {
   activities.value = nextActivities
 }
 
-function getModerationLabel(status = 'visible') {
+function getModerationLabel(status = 'pending') {
   const labels = {
+    pending: '待审核',
     visible: '展示中',
     approved: '已通过',
     rejected: '已驳回',
     hidden: '已下架'
   }
-  return labels[status] || labels.visible
+  return labels[status] || labels.pending
 }
 
 async function handleModerate(item, moderationStatus) {
   const labels = {
     approved: '运营通过',
     rejected: '运营驳回',
-    hidden: '活动已下架',
-    visible: '恢复展示'
+    hidden: '活动已下架'
   }
   const updated = await moderateActivity(item.id, moderationStatus, {
-    moderationNote: labels[moderationStatus]
+    moderationNote: moderationStatus === 'approved' && item.moderationStatus === 'hidden' ? '恢复展示' : labels[moderationStatus]
   })
   activities.value = activities.value.map((activity) => (
     activity.id === item.id ? { ...activity, ...updated } : activity
   ))
   stats.value = await getOpsStats()
-  uni.showToast({ title: labels[moderationStatus], icon: 'none' })
+  uni.showToast({ title: moderationStatus === 'approved' && item.moderationStatus === 'hidden' ? '恢复展示' : labels[moderationStatus], icon: 'none' })
 }
 </script>
 
@@ -399,6 +399,11 @@ async function handleModerate(item, moderationStatus) {
 .activity-card__badge--hidden {
   background: #fee2e2;
   color: #ef4444;
+}
+
+.activity-card__badge--pending {
+  background: #fef3c7;
+  color: #d97706;
 }
 
 .activity-card__meta,

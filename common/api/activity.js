@@ -5,6 +5,7 @@ import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_created_activities'
 const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
+const DEFAULT_AVATAR = '/static/userImg/user.png'
 const DEFAULT_CITY = '杭州'
 const DEFAULT_CITY_CODE = '330100'
 const CITY_OPTIONS = [
@@ -16,6 +17,8 @@ const CITY_OPTIONS = [
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
+export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
+export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
 
 const legacyActivityStatusMap = {
   hosting: 'recruiting',
@@ -32,6 +35,25 @@ export function normalizeActivityStatus(status = 'recruiting') {
 
 function normalizeApplicationStatus(status = 'not_applied') {
   return APPLICATION_STATUSES.includes(status) ? status : 'not_applied'
+}
+
+function normalizeModerationStatus(status = 'pending') {
+  const nextStatus = status || 'pending'
+  return ['pending', 'approved', 'rejected', 'hidden', 'visible'].includes(nextStatus) ? nextStatus : 'pending'
+}
+
+function normalizeOrganizerAvatar(avatar = '') {
+  const value = String(avatar || '').trim()
+  if (!value || value.includes('api.dicebear.com') || value.includes('avataaars')) return DEFAULT_AVATAR
+  return value
+}
+
+export function isPubliclyVisibleActivity(item = {}) {
+  const rawStatus = String(item.status || item.lifecycleStatus || '')
+  const status = normalizeActivityStatus(item.status || item.lifecycleStatus)
+  const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status)
+  if (rawStatus === 'rejected' || rawStatus === 'hidden') return false
+  return PUBLIC_ACTIVITY_LIFECYCLE_STATUSES.includes(status) && PUBLIC_ACTIVITY_MODERATION_STATUSES.includes(moderationStatus)
 }
 
 function readLocalApplication(activityId) {
@@ -89,7 +111,7 @@ export function normalizeActivityRecord(item = {}) {
   const id = item.id || item._id
   const localApplication = readLocalApplication(id)
   const legacyStatus = item.applicationStatus || item.application_status || localApplication?.status || item.status
-  const moderationStatus = item.moderationStatus || item.moderation_status || 'visible'
+  const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status)
   const creatorId = item.creatorId || item.creator_id || ''
   const city = inferCityName(item)
   const cityCode = inferCityCode(item, city)
@@ -104,6 +126,7 @@ export function normalizeActivityRecord(item = {}) {
     moderationNote: item.moderationNote || item.moderation_note || '',
     moderatedAt: item.moderatedAt || item.moderated_at || '',
     moderatedBy: item.moderatedBy || item.moderated_by || '',
+    organizerAvatar: normalizeOrganizerAvatar(item.organizerAvatar || item.organizer_avatar),
     creatorId,
     creator_id: creatorId,
     city,
@@ -146,7 +169,7 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     creatorId,
     creator_id: creatorId,
     organizer: form.organizer || currentUser.nickname,
-    organizerAvatar: form.organizerAvatar || currentUser.avatar,
+    organizerAvatar: normalizeOrganizerAvatar(form.organizerAvatar || currentUser.avatar),
     image: form.image || 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',
     category: form.category,
     date: form.date,
@@ -170,8 +193,10 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
     amount: Number(form.amount) || 0,
     requireApproval: Boolean(form.requireApproval),
-    status: normalizeActivityStatus(form.status || 'recruiting'),
-    lifecycleStatus: normalizeActivityStatus(form.status || 'recruiting'),
+    status: normalizeActivityStatus(form.status || 'reviewing'),
+    lifecycleStatus: normalizeActivityStatus(form.status || 'reviewing'),
+    moderationStatus: 'pending',
+    moderation_status: 'pending',
     applicationStatus: normalizeApplicationStatus(form.applicationStatus || 'not_applied'),
     viewCount: Number(form.viewCount) || 0,
     likeCount: Number(form.likeCount) || 0,
@@ -181,19 +206,39 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
   }
 }
 
+function markReferenceActivityApproved(item = {}) {
+  return {
+    moderationStatus: 'approved',
+    moderation_status: 'approved',
+    ...item
+  }
+}
+
 function listLocalActivities() {
-  return Promise.resolve([...readCreatedActivities(), ...activities].map(applyModerationOverlay))
+  return Promise.resolve([
+    ...readCreatedActivities(),
+    ...activities.map(markReferenceActivityApproved)
+  ].map(applyModerationOverlay))
+}
+
+async function listPublicLocalActivities() {
+  const all = await listLocalActivities()
+  return all.filter(isPubliclyVisibleActivity)
 }
 
 export async function listActivities() {
   if (USE_UNICLOUD) {
     try {
       const result = await callSuregoFunction('surego-activity', 'list', { limit: 50 })
-      return result.map(normalizeActivityRecord)
+      return result.map(normalizeActivityRecord).filter(isPubliclyVisibleActivity)
     } catch (error) {
-      return handleSuregoCloudError(error, listLocalActivities)
+      return handleSuregoCloudError(error, listPublicLocalActivities)
     }
   }
+  return listPublicLocalActivities()
+}
+
+export async function listAllActivities() {
   return listLocalActivities()
 }
 
@@ -373,7 +418,23 @@ export async function updateActivity(id, form) {
 }
 
 export async function listMyActivities() {
-  const all = await listActivities()
+  if (USE_UNICLOUD) {
+    try {
+      const result = await callSuregoFunction('surego-activity', 'listMine', { limit: 100 })
+      return {
+        hosting: (result.hosting || []).map(normalizeActivityRecord),
+        joined: (result.joined || []).map(normalizeActivityRecord),
+        pending: (result.pending || []).map(normalizeActivityRecord)
+      }
+    } catch (error) {
+      return handleSuregoCloudError(error, listMyLocalActivities)
+    }
+  }
+  return listMyLocalActivities()
+}
+
+async function listMyLocalActivities() {
+  const all = await listAllActivities()
   return Promise.resolve({
     hosting: all.filter((item) => isCurrentUserActivityCreator(item)),
     joined: all.filter((item) => item.applicationStatus === 'approved'),

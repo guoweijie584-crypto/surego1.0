@@ -1,7 +1,7 @@
 import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, isOpsUser } from '@/common/api/auth.js'
-import { listActivities } from '@/common/api/activity.js'
+import { listAllActivities } from '@/common/api/activity.js'
 import { listOrdersByActivity } from '@/common/api/order.js'
 import { listApplications } from '@/common/api/application.js'
 import { getCheckinSummary } from '@/common/api/checkin.js'
@@ -12,7 +12,7 @@ const ACTIVITY_STATUS_KEY = 'surego_moderation_activity_statuses'
 const AUDIT_LOG_KEY = 'surego_moderation_audit_logs'
 
 const REPORT_STATUSES = ['pending', 'resolved', 'rejected']
-const ACTIVITY_MODERATION_STATUSES = ['visible', 'approved', 'rejected', 'hidden']
+const ACTIVITY_MODERATION_STATUSES = ['pending', 'visible', 'approved', 'rejected', 'hidden']
 
 function now() {
   return new Date().toISOString()
@@ -30,8 +30,9 @@ function normalizeReportStatus(status = 'pending') {
   return REPORT_STATUSES.includes(status) ? status : 'pending'
 }
 
-function normalizeModerationStatus(status = 'visible') {
-  return ACTIVITY_MODERATION_STATUSES.includes(status) ? status : 'visible'
+function normalizeModerationStatus(status = 'pending', options = {}) {
+  if (options.forWrite && status === 'visible') return 'approved'
+  return ACTIVITY_MODERATION_STATUSES.includes(status) ? status : 'pending'
 }
 
 function normalizeReport(item = {}) {
@@ -52,7 +53,7 @@ function normalizeReport(item = {}) {
 }
 
 function normalizeActivityModeration(item = {}) {
-  const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status)
+  const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status || 'pending')
   return {
     ...item,
     id: String(item.id || item._id || item.activityId || item.activity_id || ''),
@@ -213,12 +214,12 @@ export async function listOpsActivities() {
       return items.map(normalizeActivityModeration)
     } catch (error) {
       return handleSuregoCloudError(error, async () => {
-        const items = await listActivities()
+        const items = await listAllActivities()
         return items.map(mergeActivityModeration)
       })
     }
   }
-  const items = await listActivities()
+  const items = await listAllActivities()
   return items.map(mergeActivityModeration)
 }
 
@@ -242,8 +243,10 @@ async function notifyActivityModerated(activity) {
 }
 
 function moderateLocalActivity(activityId, moderationStatus, options = {}) {
+  const nextModerationStatus = normalizeModerationStatus(moderationStatus, { forWrite: true })
   const next = writeActivityStatus(activityId, {
-    moderationStatus,
+    moderationStatus: nextModerationStatus,
+    ...(nextModerationStatus === 'approved' ? { status: 'recruiting', lifecycleStatus: 'recruiting' } : {}),
     moderationNote: options.moderationNote || '',
     moderatedBy: options.moderatedBy || getCurrentUserId(),
     moderatedAt: now()
@@ -255,7 +258,7 @@ function moderateLocalActivity(activityId, moderationStatus, options = {}) {
 export async function moderateActivity(activityId, moderationStatus, options = {}) {
   const payload = {
     activityId,
-    moderationStatus: normalizeModerationStatus(moderationStatus),
+    moderationStatus: normalizeModerationStatus(moderationStatus, { forWrite: true }),
     moderationNote: options.moderationNote || '',
     moderatedBy: options.moderatedBy || getCurrentUserId()
   }
@@ -264,10 +267,10 @@ export async function moderateActivity(activityId, moderationStatus, options = {
     try {
       activity = normalizeActivityModeration(await callSuregoFunction('surego-moderation', 'moderateActivity', payload))
     } catch (error) {
-      activity = await handleSuregoCloudError(error, () => moderateLocalActivity(activityId, moderationStatus, options))
+      activity = await handleSuregoCloudError(error, () => moderateLocalActivity(activityId, payload.moderationStatus, options))
     }
   } else {
-    activity = await moderateLocalActivity(activityId, moderationStatus, options)
+    activity = await moderateLocalActivity(activityId, payload.moderationStatus, options)
   }
   await notifyActivityModerated(activity)
   return activity
@@ -286,7 +289,7 @@ async function getLocalOpsStats() {
     isOps: isOpsUser(),
     activityCount: activities.length,
     pendingReports: reports.filter((item) => item.status === 'pending').length,
-    pendingActivities: activities.filter((item) => item.status === 'reviewing' || item.moderationStatus === 'visible').length,
+    pendingActivities: activities.filter((item) => item.status === 'reviewing' || !item.moderationStatus || item.moderationStatus === 'pending').length,
     hiddenActivities: activities.filter((item) => item.moderationStatus === 'hidden').length,
     applicationCount: activityApplications.flat().length,
     orderCount: orders.length,

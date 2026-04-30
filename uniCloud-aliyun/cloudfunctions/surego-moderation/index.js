@@ -10,7 +10,7 @@ const checkins = db.collection('surego-checkins');
 const uniIdUsers = db.collection('uni-id-users');
 
 const reportStatuses = ['pending', 'resolved', 'rejected'];
-const activityStatuses = ['visible', 'approved', 'rejected', 'hidden'];
+const activityStatuses = ['pending', 'visible', 'approved', 'rejected', 'hidden'];
 
 function now() {
   return Date.now();
@@ -72,8 +72,9 @@ function normalizeReportStatus(status = 'pending') {
   return reportStatuses.includes(status) ? status : 'pending';
 }
 
-function normalizeActivityStatus(status = 'visible') {
-  return activityStatuses.includes(status) ? status : 'visible';
+function normalizeActivityStatus(status = 'pending', options = {}) {
+  if (options.forWrite && status === 'visible') return 'approved';
+  return activityStatuses.includes(status) ? status : 'pending';
 }
 
 function normalizeReport(record = {}) {
@@ -97,8 +98,8 @@ function normalizeActivity(record = {}) {
     ...record,
     id: record._id || record.id,
     creatorId: record.creator_id || record.creatorId || '',
-    moderationStatus: normalizeActivityStatus(record.moderation_status || record.moderationStatus),
-    moderation_status: normalizeActivityStatus(record.moderation_status || record.moderationStatus),
+    moderationStatus: normalizeActivityStatus(record.moderation_status || record.moderationStatus || 'pending'),
+    moderation_status: normalizeActivityStatus(record.moderation_status || record.moderationStatus || 'pending'),
     moderationNote: record.moderation_note || record.moderationNote || '',
     moderatedBy: record.moderated_by || record.moderatedBy || '',
     moderatedAt: record.moderated_at || record.moderatedAt || ''
@@ -195,9 +196,10 @@ exports.main = async (event) => {
   if (action === 'moderateActivity') {
     if (!user.isOps) return opsRequired();
     const activityId = payload.activityId || payload.activity_id || payload.id;
-    const moderationStatus = normalizeActivityStatus(payload.moderationStatus || payload.moderation_status);
+    const moderationStatus = normalizeActivityStatus(payload.moderationStatus || payload.moderation_status, { forWrite: true });
     const updatePayload = {
       moderation_status: moderationStatus,
+      ...(moderationStatus === 'approved' ? { status: 'recruiting' } : {}),
       moderation_note: payload.moderationNote || payload.moderation_note || '',
       moderated_by: user.uid,
       moderated_at: now(),
@@ -231,7 +233,7 @@ exports.main = async (event) => {
       data: {
         activityCount: activityItems.length,
         pendingReports: reportItems.filter((item) => item.status === 'pending').length,
-        pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'visible').length,
+        pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'pending').length,
         hiddenActivities: activityItems.filter((item) => item.moderation_status === 'hidden').length,
         applicationCount: (applicationResult.data || []).length,
         orderCount: orderItems.length,

@@ -80,7 +80,7 @@ const isCreate = computed(() => type.value === 'CREATE')
 
 const title = computed(() => {
   if (isPayment.value) return '申请已提交'
-  if (isCreate.value) return '局已成功开启！'
+  if (isCreate.value) return '活动已提交审核'
   return requireApproval.value ? '申请已发送' : '报名成功！'
 })
 
@@ -90,7 +90,7 @@ const description = computed(() => {
       ? '申请已传达给局长，请耐心等待审核；通过后可在参与者中心确认订单与入场凭证。'
       : '报名链路已完成，试运营订单会记录状态但不会发生真实扣款。'
   }
-  if (isCreate.value) return '你的局已上线，快去邀请伙伴们上车吧。'
+  if (isCreate.value) return '你的活动已进入运营审核，审核通过后会展示给大家。'
   return requireApproval.value ? '申请已传达给局长，请耐心等待审核。' : '已成功报名，期待与你相见。'
 })
 

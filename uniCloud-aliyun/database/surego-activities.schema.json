@@ -32,7 +32,7 @@
     "description": { "bsonType": "string", "title": "Description" },
     "questions": { "bsonType": "array", "title": "Registration questions" },
     "status": { "enum": ["draft", "reviewing", "published", "recruiting", "formed", "ongoing", "finished", "cancelled"], "title": "Status" },
-    "moderation_status": { "enum": ["visible", "approved", "rejected", "hidden"], "title": "Moderation status" },
+    "moderation_status": { "enum": ["pending", "approved", "rejected", "hidden", "visible"], "title": "Moderation status" },
     "moderation_note": { "bsonType": "string", "title": "Moderation note" },
     "moderated_at": { "bsonType": "timestamp", "title": "Moderated at" },
     "moderated_by": { "bsonType": "string", "title": "Moderated by" },
