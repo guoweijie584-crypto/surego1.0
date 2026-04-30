@@ -330,13 +330,45 @@ for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers
 }
 
 const activitySource = read('common/api/activity.js')
-for (const token of ['isCurrentUserActivityCreator', 'applicationStatus']) {
+for (const token of ['isCurrentUserActivityCreator', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
   if (!activitySource.includes(token)) {
     errors.push(`common/api/activity.js is missing ownership release token: ${token}`)
   }
 }
+for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'"]) {
+  if (!activitySource.includes(token)) {
+    errors.push(`common/api/activity.js must create activities in review state: ${token}`)
+  }
+}
 if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)')) {
   errors.push('common/api/activity.js must not trust stored isCreator in release mode')
+}
+
+const messageSource = read('common/api/message.js')
+for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) {
+  if (messageSource.includes(staleToken)) {
+    errors.push(`common/api/message.js must not ship seeded mock messages: ${staleToken}`)
+  }
+}
+if (!messageSource.includes('filter((item) => isCurrentUserMessage(item, userId))')) {
+  errors.push('common/api/message.js must scope local messages to the current user')
+}
+
+const appMessageSource = read('common/api/application.js')
+for (const token of ['notifyApplicationSubmitted', 'notifyApplicationReviewed', 'createMessage']) {
+  if (!appMessageSource.includes(token)) {
+    errors.push(`common/api/application.js must emit application lifecycle messages via ${token}`)
+  }
+}
+
+const orderMessageSource = read('common/api/order.js')
+if (!orderMessageSource.includes('notifyOrderStatus') || !orderMessageSource.includes('createMessage')) {
+  errors.push('common/api/order.js must emit order status messages')
+}
+
+const checkinMessageSource = read('common/api/checkin.js')
+if (!checkinMessageSource.includes('notifyCheckinConfirmed') || !checkinMessageSource.includes('createMessage')) {
+  errors.push('common/api/checkin.js must emit checkin status messages')
 }
 
 const uploadSource = read('common/api/upload.js')
@@ -372,6 +404,20 @@ for (const page of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/a
   }
   if (source.includes('height: 132rpx') || source.includes('height: 136rpx')) {
     errors.push(`${page} must not hard-code custom nav height in release mode`)
+  }
+}
+
+for (const page of ['pages/home/index.vue', 'pages/discover/index.vue']) {
+  const source = read(page)
+  for (const token of ['currentAvatar', 'getCurrentUserProfile', 'isSuregoProfileComplete', '/static/userImg/user.png']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must render the logged-in SureGo profile avatar with ${token}`)
+    }
+  }
+  for (const staleToken of ['api.dicebear.com', 'avataaars', 'DiceBear']) {
+    if (source.includes(staleToken)) {
+      errors.push(`${page} must not hard-code DiceBear avatars in the release top nav`)
+    }
   }
 }
 
@@ -517,8 +563,23 @@ const successSource = read('pages/status/success.vue')
 if (!successSource.includes('goHomeRoot')) {
   errors.push('pages/status/success.vue must use goHomeRoot for the home action')
 }
+if (!successSource.includes('活动已提交审核')) {
+  errors.push('pages/status/success.vue must tell creators the new activity is under review')
+}
 if (!successSource.includes('goActivityDetail(activity.id, { replace: true })')) {
   errors.push('pages/status/success.vue terminal activity-detail actions must use replace navigation')
+}
+
+const activityCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-activity/index.js')
+for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "status: 'reviewing'", "activity.moderation_status = 'pending'"]) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must enforce review-gated visibility: ${token}`)
+  }
+}
+
+const moderationCloudSourceForReview = read('uniCloud-aliyun/cloudfunctions/surego-moderation/index.js')
+if (!moderationCloudSourceForReview.includes("...(moderationStatus === 'approved' ? { status: 'recruiting' } : {})")) {
+  errors.push('surego-moderation must move approved activities into recruiting status')
 }
 
 if (errors.length > 0) {

@@ -378,6 +378,12 @@ if (fs.existsSync(activityModerationSchemaPath)) {
       errors.push(`surego-activities schema is missing ${field}`);
     }
   }
+  const moderationEnum = schema.properties?.moderation_status?.enum || [];
+  for (const status of ['pending', 'approved', 'rejected', 'hidden']) {
+    if (!moderationEnum.includes(status)) {
+      errors.push(`surego-activities moderation_status enum is missing ${status}`);
+    }
+  }
 }
 
 for (const [file, fields] of Object.entries({
@@ -406,6 +412,14 @@ if (fs.existsSync(messagePath)) {
     if (!messageSource.includes(token)) {
       errors.push(`common/api/message.js is missing ${token}`);
     }
+  }
+  for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) {
+    if (messageSource.includes(staleToken)) {
+      errors.push(`common/api/message.js must not seed trial messages with ${staleToken}`);
+    }
+  }
+  if (!messageSource.includes('filter((item) => isCurrentUserMessage(item, userId))')) {
+    errors.push('common/api/message.js must only list local messages for the current user');
   }
 }
 
@@ -443,6 +457,16 @@ if (fs.existsSync(activityApiPath)) {
   for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus', 'isCurrentUserActivityCreator']) {
     if (!activitySource.includes(helper)) {
       errors.push(`common/api/activity.js is missing ${helper}`);
+    }
+  }
+  for (const helper of ['PUBLIC_ACTIVITY_MODERATION_STATUSES', 'isPubliclyVisibleActivity', 'listAllActivities']) {
+    if (!activitySource.includes(helper)) {
+      errors.push(`common/api/activity.js is missing review visibility helper: ${helper}`);
+    }
+  }
+  for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'", "'surego-activity', 'listMine'"]) {
+    if (!activitySource.includes(token)) {
+      errors.push(`common/api/activity.js is missing review-gated creation token: ${token}`);
     }
   }
   for (const token of ['DEFAULT_CITY_CODE', 'cityCode', 'city_code', 'listActivitiesByCity(city = DEFAULT_CITY, cityCode = \'\')']) {
@@ -749,6 +773,11 @@ if (fs.existsSync(activityCloudPath)) {
   if (source.includes('isCreator')) {
     errors.push('surego-activity cloud function must strip client-provided isCreator');
   }
+  for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "status: 'reviewing'", "activity.moderation_status = 'pending'"]) {
+    if (!source.includes(token)) {
+      errors.push(`surego-activity cloud function is missing review visibility token: ${token}`);
+    }
+  }
 }
 
 const orderCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-order/index.js');
@@ -800,6 +829,25 @@ if (fs.existsSync(messageCloudPath)) {
   for (const action of ["action === 'create'", "action === 'list'", "action === 'markRead'", "action === 'markAllRead'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-message cloud function is missing ${action}`);
+    }
+  }
+  if (!source.includes('collection.where({ user_id: userId })')) {
+    errors.push('surego-message cloud function must list messages scoped to the current user');
+  }
+}
+
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue']) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of ['currentAvatar', 'getCurrentUserProfile', 'isSuregoProfileComplete', '/static/userImg/user.png']) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must render the current SureGo profile avatar via ${token}`);
+    }
+  }
+  for (const staleToken of ['api.dicebear.com', 'avataaars', 'DiceBear']) {
+    if (source.includes(staleToken)) {
+      errors.push(`${file} must not hard-code DiceBear avatars in the top nav`);
     }
   }
 }
