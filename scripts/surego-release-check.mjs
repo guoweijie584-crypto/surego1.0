@@ -194,6 +194,9 @@ for (const page of businessPages) {
   if (source.includes('tempFilePaths[0]')) {
     errors.push(`${page}.vue must upload images through common/api/upload.js instead of storing tempFilePaths[0]`)
   }
+  if (source.includes('goBackHome')) {
+    errors.push(`${page}.vue must use goBackOrFallback instead of legacy goBackHome`)
+  }
   for (const pattern of bannedPatterns) {
     if (pattern.test(source)) {
       errors.push(`${page}.vue contains banned pattern: ${pattern}`)
@@ -205,6 +208,23 @@ const routeSource = read('common/utils/route.js')
 for (const helper of ['goActivityCreate', 'goActivityRegister', 'goManageDashboard', 'goManageCheckin', 'goOpsDashboard', 'goOpsReports', 'goOpsUsers', 'goSharePoster', 'goOrderDetail']) {
   if (!routeSource.includes(helper)) {
     errors.push(`common/utils/route.js is missing release helper: ${helper}`)
+  }
+}
+for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot']) {
+  if (!routeSource.includes(helper)) {
+    errors.push(`common/utils/route.js is missing stack navigation helper: ${helper}`)
+  }
+}
+
+const dockSource = read('components/surego/SuBottomDock.vue')
+for (const helper of ['goHomeRoot', 'goDiscoverRoot']) {
+  if (!dockSource.includes(helper)) {
+    errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`)
+  }
+}
+for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
+  if (!routeSource.includes(token)) {
+    errors.push(`common/utils/route.js is missing stack-safe navigation token: ${token}`)
   }
 }
 
@@ -352,10 +372,16 @@ const manageSource = read('pages/manage/dashboard.vue')
 if (!manageSource.includes('ensureOwnerAccess') || !manageSource.includes('goActivityDetail')) {
   errors.push('pages/manage/dashboard.vue must guard owner-only access')
 }
+if (manageSource.includes('@tap="goActivityDetail(activity.id)"')) {
+  errors.push('pages/manage/dashboard.vue back arrow must use goBackOrFallback/handleBack instead of pushing activity detail')
+}
 
 const checkinSource = read('pages/manage/checkin.vue')
 if (!checkinSource.includes('ensureOwnerAccess')) {
   errors.push('pages/manage/checkin.vue must guard owner-only access')
+}
+if (checkinSource.includes('@tap="goManageDashboard(activity.id)"')) {
+  errors.push('pages/manage/checkin.vue back arrow must use goBackOrFallback/handleBack instead of pushing manage dashboard')
 }
 
 const editActivitySource = read('pages/activity/edit.vue')
@@ -437,6 +463,30 @@ for (const token of ['canvas-id="posterCanvas"', 'uni.saveImageToPhotosAlbum', '
   if (!posterSource.includes(token)) {
     errors.push(`pages/share/poster.vue is missing release poster capability: ${token}`)
   }
+}
+if (posterSource.includes('@tap="goActivityDetail(activity.id)"')) {
+  errors.push('pages/share/poster.vue back arrow must use goBackOrFallback/handleBack instead of pushing activity detail')
+}
+
+const paymentSource = read('pages/payment/index.vue')
+if (!paymentSource.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
+  errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success')
+}
+
+const orderDetailSourceForStack = read('pages/order/detail.vue')
+if (!orderDetailSourceForStack.includes('goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })')) {
+  errors.push('pages/order/detail.vue must replace order detail when continuing to payment')
+}
+if (!orderDetailSourceForStack.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
+  errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order')
+}
+
+const successSource = read('pages/status/success.vue')
+if (!successSource.includes('goHomeRoot')) {
+  errors.push('pages/status/success.vue must use goHomeRoot for the home action')
+}
+if (!successSource.includes('goActivityDetail(activity.id, { replace: true })')) {
+  errors.push('pages/status/success.vue terminal activity-detail actions must use replace navigation')
 }
 
 if (errors.length > 0) {

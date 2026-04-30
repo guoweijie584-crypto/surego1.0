@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="search su-page">
     <view class="search__nav">
-      <view class="search__back" @tap="goBackHome">
+      <view class="search__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view class="search__box">
@@ -82,7 +82,7 @@ import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import { listActivities, searchActivities } from '@/common/api/activity.js'
-import { goBackHome } from '@/common/utils/route.js'
+import { goBackOrFallback } from '@/common/utils/route.js'
 
 const RECENT_KEY = 'surego_recent_searches'
 const hotKeywords = ['野餐', '饭搭子', '读书', '夜市', '展览', '诚意金']

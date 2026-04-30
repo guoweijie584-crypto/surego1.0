@@ -239,6 +239,11 @@ if (fs.existsSync(dockPath)) {
       errors.push(`SuBottomDock.vue still contains stale bottom nav item: ${staleKey}`);
     }
   }
+  for (const helper of ['goHomeRoot', 'goDiscoverRoot']) {
+    if (!dockSource.includes(helper)) {
+      errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`);
+    }
+  }
 }
 
 const routePath = path.join(root, 'common/utils/route.js');
@@ -280,6 +285,16 @@ if (fs.existsSync(routePath)) {
   for (const helper of ['goAuthLogin', 'guardLoginAction']) {
     if (!routeSource.includes(helper)) {
       errors.push(`common/utils/route.js is missing ${helper}`);
+    }
+  }
+  for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing stack navigation helper: ${helper}`);
+    }
+  }
+  for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
+    if (!routeSource.includes(token)) {
+      errors.push(`common/utils/route.js is missing stack-safe navigation token: ${token}`);
     }
   }
   for (const guardedHelper of ['goActivityRegister', 'goActivityCreate', 'goUserEdit', 'goManageDashboard', 'goManageCheckin', 'goPayment']) {
@@ -634,6 +649,9 @@ for (const page of expectedPages) {
   if (source.includes('tempFilePaths[0]')) {
     errors.push(`${page}.vue must not store tempFilePaths[0] directly; use common/api/upload.js`);
   }
+  if (source.includes('goBackHome')) {
+    errors.push(`${page}.vue must use goBackOrFallback instead of legacy goBackHome`);
+  }
 }
 
 for (const cloudFile of expectedCloudFunctions) {
@@ -689,6 +707,9 @@ if (fs.existsSync(manageDashboardPath)) {
     if (!source.includes(token)) {
       errors.push(`pages/manage/dashboard.vue is missing owner/safe-area guard token: ${token}`);
     }
+  }
+  if (source.includes('@tap="goActivityDetail(activity.id)"')) {
+    errors.push('pages/manage/dashboard.vue back arrow must use goBackOrFallback/handleBack instead of pushing activity detail');
   }
   if (!source.includes('updateActivityStatus')) {
     errors.push('pages/manage/dashboard.vue is missing updateActivityStatus');
@@ -795,6 +816,9 @@ if (fs.existsSync(manageCheckinPath)) {
     if (!source.includes(token)) {
       errors.push(`pages/manage/checkin.vue is missing ${token}`);
     }
+  }
+  if (source.includes('@tap="goManageDashboard(activity.id)"')) {
+    errors.push('pages/manage/checkin.vue back arrow must use goBackOrFallback/handleBack instead of pushing manage dashboard');
   }
 }
 
@@ -948,6 +972,47 @@ if (fs.existsSync(posterPagePath)) {
   }
   if (source.includes('canvas 阶段接入')) {
     errors.push('pages/share/poster.vue still contains canvas placeholder copy');
+  }
+}
+
+const stackCheckFiles = {
+  poster: 'pages/share/poster.vue',
+  payment: 'pages/payment/index.vue',
+  order: 'pages/order/detail.vue',
+  success: 'pages/status/success.vue'
+};
+
+if (fs.existsSync(path.join(root, stackCheckFiles.poster))) {
+  const source = fs.readFileSync(path.join(root, stackCheckFiles.poster), 'utf8');
+  if (source.includes('@tap="goActivityDetail(activity.id)"')) {
+    errors.push('pages/share/poster.vue back arrow must use goBackOrFallback/handleBack instead of pushing activity detail');
+  }
+}
+
+if (fs.existsSync(path.join(root, stackCheckFiles.payment))) {
+  const source = fs.readFileSync(path.join(root, stackCheckFiles.payment), 'utf8');
+  if (!source.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
+    errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success');
+  }
+}
+
+if (fs.existsSync(path.join(root, stackCheckFiles.order))) {
+  const source = fs.readFileSync(path.join(root, stackCheckFiles.order), 'utf8');
+  if (!source.includes('goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })')) {
+    errors.push('pages/order/detail.vue must replace order detail when continuing to payment');
+  }
+  if (!source.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
+    errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order');
+  }
+}
+
+if (fs.existsSync(path.join(root, stackCheckFiles.success))) {
+  const source = fs.readFileSync(path.join(root, stackCheckFiles.success), 'utf8');
+  if (!source.includes('goHomeRoot')) {
+    errors.push('pages/status/success.vue must use goHomeRoot for the home action');
+  }
+  if (!source.includes('goActivityDetail(activity.id, { replace: true })')) {
+    errors.push('pages/status/success.vue terminal activity-detail actions must use replace navigation');
   }
 }
 

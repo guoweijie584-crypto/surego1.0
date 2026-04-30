@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="ops su-page">
     <view class="ops__nav">
-      <view class="ops__back" @tap="goBackHome">
+      <view class="ops__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view>
@@ -81,7 +81,7 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getOpsStats, listOpsActivities, moderateActivity } from '@/common/api/moderation.js'
-import { goBackHome, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
+import { goBackOrFallback, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
 
 const stats = ref({
   activityCount: 0,

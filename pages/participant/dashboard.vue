@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <view class="participant su-page">
     <view class="participant__nav" :style="navStyle">
       <view class="participant__nav-row" :style="navRowStyle">
-      <view class="participant__nav-btn" @tap="goBackHome">
+      <view class="participant__nav-btn" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text class="participant__nav-title">参与者中心</text>
@@ -129,7 +129,7 @@ import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/a
 import { listMessages } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackHome, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goPayment, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))

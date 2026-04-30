@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="edit-activity su-page">
     <view class="edit-activity__nav">
-      <view class="edit-activity__nav-btn" @tap="goBackHome">
+      <view class="edit-activity__nav-btn" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text>编辑活动</text>
@@ -144,7 +144,7 @@ import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
-import { goActivityDetail, goBackHome, goManageDashboard } from '@/common/utils/route.js'
+import { goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
@@ -267,7 +267,7 @@ function ensureOwnerAccess() {
   if (sourceActivity.value?.isCreator) return true
   uni.showToast({ title: '只有局长可以编辑活动', icon: 'none' })
   setTimeout(() => {
-    goActivityDetail(activityId.value)
+    goActivityDetail(activityId.value, { replace: true })
   }, 500)
   return false
 }
@@ -315,7 +315,7 @@ async function handleSave() {
 
   uni.showToast({ title: '活动已更新', icon: 'none' })
   setTimeout(() => {
-    goManageDashboard(activityId.value)
+    goManageDashboard(activityId.value, { replace: true })
   }, 260)
 }
 </script>

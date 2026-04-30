@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="profile su-page">
     <view class="profile__nav">
-      <view class="profile__back" @tap="goBackHome">
+      <view class="profile__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view class="profile__nav-actions">
@@ -151,7 +151,7 @@ import { listMyActivities } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, isLoggedIn, isOpsUser, isSuregoProfileComplete } from '@/common/api/auth.js'
-import { goActivityDetail, goAuthLogin, goBackHome, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
 const activeOrderFilter = ref('all')

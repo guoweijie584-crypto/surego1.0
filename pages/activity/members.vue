@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="members-page">
     <view class="topbar su-safe-top">
-      <view class="topbar__button" @tap="goBackHome">
+      <view class="topbar__button" @tap="goBackOrFallback">
         <uni-icons type="left" size="20" color="#0f172a" />
       </view>
       <view class="topbar__title">
@@ -105,7 +105,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackHome } from '@/common/utils/route.js'
+import { goBackOrFallback } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity())
 const applications = ref([])

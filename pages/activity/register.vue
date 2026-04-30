@@ -1,9 +1,9 @@
-<template>
+﻿<template>
   <view class="register su-page">
     <view class="register__glow register__glow--green" />
     <view class="register__glow register__glow--blue" />
 
-    <view class="register__close" @tap="goBackHome">
+    <view class="register__close" @tap="goBackOrFallback">
       <uni-icons type="closeempty" size="28" color="rgba(255,255,255,.58)" />
     </view>
 
@@ -116,7 +116,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackHome, goPayment, goSuccess } from '@/common/utils/route.js'
+import { goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('101'))
 const gender = ref('')

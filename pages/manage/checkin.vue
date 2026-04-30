@@ -2,7 +2,7 @@
   <view class="checkin su-page">
     <view class="checkin__nav" :style="navStyle">
       <view class="checkin__nav-row" :style="navRowStyle">
-      <view class="checkin__nav-btn" @tap="goManageDashboard(activity.id)">
+      <view class="checkin__nav-btn" @tap="handleBack">
         <uni-icons type="left" size="24" color="#fff" />
       </view>
       <text class="checkin__nav-title">签到核销</text>
@@ -100,7 +100,7 @@ import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -189,9 +189,14 @@ function ensureOwnerAccess() {
   hasOwnerAccess.value = false
   uni.showToast({ title: '只有局长可以核销签到', icon: 'none' })
   setTimeout(() => {
-    goActivityDetail(activity.value?.id || activityId.value)
+    goActivityDetail(activity.value?.id || activityId.value, { replace: true })
   }, 500)
   return false
+}
+
+function handleBack() {
+  const id = activity.value?.id || activityId.value
+  goBackOrFallback(`/pages/manage/dashboard?id=${encodeURIComponent(id)}`)
 }
 
 async function refreshCode() {

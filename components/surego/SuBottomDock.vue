@@ -25,7 +25,7 @@
 </template>
 
 <script setup>
-import { goActivityCreate } from '@/common/utils/route.js'
+import { goActivityCreate, goDiscoverRoot, goHomeRoot } from '@/common/utils/route.js'
 
 const props = defineProps({
   active: {
@@ -36,7 +36,7 @@ const props = defineProps({
 
 function goHome() {
   if (props.active === 'home') return
-  uni.reLaunch({ url: '/pages/home/index' })
+  goHomeRoot()
 }
 
 function goCreate() {
@@ -45,7 +45,7 @@ function goCreate() {
 
 function goDiscover() {
   if (props.active === 'discover') return
-  uni.navigateTo({ url: '/pages/discover/index' })
+  goDiscoverRoot()
 }
 </script>
 

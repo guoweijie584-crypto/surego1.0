@@ -7,6 +7,20 @@ function buildQuery(params = {}) {
     .join('&')
 }
 
+function goToUrl(url, options = {}) {
+  if (options.root) {
+    uni.reLaunch({ url })
+    return
+  }
+
+  if (options.replace) {
+    uni.redirectTo({ url })
+    return
+  }
+
+  uni.navigateTo({ url })
+}
+
 const DEFAULT_WINDOW_WIDTH = 375
 
 function getWindowMetrics() {
@@ -133,9 +147,9 @@ export function goAuthLogin(params = {}) {
   })
 }
 
-export function guardLoginAction(nextUrl) {
+export function guardLoginAction(nextUrl, options = {}) {
   if (isLoggedIn()) {
-    uni.navigateTo({ url: nextUrl })
+    goToUrl(nextUrl, options)
     return true
   }
 
@@ -143,16 +157,12 @@ export function guardLoginAction(nextUrl) {
   return false
 }
 
-export function goActivityDetail(id) {
-  uni.navigateTo({
-    url: `/pages/activity/detail?id=${encodeURIComponent(id)}`
-  })
+export function goActivityDetail(id, options = {}) {
+  goToUrl(`/pages/activity/detail?id=${encodeURIComponent(id)}`, options)
 }
 
-export function goActivityMembers(id) {
-  uni.navigateTo({
-    url: `/pages/activity/members?id=${encodeURIComponent(id)}`
-  })
+export function goActivityMembers(id, options = {}) {
+  goToUrl(`/pages/activity/members?id=${encodeURIComponent(id)}`, options)
 }
 
 export function goActivityRegister(id) {
@@ -164,9 +174,7 @@ export function goActivityCreate() {
 }
 
 export function goDiscover() {
-  uni.navigateTo({
-    url: '/pages/discover/index'
-  })
+  goDiscoverRoot()
 }
 
 export function goSearch(keyword = '') {
@@ -224,22 +232,20 @@ export function goActivityEdit(id) {
   })
 }
 
-export function goManageDashboard(id) {
-  guardLoginAction(`/pages/manage/dashboard?id=${encodeURIComponent(id)}`)
+export function goManageDashboard(id, options = {}) {
+  guardLoginAction(`/pages/manage/dashboard?id=${encodeURIComponent(id)}`, options)
 }
 
-export function goManageCheckin(id) {
-  guardLoginAction(`/pages/manage/checkin?id=${encodeURIComponent(id)}`)
+export function goManageCheckin(id, options = {}) {
+  guardLoginAction(`/pages/manage/checkin?id=${encodeURIComponent(id)}`, options)
 }
 
-export function goParticipantDashboard(id) {
-  uni.navigateTo({
-    url: `/pages/participant/dashboard?id=${encodeURIComponent(id)}`
-  })
+export function goParticipantDashboard(id, options = {}) {
+  goToUrl(`/pages/participant/dashboard?id=${encodeURIComponent(id)}`, options)
 }
 
-export function goOrderDetail(id) {
-  guardLoginAction(`/pages/order/detail?id=${encodeURIComponent(id)}`)
+export function goOrderDetail(id, options = {}) {
+  guardLoginAction(`/pages/order/detail?id=${encodeURIComponent(id)}`, options)
 }
 
 export function goSharePoster(id) {
@@ -254,9 +260,9 @@ export function goMyActivities() {
   })
 }
 
-export function goPayment(params = {}) {
+export function goPayment(params = {}, options = {}) {
   const query = buildQuery(params)
-  guardLoginAction(`/pages/payment/index${query ? `?${query}` : ''}`)
+  guardLoginAction(`/pages/payment/index${query ? `?${query}` : ''}`, options)
 }
 
 export function goSuccess(params = {}) {
@@ -266,16 +272,41 @@ export function goSuccess(params = {}) {
   })
 }
 
-export function goBackHome() {
+export function goHomeRoot() {
+  uni.reLaunch({
+    url: '/pages/home/index'
+  })
+}
+
+export function goDiscoverRoot() {
+  uni.reLaunch({
+    url: '/pages/discover/index'
+  })
+}
+
+export function goBackOrFallback(fallbackUrl = '/pages/home/index') {
+  const safeFallbackUrl = typeof fallbackUrl === 'string' ? fallbackUrl : '/pages/home/index'
   const pages = getCurrentPages()
   if (pages.length > 1) {
     uni.navigateBack()
     return
   }
 
-  uni.reLaunch({
-    url: '/pages/home/index'
-  })
+  if (safeFallbackUrl === '/pages/home/index') {
+    goHomeRoot()
+    return
+  }
+
+  if (safeFallbackUrl === '/pages/discover/index') {
+    goDiscoverRoot()
+    return
+  }
+
+  uni.redirectTo({ url: safeFallbackUrl })
+}
+
+export function goBackHome() {
+  goBackOrFallback('/pages/home/index')
 }
 
 export function showComingSoon(title = '功能开发中') {

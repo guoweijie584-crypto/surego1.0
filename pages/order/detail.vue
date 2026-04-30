@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <view class="order-detail su-page">
     <view class="order-nav" :style="navStyle">
       <view class="order-nav__row" :style="navRowStyle">
-      <view class="order-nav__btn" @tap="goBackHome">
+      <view class="order-nav__btn" @tap="goBackOrFallback">
         <uni-icons type="left" size="22" color="#0f172a" />
       </view>
       <text>订单详情</text>
@@ -73,10 +73,10 @@
         </view>
 
         <view class="action-stack">
-          <view v-if="order.status === 'pending'" class="action action--primary" @tap="goPayment({ activityId: order.activityId, type: order.type, amount: order.amount })">
+          <view v-if="order.status === 'pending'" class="action action--primary" @tap="goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })">
             继续模拟支付
           </view>
-          <view v-if="order.status === 'paid'" class="action action--primary" @tap="goParticipantDashboard(order.activityId)">
+          <view v-if="order.status === 'paid'" class="action action--primary" @tap="goParticipantDashboard(order.activityId, { replace: true })">
             查看入场凭证
           </view>
           <view v-if="order.status === 'paid'" class="action" @tap="handleRefund">
@@ -97,7 +97,7 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { closeOrder, getOrderDetail, getOrderStatusText, refundOrder } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackHome, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const orderId = ref('')
 const order = ref(null)

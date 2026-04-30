@@ -2,7 +2,7 @@
   <view class="poster su-page">
     <view class="poster__nav" :style="navStyle">
       <view class="poster__nav-row" :style="navRowStyle">
-      <view class="poster__nav-btn" @tap="goActivityDetail(activity.id)">
+      <view class="poster__nav-btn" @tap="handleBack">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text class="poster__nav-title">活动海报</text>
@@ -93,7 +93,7 @@ import { computed, nextTick, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 import { buildActivityPosterCopy, buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activityId = ref('101')
@@ -138,6 +138,10 @@ function copySharePath() {
       uni.showToast({ title: '分享路径已复制', icon: 'none' })
     }
   })
+}
+
+function handleBack() {
+  goBackOrFallback(`/pages/activity/detail?id=${encodeURIComponent(activity.value.id || activityId.value)}`)
 }
 
 function getCanvasCoverPath() {

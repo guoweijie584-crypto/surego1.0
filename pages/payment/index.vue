@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="payment su-page">
     <view class="payment__nav">
-      <view class="payment__back" @tap="goBackHome">
+      <view class="payment__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text>支付确认</text>
@@ -59,7 +59,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goBackHome, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
+import { goBackOrFallback, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('102'))
 const order = ref(null)
@@ -99,7 +99,7 @@ onLoad(async (query) => {
 async function handlePay() {
   if (isPaying.value) return
   if (orderStatus.value === 'paid') {
-    goParticipantDashboard(activity.value.id)
+    goParticipantDashboard(activity.value.id, { replace: true })
     return
   }
 
@@ -108,7 +108,7 @@ async function handlePay() {
   order.value = { ...order.value, ...paid }
   uni.showToast({ title: '支付成功', icon: 'none' })
   setTimeout(() => {
-    goParticipantDashboard(activity.value.id)
+    goParticipantDashboard(activity.value.id, { replace: true })
   }, 260)
 }
 </script>

@@ -2,7 +2,7 @@
   <view class="manage su-page">
     <view class="manage__nav" :style="navStyle">
       <view class="manage__nav-row" :style="navRowStyle">
-      <view class="manage__back" @tap="goActivityDetail(activity.id)">
+      <view class="manage__back" @tap="handleBack">
         <uni-icons type="left" size="24" color="#fff" />
       </view>
       <text>局面管理</text>
@@ -153,7 +153,7 @@ import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.j
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -214,9 +214,14 @@ function ensureOwnerAccess() {
   if (activity.value?.isCreator) return true
   uni.showToast({ title: '只有局长可以管理活动', icon: 'none' })
   setTimeout(() => {
-    goActivityDetail(activity.value?.id || activityId.value)
+    goActivityDetail(activity.value?.id || activityId.value, { replace: true })
   }, 500)
   return false
+}
+
+function handleBack() {
+  const id = activity.value?.id || activityId.value
+  goBackOrFallback(`/pages/activity/detail?id=${encodeURIComponent(id)}`)
 }
 
 function getInitial(item) {

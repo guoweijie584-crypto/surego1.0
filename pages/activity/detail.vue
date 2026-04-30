@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <view class="detail su-page">
     <view class="detail__nav" :style="navStyle">
       <view class="detail__nav-row" :style="navRowStyle">
-      <view class="detail__nav-btn" @tap="goBackHome">
+      <view class="detail__nav-btn" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text class="detail__nav-title">活动详情</text>
@@ -231,7 +231,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackHome, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activity = ref(createEmptyActivity('101'))

@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="edit-profile su-page">
     <view class="edit-profile__nav">
-      <view class="edit-profile__back" @tap="goBackHome">
+      <view class="edit-profile__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <text>编辑资料</text>
@@ -52,7 +52,7 @@ import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'
 import { uploadImageFile } from '@/common/api/upload.js'
-import { goBackHome } from '@/common/utils/route.js'
+import { goBackOrFallback } from '@/common/utils/route.js'
 
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
 const mbtiIndex = ref(0)
@@ -97,7 +97,7 @@ async function handleSave() {
   await updateCurrentUser(form)
   uni.showToast({ title: '资料已保存', icon: 'none' })
   setTimeout(() => {
-    goBackHome()
+    goBackOrFallback()
   }, 260)
 }
 </script>

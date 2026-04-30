@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="create su-page">
     <view class="create__nav">
-      <view class="create__nav-btn" @tap="goBackHome">
+      <view class="create__nav-btn" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#0f172a" />
       </view>
       <text>发起新局</text>
@@ -163,7 +163,7 @@ import { computed, reactive, ref } from 'vue'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
-import { goBackHome, goSuccess } from '@/common/utils/route.js'
+import { goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'

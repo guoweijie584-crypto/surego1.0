@@ -1,7 +1,7 @@
 <template>
   <view class="success su-page">
     <view class="success__wash" />
-    <view class="success__close" @tap="goBackHome">
+    <view class="success__close" @tap="goBackOrFallback">
       <uni-icons type="closeempty" size="30" color="rgba(255,255,255,.48)" />
     </view>
 
@@ -34,7 +34,7 @@
       </view>
 
       <view class="success__actions">
-        <view class="success__button success__button--primary" @tap="goBackHome">
+        <view class="success__button success__button--primary" @tap="goHomeRoot">
           <uni-icons type="home-filled" size="20" color="#0f172a" />
           <text>回到首页</text>
         </view>
@@ -42,7 +42,7 @@
           <uni-icons type="staff-filled" size="20" color="#fff" />
           <text>{{ detailButtonText }}</text>
         </view>
-        <view v-if="requireApproval" class="success__button success__button--green" @tap="goActivityDetail(activity.id)">
+        <view v-if="requireApproval" class="success__button success__button--green" @tap="goActivityDetail(activity.id, { replace: true })">
           <uni-icons type="checkmarkempty" size="20" color="#fff" />
           <text>查看申请状态</text>
         </view>
@@ -56,7 +56,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { goActivityDetail, goBackOrFallback, goHomeRoot, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
@@ -109,14 +109,14 @@ onLoad(async (query) => {
 
 function openNext() {
   if (isPayment.value) {
-    goParticipantDashboard(activity.value.id)
+    goParticipantDashboard(activity.value.id, { replace: true })
     return
   }
   if (isCreate.value) {
-    goManageDashboard(activity.value.id)
+    goManageDashboard(activity.value.id, { replace: true })
     return
   }
-  goActivityDetail(activity.value.id)
+  goActivityDetail(activity.value.id, { replace: true })
 }
 </script>
 

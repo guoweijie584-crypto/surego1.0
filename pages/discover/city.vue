@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="city su-page">
     <view class="city__nav">
-      <view class="city__back" @tap="goBackHome">
+      <view class="city__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view>
@@ -53,7 +53,7 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
-import { goBackHome } from '@/common/utils/route.js'
+import { goBackOrFallback } from '@/common/utils/route.js'
 
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'

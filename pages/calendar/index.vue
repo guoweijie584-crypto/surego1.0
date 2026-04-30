@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <view class="calendar-page su-page">
     <view class="calendar-page__nav">
-      <view class="calendar-page__back" @tap="goBackHome">
+      <view class="calendar-page__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <view>
@@ -71,7 +71,7 @@
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityCalendar } from '@/common/api/activity.js'
-import { goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const groups = ref([])
 const activeDate = ref('')

@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <view class="messages su-page">
     <view class="messages__nav" :style="navStyle">
       <view class="messages__nav-row" :style="navRowStyle">
-      <view class="messages__back" @tap="goBackHome">
+      <view class="messages__back" @tap="goBackOrFallback">
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <text>消息中心</text>
@@ -65,7 +65,7 @@ import { onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listMessages, markAllMessagesRead, markMessageRead } from '@/common/api/message.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackHome, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const tabs = ['全部', '未读', '申请', '活动']
 const activeTab = ref('全部')
