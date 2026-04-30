@@ -400,11 +400,21 @@ for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'positi
     errors.push(`pages/home/index.vue must use release floating header token: ${token}`)
   }
 }
+for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority']) {
+  if (!homeSource.includes(token)) {
+    errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`)
+  }
+}
 
 const activityDetailSource = read('pages/activity/detail.vue')
 for (const token of ['uni.openLocation', 'onShareTimeline', 'listActivityMembers', 'getMiniProgramNavStyle', 'getMiniProgramNavRowStyle']) {
   if (!activityDetailSource.includes(token)) {
     errors.push(`pages/activity/detail.vue is missing operation capability: ${token}`)
+  }
+}
+for (const token of ['getActivityStatusMeta', 'isTerminalActivity']) {
+  if (!activityDetailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue must guard terminal activity actions with ${token}`)
   }
 }
 
@@ -414,6 +424,11 @@ for (const token of ['isCurrentUserActivityCreator', 'applicationStatus', 'isPub
     errors.push(`common/api/activity.js is missing ownership release token: ${token}`)
   }
 }
+for (const token of ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'isHomeVisibleMyActivity', 'ACTIVITY_STATUS_FILTERS', 'filterActivitiesByStatusGroup']) {
+  if (!activitySource.includes(token)) {
+    errors.push(`common/api/activity.js is missing release activity status helper: ${token}`)
+  }
+}
 for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'"]) {
   if (!activitySource.includes(token)) {
     errors.push(`common/api/activity.js must create activities in review state: ${token}`)
@@ -421,6 +436,27 @@ for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing'
 }
 if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)')) {
   errors.push('common/api/activity.js must not trust stored isCreator in release mode')
+}
+
+const profileActivitySource = read('pages/user/profile.vue')
+for (const token of ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status']) {
+  if (!profileActivitySource.includes(token)) {
+    errors.push(`pages/user/profile.vue must render release activity categories/status badge: ${token}`)
+  }
+}
+
+const myActivitiesSource = read('pages/my/activities.vue')
+for (const token of ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'activity__status']) {
+  if (!myActivitiesSource.includes(token)) {
+    errors.push(`pages/my/activities.vue must render release activity status badge: ${token}`)
+  }
+}
+
+const participantSource = read('pages/participant/dashboard.vue')
+for (const token of ['getActivityStatusMeta', 'isTerminalActivity', 'goParticipantDashboard']) {
+  if (!participantSource.includes(token)) {
+    errors.push(`pages/participant/dashboard.vue must guard release terminal activity state: ${token}`)
+  }
 }
 
 const messageSource = read('common/api/message.js')

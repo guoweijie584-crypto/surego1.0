@@ -466,6 +466,11 @@ if (fs.existsSync(activityApiPath)) {
       errors.push(`common/api/activity.js is missing review visibility helper: ${helper}`);
     }
   }
+  for (const helper of ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'isHomeVisibleMyActivity', 'ACTIVITY_STATUS_FILTERS', 'filterActivitiesByStatusGroup']) {
+    if (!activitySource.includes(helper)) {
+      errors.push(`common/api/activity.js is missing activity status display helper: ${helper}`);
+    }
+  }
   for (const token of ["status: normalizeActivityStatus(form.status || 'reviewing')", "moderationStatus: 'pending'", "moderation_status: 'pending'", "'surego-activity', 'listMine'"]) {
     if (!activitySource.includes(token)) {
       errors.push(`common/api/activity.js is missing review-gated creation token: ${token}`);
@@ -947,6 +952,11 @@ if (fs.existsSync(participantCheckinPath)) {
   if (source.includes('listCheckins(activityId.value)')) {
     errors.push('pages/participant/dashboard.vue should use getCheckinForUser instead of scanning all checkins');
   }
+  for (const token of ['getActivityStatusMeta', 'isTerminalActivity', 'goParticipantDashboard']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/participant/dashboard.vue is missing terminal activity guard token: ${token}`);
+    }
+  }
 }
 
 const activityDetailPath = path.join(root, 'pages/activity/detail.vue');
@@ -960,6 +970,11 @@ if (fs.existsSync(activityDetailPath)) {
   for (const token of ['createReport', 'submitActivityReport']) {
     if (!source.includes(token)) {
       errors.push(`pages/activity/detail.vue is missing ${token}`);
+    }
+  }
+  for (const token of ['getActivityStatusMeta', 'isTerminalActivity']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/detail.vue is missing terminal status guard token: ${token}`);
     }
   }
   if (source.includes("toastAndClose('举报已提交')") || source.includes("toastAndClose('涓炬姤宸叉彁浜?)")) {
@@ -1097,6 +1112,25 @@ if (fs.existsSync(homePagePath)) {
   for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'position: fixed', 'backdrop-filter: blur']) {
     if (!source.includes(token)) {
       errors.push(`pages/home/index.vue must use a fixed floating top header with ${token}`);
+    }
+  }
+  for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`);
+    }
+  }
+}
+
+for (const [file, tokens] of Object.entries({
+  'pages/user/profile.vue': ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status'],
+  'pages/my/activities.vue': ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'activity__status']
+})) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  for (const token of tokens) {
+    if (!source.includes(token)) {
+      errors.push(`${file} must render activity state categories/badges with ${token}`);
     }
   }
 }

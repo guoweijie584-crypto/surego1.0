@@ -122,14 +122,14 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { getActivityDetail } from '@/common/api/activity.js'
+import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
 import { confirmCheckin, createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
 import { listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goPayment } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -148,6 +148,9 @@ const modeLabel = computed(() => {
   if (activity.value.partyMode === 'ticket') return `门票 ¥${activity.value.amount}`
   return '免费局'
 })
+
+const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
+const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
 
 const applicationState = computed(() => {
   if (activity.value.isCreator) return { key: 'leader', label: '局长模式' }
@@ -185,6 +188,7 @@ const paymentState = computed(() => {
 
 const checkinState = computed(() => {
   if (activity.value.isCreator) return { key: 'leader', label: '可管理签到', desc: '局长可直接进入管理台' }
+  if (isTerminalActivity.value) return { key: 'closed', label: activityStatusMeta.value.label, desc: '当前活动不可继续现场签到' }
   if (activity.value.applicationStatus === 'pending' || applicationState.value.key === 'pending') {
     return { key: 'waiting', label: '等待审核', desc: '通过后生成入场凭证' }
   }
@@ -197,6 +201,7 @@ const checkinState = computed(() => {
 
 const entryLabel = computed(() => {
   if (activity.value.isCreator) return '局长管理码'
+  if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (applicationState.value.key === 'pending') return '等待审核'
   if (applicationState.value.key === 'rejected') return '未通过'
   if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '待支付'
@@ -206,6 +211,7 @@ const entryLabel = computed(() => {
 
 const entryHint = computed(() => {
   if (activity.value.isCreator) return '局长可进入管理台查看审核、签到和消息'
+  if (isTerminalActivity.value) return '活动已进入终态，凭证仅作记录查看'
   if (applicationState.value.key === 'pending') return '审核通过后会自动生成凭证'
   if (applicationState.value.key === 'rejected') return reviewFeedback.value || '当前申请未通过，返回详情页查看原因'
   if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '先完成支付，再进入签到'
@@ -221,6 +227,7 @@ const statCards = computed(() => [
 
 const primaryActionText = computed(() => {
   if (activity.value.isCreator) return '进入管理台'
+  if (isTerminalActivity.value) return '查看活动详情'
   if (applicationState.value.key === 'pending') return '等待审核'
   if (applicationState.value.key === 'rejected') return '返回详情页'
   if (['refunded', 'closed'].includes(paymentState.value.key)) return '查看订单'
@@ -304,6 +311,11 @@ function copyEntryCode() {
 async function handlePrimaryAction() {
   if (activity.value.isCreator) {
     goManageDashboard(activityId.value)
+    return
+  }
+
+  if (isTerminalActivity.value) {
+    goActivityDetail(activityId.value)
     return
   }
 

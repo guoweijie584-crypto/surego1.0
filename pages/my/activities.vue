@@ -37,6 +37,7 @@
           <view class="activity__head">
             <text class="activity__badge">{{ getBadge(item) }}</text>
             <text class="activity__mode">{{ getMode(item) }}</text>
+            <text class="activity__status" :class="`activity__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
           </view>
           <text class="activity__title su-line-2">{{ item.title }}</text>
           <text class="activity__meta">{{ item.date }} {{ item.time }}</text>
@@ -51,7 +52,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { listMyActivities } from '@/common/api/activity.js'
+import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activeTab = ref('hosting')
@@ -70,7 +71,7 @@ const tabs = [
   { key: 'pending', label: '申请中' }
 ]
 
-const currentList = computed(() => lists.value[activeTab.value] || [])
+const currentList = computed(() => sortActivitiesByStatusPriority(lists.value[activeTab.value] || []))
 const counts = computed(() => ({
   hosting: lists.value.hosting.length,
   joined: lists.value.joined.length,
@@ -228,12 +229,14 @@ function openActivity(item) {
 
 .activity__head {
   display: flex;
+  gap: 8rpx;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .activity__badge,
-.activity__mode {
+.activity__mode,
+.activity__status {
   padding: 7rpx 15rpx;
   border-radius: 999rpx;
   font-size: 19rpx;
@@ -248,6 +251,31 @@ function openActivity(item) {
 .activity__mode {
   background: #f8fafc;
   color: #94a3b8;
+}
+
+.activity__status--green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.activity__status--blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.activity__status--amber {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.activity__status--gray {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.activity__status--red {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .activity__title {

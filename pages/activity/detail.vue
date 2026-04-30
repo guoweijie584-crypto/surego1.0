@@ -227,7 +227,7 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
-import { getActivityDetail } from '@/common/api/activity.js'
+import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -246,6 +246,8 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 28 })
 
 const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
+const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
+const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
@@ -269,6 +271,7 @@ const seatsLeftText = computed(() => {
 })
 
 const statusText = computed(() => {
+  if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (isLeader.value) return '作为局长管理中'
   if (activity.value.applicationStatus === 'approved') return '已获得准入'
   if (activity.value.applicationStatus === 'pending') return '申请审核中'
@@ -288,6 +291,8 @@ const moderationStatusText = computed(() => {
 })
 
 const statusClass = computed(() => {
+  if (['cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key)) return 'is-rejected'
+  if (activityStatusMeta.value.key === 'finished') return 'is-pending'
   if (activity.value.applicationStatus === 'pending') return 'is-pending'
   if (activity.value.applicationStatus === 'rejected') return 'is-rejected'
   return 'is-ready'
@@ -295,6 +300,7 @@ const statusClass = computed(() => {
 
 const primaryButtonText = computed(() => {
   if (isLeader.value) return '局面中心'
+  if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (isJoined.value) return '入场凭证'
   if (activity.value.applicationStatus === 'pending') return '审核中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
@@ -308,7 +314,7 @@ const primaryIcon = computed(() => {
 })
 
 const primaryButtonClass = computed(() => ({
-  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending',
+  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending' || (isTerminalActivity.value && !isLeader.value),
   'bottom-bar__button--leader': isLeader.value
 }))
 
@@ -350,6 +356,10 @@ function selectMember(member) {
 }
 
 function handlePrimaryAction() {
+  if (isTerminalActivity.value && !isLeader.value) {
+    uni.showToast({ title: `${activityStatusMeta.value.label}，暂不可报名`, icon: 'none' })
+    return
+  }
   if (activity.value.applicationStatus === 'pending') return
   if (isLeader.value) {
     goManageDashboard(activity.value.id)

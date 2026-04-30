@@ -13,6 +13,26 @@ export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', '
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
 export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
 export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
+export const ACTIVITY_STATUS_META = {
+  ongoing: { key: 'ongoing', label: '进行中', tone: 'blue', group: 'active', rank: 10 },
+  formed: { key: 'formed', label: '已成局', tone: 'green', group: 'active', rank: 20 },
+  recruiting: { key: 'recruiting', label: '报名中', tone: 'green', group: 'active', rank: 30 },
+  published: { key: 'published', label: '报名中', tone: 'green', group: 'active', rank: 30 },
+  reviewing: { key: 'reviewing', label: '审核中', tone: 'amber', group: 'todo', rank: 40 },
+  draft: { key: 'draft', label: '草稿', tone: 'gray', group: 'todo', rank: 50 },
+  finished: { key: 'finished', label: '已结束', tone: 'gray', group: 'done', rank: 70 },
+  rejected: { key: 'rejected', label: '审核驳回', tone: 'red', group: 'issue', rank: 80 },
+  cancelled: { key: 'cancelled', label: '已取消', tone: 'red', group: 'cancelled', rank: 90 },
+  hidden: { key: 'hidden', label: '已下架', tone: 'red', group: 'issue', rank: 100 }
+}
+export const ACTIVITY_STATUS_FILTERS = [
+  { key: 'all', label: '全部' },
+  { key: 'active', label: '进行中' },
+  { key: 'todo', label: '待处理' },
+  { key: 'done', label: '已结束' },
+  { key: 'cancelled', label: '已取消' },
+  { key: 'issue', label: '异常' }
+]
 export const ACTIVITY_CREATOR_STATUS_TRANSITIONS = {
   draft: ['reviewing'],
   reviewing: ['draft'],
@@ -64,6 +84,59 @@ function normalizeApplicationStatus(status = 'not_applied') {
 function normalizeModerationStatus(status = 'pending') {
   const nextStatus = status || 'pending'
   return ['pending', 'approved', 'rejected', 'hidden', 'visible'].includes(nextStatus) ? nextStatus : 'pending'
+}
+
+export function getActivityStatusMeta(activity = {}) {
+  const status = normalizeActivityStatus(activity.status || activity.lifecycleStatus)
+  const moderationStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
+
+  if (moderationStatus === 'hidden') return ACTIVITY_STATUS_META.hidden
+  if (moderationStatus === 'rejected') return ACTIVITY_STATUS_META.rejected
+  if (status === 'cancelled') return ACTIVITY_STATUS_META.cancelled
+  if (status === 'finished') return ACTIVITY_STATUS_META.finished
+  if (moderationStatus === 'pending' && status !== 'draft') return ACTIVITY_STATUS_META.reviewing
+  return ACTIVITY_STATUS_META[status] || ACTIVITY_STATUS_META.recruiting
+}
+
+function getActivitySortTime(activity = {}) {
+  const candidates = [
+    activity.dateValue,
+    activity.startAt,
+    activity.start_at,
+    activity.date,
+    activity.updatedAt,
+    activity.updated_at,
+    activity.createdAt,
+    activity.created_at
+  ]
+  for (const value of candidates) {
+    if (!value) continue
+    if (typeof value === 'number') return value
+    const parsed = Date.parse(String(value).replace(/\./g, '-'))
+    if (!Number.isNaN(parsed)) return parsed
+  }
+  return Number.MAX_SAFE_INTEGER
+}
+
+export function sortActivitiesByStatusPriority(items = []) {
+  return [...items].sort((a, b) => {
+    const aMeta = getActivityStatusMeta(a)
+    const bMeta = getActivityStatusMeta(b)
+    if (aMeta.rank !== bMeta.rank) return aMeta.rank - bMeta.rank
+    const timeDiff = getActivitySortTime(a) - getActivitySortTime(b)
+    if (timeDiff !== 0) return timeDiff
+    return String(b.updatedAt || b.updated_at || b.createdAt || b.created_at || '').localeCompare(String(a.updatedAt || a.updated_at || a.createdAt || a.created_at || ''))
+  })
+}
+
+export function isHomeVisibleMyActivity(activity = {}) {
+  return ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing'].includes(getActivityStatusMeta(activity).key)
+}
+
+export function filterActivitiesByStatusGroup(items = [], filterKey = 'all') {
+  const sorted = sortActivitiesByStatusPriority(items)
+  if (!filterKey || filterKey === 'all') return sorted
+  return sorted.filter((item) => getActivityStatusMeta(item).group === filterKey)
 }
 
 function normalizeOrganizerAvatar(avatar = '') {
@@ -465,9 +538,9 @@ export async function listMyActivities() {
     try {
       const result = await callSuregoFunction('surego-activity', 'listMine', { limit: 100 })
       return {
-        hosting: (result.hosting || []).map(normalizeActivityRecord),
-        joined: (result.joined || []).map(normalizeActivityRecord),
-        pending: (result.pending || []).map(normalizeActivityRecord)
+        hosting: sortActivitiesByStatusPriority((result.hosting || []).map(normalizeActivityRecord)),
+        joined: sortActivitiesByStatusPriority((result.joined || []).map(normalizeActivityRecord)),
+        pending: sortActivitiesByStatusPriority((result.pending || []).map(normalizeActivityRecord))
       }
     } catch (error) {
       return handleSuregoCloudError(error, listMyLocalActivities)
@@ -479,8 +552,8 @@ export async function listMyActivities() {
 async function listMyLocalActivities() {
   const all = await listAllActivities()
   return Promise.resolve({
-    hosting: all.filter((item) => isCurrentUserActivityCreator(item)),
-    joined: all.filter((item) => item.applicationStatus === 'approved'),
-    pending: all.filter((item) => item.applicationStatus === 'pending' || uni.getStorageSync(`surego_application_${item.id}`))
+    hosting: sortActivitiesByStatusPriority(all.filter((item) => isCurrentUserActivityCreator(item))),
+    joined: sortActivitiesByStatusPriority(all.filter((item) => item.applicationStatus === 'approved')),
+    pending: sortActivitiesByStatusPriority(all.filter((item) => item.applicationStatus === 'pending' || uni.getStorageSync(`surego_application_${item.id}`)))
   })
 }

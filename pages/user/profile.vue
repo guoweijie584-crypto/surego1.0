@@ -81,16 +81,30 @@
         </view>
 
         <view v-if="activeTab === 'activities'" class="profile__list">
-          <view v-if="activityList.length === 0" class="empty">
+          <view v-if="activityList.length > 0" class="activity-filters">
+            <view
+              v-for="item in activityFilters"
+              :key="item.key"
+              class="activity-filter"
+              :class="{ 'activity-filter--active': activeActivityFilter === item.key }"
+              @tap="activeActivityFilter = item.key"
+            >
+              {{ item.label }}
+            </view>
+          </view>
+          <view v-if="filteredActivityList.length === 0" class="empty">
             <uni-icons type="calendar" size="42" color="#cbd5e1" />
             <text>暂无活动</text>
           </view>
-          <view v-for="item in activityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
+          <view v-for="item in filteredActivityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
             <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
             <view class="profile-card__body">
               <view class="profile-card__row">
                 <text class="profile-card__title su-line-1">{{ item.title }}</text>
-                <text v-if="item.isCreator" class="profile-card__badge">主办</text>
+                <view class="profile-card__tags">
+                  <text class="profile-card__status" :class="`profile-card__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
+                  <text class="profile-card__badge">{{ item.isCreator ? '主办' : '参与' }}</text>
+                </view>
               </view>
               <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
             </view>
@@ -149,13 +163,14 @@
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
-import { listMyActivities } from '@/common/api/activity.js'
+import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
+const activeActivityFilter = ref('all')
 const activeOrderFilter = ref('all')
 const loggedIn = ref(false)
 const canUseOps = ref(false)
@@ -168,8 +183,14 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 210 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
+const activityFilters = ACTIVITY_STATUS_FILTERS
 
-const activityList = computed(() => [...myActivities.value.hosting, ...myActivities.value.joined, ...myActivities.value.pending])
+const activityList = computed(() => sortActivitiesByStatusPriority([
+  ...myActivities.value.hosting,
+  ...myActivities.value.joined,
+  ...myActivities.value.pending
+]))
+const filteredActivityList = computed(() => filterActivitiesByStatusGroup(activityList.value, activeActivityFilter.value))
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
 const orderFilters = [
   { key: 'all', label: '全部' },
@@ -518,6 +539,7 @@ function handleProfileSaved(nextUser) {
   padding: 12rpx 34rpx 70rpx;
 }
 
+.activity-filters,
 .order-filters {
   display: flex;
   gap: 12rpx;
@@ -526,6 +548,7 @@ function handleProfileSaved(nextUser) {
   white-space: nowrap;
 }
 
+.activity-filter,
 .order-filter {
   flex: 0 0 auto;
   padding: 14rpx 22rpx;
@@ -537,6 +560,7 @@ function handleProfileSaved(nextUser) {
   box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.05);
 }
 
+.activity-filter--active,
 .order-filter--active {
   background: #0f172a;
   color: #fff;
@@ -570,23 +594,62 @@ function handleProfileSaved(nextUser) {
   display: flex;
   gap: 10rpx;
   align-items: center;
+  justify-content: space-between;
 }
 
 .profile-card__title,
 .order-card__title {
+  flex: 1;
+  min-width: 0;
   color: #111827;
   font-size: 27rpx;
   font-style: italic;
   font-weight: 900;
 }
 
-.profile-card__badge {
+.profile-card__tags {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8rpx;
+  align-items: center;
+}
+
+.profile-card__badge,
+.profile-card__status {
   padding: 5rpx 12rpx;
   border-radius: 999rpx;
-  background: #e0e7ff;
-  color: #4f46e5;
   font-size: 18rpx;
   font-weight: 900;
+}
+
+.profile-card__badge {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.profile-card__status--green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.profile-card__status--blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.profile-card__status--amber {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.profile-card__status--gray {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.profile-card__status--red {
+  background: #fee2e2;
+  color: #ef4444;
 }
 
 .profile-card__meta,

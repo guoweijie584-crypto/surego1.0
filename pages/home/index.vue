@@ -116,7 +116,7 @@ import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
-import { listActivities, listMyActivities } from '@/common/api/activity.js'
+import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
 
@@ -134,7 +134,10 @@ const myGroups = ref({
 })
 
 const featuredActivities = computed(() => allActivities.value.filter((item) => item.image).slice(0, 3))
-const userActivities = computed(() => [...myGroups.value.hosting, ...myGroups.value.joined].slice(0, 4))
+const userActivities = computed(() => sortActivitiesByStatusPriority([
+  ...myGroups.value.hosting,
+  ...myGroups.value.joined
+]).filter(isHomeVisibleMyActivity).slice(0, 4))
 const recommendedActivities = computed(() => allActivities.value)
 
 onShow(async () => {
