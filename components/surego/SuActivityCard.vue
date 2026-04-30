@@ -41,7 +41,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { goActivityDetail, goUserProfile } from '@/common/utils/route.js'
+import { goActivityDetail, goUserDetail, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
   activity: {
@@ -84,6 +84,11 @@ function openDetail() {
 }
 
 function openUser() {
+  const userId = props.activity.creatorId || props.activity.creator_id
+  if (userId) {
+    goUserDetail(userId)
+    return
+  }
   goUserProfile()
 }
 </script>

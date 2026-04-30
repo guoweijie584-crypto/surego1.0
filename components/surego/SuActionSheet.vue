@@ -1,11 +1,11 @@
 <template>
   <view v-if="modelValue" class="su-sheet">
     <view class="su-sheet__mask" @tap="close" />
-    <view class="su-sheet__panel su-safe-bottom">
+    <view class="su-sheet__panel su-safe-bottom" @tap.stop="noop">
       <view class="su-sheet__handle" />
       <view class="su-sheet__header">
         <text class="su-sheet__title">{{ title }}</text>
-        <view class="su-sheet__close" @tap="close">
+        <view class="su-sheet__close" @tap.stop="close">
           <uni-icons type="closeempty" size="24" color="#64748b" />
         </view>
       </view>
@@ -31,6 +31,8 @@ const emit = defineEmits(['update:modelValue'])
 function close() {
   emit('update:modelValue', false)
 }
+
+function noop() {}
 </script>
 
 <style scoped>

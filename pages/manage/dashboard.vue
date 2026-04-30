@@ -96,7 +96,7 @@
           <text>暂无新的申请，等风来。</text>
         </view>
         <view v-for="item in applications" :key="item.id" class="applicant">
-          <view class="applicant__avatar">{{ getInitial(item) }}</view>
+          <view class="applicant__avatar" @tap.stop="goUserDetail(item.userId || item.user_id)">{{ getInitial(item) }}</view>
           <view class="applicant__content">
             <view class="applicant__line">
               <text class="applicant__name">申请者</text>
@@ -168,7 +168,7 @@ import { getActivityDetail, getAllowedActivityStatusTransitions, updateActivityS
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))

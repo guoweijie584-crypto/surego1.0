@@ -23,6 +23,7 @@ const businessPages = [
   'pages/messages/index',
   'pages/auth/login',
   'pages/user/profile',
+  'pages/user/detail',
   'pages/user/edit',
   'pages/ops/dashboard',
   'pages/ops/reports',
@@ -396,6 +397,26 @@ for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   }
   if (source.includes('tempFilePaths[0]')) {
     errors.push(`${page} must upload custom covers through common/api/upload.js`)
+  }
+  if (!source.includes('@tap.stop="useRandomCover"') || !source.includes('keepSheetOpen: true')) {
+    errors.push(`${page} must keep the cover picker open when using random recommended covers`)
+  }
+}
+
+const userDetailSource = read('pages/user/detail.vue')
+for (const token of ['getUserProfileById', 'public-profile', 'goBackOrFallback']) {
+  if (!userDetailSource.includes(token)) {
+    errors.push(`pages/user/detail.vue is missing release public profile token: ${token}`)
+  }
+}
+const userDetailRouteSource = read('common/utils/route.js')
+if (!userDetailRouteSource.includes('goUserDetail')) {
+  errors.push('common/utils/route.js must expose goUserDetail for member/leader avatars')
+}
+for (const page of ['pages/activity/detail.vue', 'pages/activity/members.vue', 'pages/manage/checkin.vue', 'pages/manage/dashboard.vue']) {
+  const source = read(page)
+  if (!source.includes('goUserDetail')) {
+    errors.push(`${page} must open member/leader avatars through goUserDetail`)
   }
 }
 

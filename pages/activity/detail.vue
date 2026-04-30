@@ -134,7 +134,7 @@
         </view>
       </view>
 
-      <view v-else class="organizer-card" @tap="showComingSoon('局长主页暂未开放')">
+      <view v-else class="organizer-card" @tap="openOrganizerProfile">
         <image class="organizer-card__avatar" :src="activity.organizerAvatar" mode="aspectFill" />
         <view class="organizer-card__info">
           <text class="organizer-card__name">{{ activity.organizer }}</text>
@@ -232,7 +232,7 @@ import { getApplicationForActivity } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activity = ref(createEmptyActivity('101'))
@@ -367,7 +367,15 @@ function openLocation() {
 }
 
 function selectMember(member) {
+  if (member?.userId || member?.id) {
+    goUserDetail(member.userId || member.id)
+    return
+  }
   selectedMember.value = member
+}
+
+function openOrganizerProfile() {
+  goUserDetail(activity.value.creatorId || activity.value.creator_id)
 }
 
 function handlePrimaryAction() {

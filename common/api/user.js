@@ -208,6 +208,13 @@ export async function getUserProfiles(userIds = []) {
   })
 }
 
+export async function getUserProfileById(userId) {
+  const id = String(userId || '').trim()
+  if (!id) return normalizeUserRecord({})
+  const [profile] = await getUserProfiles([id])
+  return normalizeUserRecord(profile || { uid: id, userId: id })
+}
+
 export async function updateCurrentUser(payload) {
   const next = buildUserPayload({
     ...payload,

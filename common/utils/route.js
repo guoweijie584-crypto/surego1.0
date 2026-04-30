@@ -218,6 +218,17 @@ export function goUserProfile() {
   })
 }
 
+export function goUserDetail(userId) {
+  const id = String(userId || '').trim()
+  if (!id) {
+    uni.showToast({ title: '暂未获取到用户资料', icon: 'none' })
+    return
+  }
+  uni.navigateTo({
+    url: `/pages/user/detail?id=${encodeURIComponent(id)}`
+  })
+}
+
 export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
 }

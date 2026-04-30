@@ -153,13 +153,13 @@
                 :key="item"
                 class="cover-picker__tab"
                 :class="{ 'cover-picker__tab--active': coverCategory === item }"
-                @tap="coverCategory = item"
+                @tap.stop="coverCategory = item"
               >
                 {{ item }}
               </view>
             </view>
           </scroll-view>
-          <view class="cover-picker__random" @tap="useRandomCover">
+          <view class="cover-picker__random" @tap.stop="useRandomCover">
             <uni-icons type="refresh" size="16" color="#0f172a" />
             <text>换一张</text>
           </view>
@@ -171,7 +171,7 @@
             :key="item.id"
             class="cover-option"
             :class="{ 'cover-option--active': form.image === item.image }"
-            @tap="selectCoverPreset(item)"
+            @tap.stop="selectCoverPreset(item)"
           >
             <image class="cover-option__image" :src="item.image" mode="aspectFill" />
             <view class="cover-option__shade" />
@@ -179,7 +179,7 @@
           </view>
         </view>
 
-        <button class="cover-picker__upload" @tap="uploadCoverFromAlbum">
+        <button class="cover-picker__upload" @tap.stop="uploadCoverFromAlbum">
           从相册上传
         </button>
       </view>
@@ -334,7 +334,7 @@ function selectCoverPreset(preset, options = {}) {
 
 function useRandomCover() {
   if (!isEditable.value) return
-  selectCoverPreset(pickRandomCoverPreset(coverCategory.value))
+  selectCoverPreset(pickRandomCoverPreset(coverCategory.value), { keepSheetOpen: true })
 }
 
 async function uploadCoverFromAlbum() {

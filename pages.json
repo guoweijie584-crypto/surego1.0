@@ -136,6 +136,13 @@
       }
     },
     {
+      "path": "pages/user/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
       "path": "pages/user/edit",
       "style": {
         "navigationStyle": "custom",

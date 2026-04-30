@@ -73,7 +73,7 @@
         </view>
 
         <view v-for="person in participantList" :key="person.userId" class="member">
-          <image class="member__avatar" :src="person.avatar" mode="aspectFill" />
+          <image class="member__avatar" :src="person.avatar" mode="aspectFill" @tap.stop="goUserDetail(person.userId)" />
           <view class="member__body">
             <view class="member__row">
               <text class="member__name">{{ person.name }}</text>
@@ -100,7 +100,7 @@ import { listApplications } from '@/common/api/application.js'
 import { buildParticipantCheckinCode, confirmCheckin, getCheckinSummary, isValidCheckinCode, parseScannedCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goUserDetail } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))

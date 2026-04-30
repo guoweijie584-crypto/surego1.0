@@ -39,6 +39,7 @@ const requiredFiles = [
   'pages/messages/index.vue',
   'pages/auth/login.vue',
   'pages/user/profile.vue',
+  'pages/user/detail.vue',
   'pages/user/edit.vue',
   'pages/ops/dashboard.vue',
   'pages/ops/reports.vue',
@@ -67,6 +68,7 @@ const expectedPages = [
   'pages/messages/index',
   'pages/auth/login',
   'pages/user/profile',
+  'pages/user/detail',
   'pages/user/edit',
   'pages/ops/dashboard',
   'pages/ops/reports',
@@ -1159,6 +1161,32 @@ for (const file of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   }
   if (source.includes('tempFilePaths[0]')) {
     errors.push(`${file} must upload custom covers through common/api/upload.js`);
+  }
+  if (!source.includes('@tap.stop="useRandomCover"') || !source.includes('keepSheetOpen: true')) {
+    errors.push(`${file} must keep the cover picker open when using random recommended covers`);
+  }
+}
+
+const userDetailPath = path.join(root, 'pages/user/detail.vue');
+if (fs.existsSync(userDetailPath)) {
+  const source = fs.readFileSync(userDetailPath, 'utf8');
+  for (const token of ['getUserProfileById', 'public-profile', 'goBackOrFallback']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/user/detail.vue is missing public profile token: ${token}`);
+    }
+  }
+}
+
+const routeSource = fs.readFileSync(path.join(root, 'common/utils/route.js'), 'utf8');
+if (!routeSource.includes('goUserDetail')) {
+  errors.push('common/utils/route.js must expose goUserDetail for member/leader avatars');
+}
+for (const page of ['pages/activity/detail.vue', 'pages/activity/members.vue', 'pages/manage/checkin.vue', 'pages/manage/dashboard.vue']) {
+  const absolute = path.join(root, page);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (!source.includes('goUserDetail')) {
+    errors.push(`${page} must open member/leader avatars through goUserDetail`);
   }
 }
 

@@ -51,7 +51,7 @@
           </view>
         </view>
 
-        <view v-for="member in confirmedMembers" :key="member.id" class="member-card" @tap="selectedMember = member">
+        <view v-for="member in confirmedMembers" :key="member.id" class="member-card" @tap="openMemberProfile(member)">
           <image class="member-card__avatar" :src="member.avatar" mode="aspectFill" />
           <view class="member-card__body">
             <view class="member-card__line">
@@ -107,7 +107,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goUserDetail } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity())
 const applications = ref([])
@@ -130,6 +130,7 @@ const confirmedMembers = computed(() => {
   if (memberProfiles.value.length) return memberProfiles.value
   const leader = {
     id: `leader_${activity.value.id}`,
+    userId: activity.value.creatorId || activity.value.creator_id,
     name: activity.value.organizer || '局长',
     role: '局长',
     avatar: activity.value.organizerAvatar || members[0].avatar,
@@ -139,6 +140,7 @@ const confirmedMembers = computed(() => {
     .filter((item) => item.status === 'approved')
     .map((item, index) => ({
       id: item.id,
+      userId: item.userId || item.user_id,
       name: item.nickname || `参与者 ${index + 1}`,
       role: '参与者',
       avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(item.userId || item.id)}`,
@@ -176,6 +178,14 @@ async function refreshMembers() {
   applications.value = await listApplications(activity.value.id)
   memberProfiles.value = await listActivityMembers(activity.value.id)
   uni.showToast({ title: '成员已刷新', icon: 'none' })
+}
+
+function openMemberProfile(member) {
+  if (member?.userId || member?.id) {
+    goUserDetail(member.userId || member.id)
+    return
+  }
+  selectedMember.value = member
 }
 </script>
 
