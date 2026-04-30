@@ -46,12 +46,14 @@ export async function listActivityMembers(activityId) {
   const members = approved.map((item, index) => {
     const userId = item.userId || item.user_id || `member_${index + 1}`
     const profile = profiles[userId] || {}
+    const fallbackName = item.nickname || item.applicantName || item.applicant_name || (userId === getCurrentUserId() ? '我' : `成员 ${index + 1}`)
+    const fallbackAvatar = item.avatar || item.applicantAvatar || item.applicant_avatar
     return {
       id: userId,
       userId,
-      name: profile.nickname || `参与者 ${index + 1}`,
+      name: profile.nickname || fallbackName,
       role: '参与者',
-      avatar: normalizeAvatar(profile.avatar),
+      avatar: normalizeAvatar(profile.avatar || fallbackAvatar),
       application: item,
       isMe: userId === getCurrentUserId()
     }

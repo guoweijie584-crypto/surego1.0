@@ -33,7 +33,7 @@
             :key="item.id"
             class="featured-card"
             hover-class="featured-card--active"
-            @tap="goActivityDetail(item.id)"
+            @tap="openUserActivity(item)"
           >
             <image class="featured-card__image" :src="item.image" mode="aspectFill" />
             <view class="featured-card__shade" />
@@ -82,7 +82,7 @@
             <view class="mine-card__body">
               <image class="mine-card__cover" :src="item.image" mode="aspectFill" />
               <view class="mine-card__info">
-                <text class="mine-card__badge">{{ item.isCreator ? '主办' : '参与' }}</text>
+                <text class="mine-card__badge">{{ getMineRoleLabel(item) }}</text>
                 <text class="mine-card__title su-line-2">{{ item.title }}</text>
                 <text class="mine-card__meta su-line-1">{{ item.date }} {{ item.time }}</text>
                 <text class="mine-card__meta su-line-1">{{ getShortLocation(item.location) }} 路 距您{{ item.distance }}km</text>
@@ -118,7 +118,7 @@ import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard, goMessages, goMyActivities, goParticipantDashboard, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
 const navStyle = getMiniProgramNavStyle()
@@ -136,7 +136,8 @@ const myGroups = ref({
 const featuredActivities = computed(() => allActivities.value.filter((item) => item.image).slice(0, 3))
 const userActivities = computed(() => sortActivitiesByStatusPriority([
   ...myGroups.value.hosting,
-  ...myGroups.value.joined
+  ...myGroups.value.joined,
+  ...myGroups.value.pending
 ]).filter(isHomeVisibleMyActivity).slice(0, 4))
 const recommendedActivities = computed(() => allActivities.value)
 
@@ -161,6 +162,25 @@ function getPriceText(activity) {
   if (activity.partyMode === 'free') return '免费'
   if (activity.partyMode === 'sincerity') return `诚意金 ${activity.amount}`
   return `门票 ${activity.amount}`
+}
+
+function getMineRoleLabel(item) {
+  if (item.isCreator) return '主办'
+  if (item.applicationStatus === 'pending') return '申请中'
+  if (item.applicationStatus === 'rejected') return '未通过'
+  return '参与'
+}
+
+function openUserActivity(item) {
+  if (item.isCreator) {
+    goManageDashboard(item.id)
+    return
+  }
+  if (['approved', 'pending', 'rejected'].includes(item.applicationStatus)) {
+    goParticipantDashboard(item.id)
+    return
+  }
+  goActivityDetail(item.id)
 }
 
 function getDaysLabel(id) {

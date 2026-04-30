@@ -630,6 +630,16 @@ if (fs.existsSync(applicationApiPath)) {
   }
 }
 
+const memberApiPath = path.join(root, 'common/api/member.js');
+if (fs.existsSync(memberApiPath)) {
+  const source = fs.readFileSync(memberApiPath, 'utf8');
+  for (const token of ['fallbackName', 'applicantName', 'applicantAvatar', "role: '参与者'"]) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/member.js must avoid generic applicant placeholders with ${token}`);
+    }
+  }
+}
+
 for (const apiFile of ['common/api/activity.js', 'common/api/application.js', 'common/api/order.js', 'common/api/message.js', 'common/api/checkin.js', 'common/api/user.js', 'common/api/moderation.js', 'common/api/member.js']) {
   const absolute = path.join(root, apiFile);
   if (!fs.existsSync(absolute)) continue;
@@ -808,6 +818,11 @@ if (fs.existsSync(manageDashboardPath)) {
   for (const token of ['getAllowedActivityStatusTransitions', 'availableLifecycleActions', 'handleLifecycleAction', 'state-summary']) {
     if (!source.includes(token)) {
       errors.push(`pages/manage/dashboard.vue is missing guarded lifecycle token ${token}`);
+    }
+  }
+  for (const token of ['scrollTop', ':scroll-top="scrollTop"', 'scroll-with-animation']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/dashboard.vue must use stable review section scrolling token ${token}`);
     }
   }
   if (source.includes('v-for="item in lifecycleActions"') || source.includes('@tap="setActivityLifecycle(item.key)"')) {
@@ -1146,6 +1161,11 @@ if (fs.existsSync(homePagePath)) {
   for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority']) {
     if (!source.includes(token)) {
       errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`);
+    }
+  }
+  for (const token of ['openUserActivity', 'goParticipantDashboard', '...myGroups.value.pending']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/home/index.vue must route applied/joined activities through participant dashboard with ${token}`);
     }
   }
 }

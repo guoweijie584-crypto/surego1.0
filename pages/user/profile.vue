@@ -236,7 +236,7 @@ function openActivity(item) {
     goManageDashboard(item.id)
     return
   }
-  if (item.applicationStatus === 'approved') {
+  if (['approved', 'pending', 'rejected'].includes(item.applicationStatus)) {
     goParticipantDashboard(item.id)
     return
   }

@@ -32,6 +32,10 @@ function normalizeApplication(item = {}) {
     id: item.id || item._id || '',
     activityId: String(item.activityId || item.activity_id || ''),
     userId: item.userId || item.user_id || '',
+    nickname: item.nickname || item.applicantName || item.applicant_name || '',
+    avatar: item.avatar || item.applicantAvatar || item.applicant_avatar || '',
+    applicantName: item.applicantName || item.applicant_name || item.nickname || '',
+    applicantAvatar: item.applicantAvatar || item.applicant_avatar || item.avatar || '',
     reviewNote: item.reviewNote || item.review_note || '',
     rejectReason: item.rejectReason || item.reject_reason || '',
     reviewerId: item.reviewerId || item.reviewer_id || '',
@@ -41,10 +45,15 @@ function normalizeApplication(item = {}) {
 }
 
 function buildApplication(payload, id = `app_${Date.now()}`) {
+  const profile = getCurrentUserProfile()
   return {
     id,
     activityId: String(payload.activityId),
     userId: payload.userId || getCurrentUserId(),
+    nickname: payload.nickname || profile.nickname || '',
+    avatar: payload.avatar || profile.avatar || '',
+    applicantName: payload.applicantName || payload.applicant_name || profile.nickname || '',
+    applicantAvatar: payload.applicantAvatar || payload.applicant_avatar || profile.avatar || '',
     gender: payload.gender,
     mbti: payload.mbti,
     message: payload.message,

@@ -12,7 +12,7 @@
       </view>
     </view>
 
-    <scroll-view scroll-y class="manage__scroll" :scroll-into-view="scrollIntoView" :style="contentTopStyle">
+    <scroll-view scroll-y class="manage__scroll" :scroll-top="scrollTop" scroll-with-animation :style="contentTopStyle">
       <view class="manage__hero">
         <text class="manage__kicker">COMMAND CENTER</text>
         <text class="manage__title">{{ activity.title }}</text>
@@ -174,7 +174,7 @@ const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
 const ticketOrders = ref([])
-const scrollIntoView = ref('')
+const scrollTop = ref(0)
 const showReviewSheet = ref(false)
 const showTicketSheet = ref(false)
 const reviewTarget = ref(null)
@@ -337,9 +337,9 @@ async function setActivityLifecycle(status) {
 
 async function handleAction(item) {
   if (item.key === 'review') {
-    scrollIntoView.value = ''
+    scrollTop.value = 0
     await nextTick()
-    scrollIntoView.value = 'manage-applications'
+    scrollTop.value = 760
     return
   }
 

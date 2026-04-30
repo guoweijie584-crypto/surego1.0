@@ -464,6 +464,20 @@ for (const token of ['getActivityStatusMeta', 'isTerminalActivity', 'goParticipa
   }
 }
 
+const homeSourceForParticipantEntry = read('pages/home/index.vue')
+for (const token of ['openUserActivity', 'goParticipantDashboard', '...myGroups.value.pending']) {
+  if (!homeSourceForParticipantEntry.includes(token)) {
+    errors.push(`pages/home/index.vue must route applied/joined activities through participant dashboard with ${token}`)
+  }
+}
+
+const manageSourceForReviewScroll = read('pages/manage/dashboard.vue')
+for (const token of ['scrollTop', ':scroll-top="scrollTop"', 'scroll-with-animation']) {
+  if (!manageSourceForReviewScroll.includes(token)) {
+    errors.push(`pages/manage/dashboard.vue must use stable review section scrolling token ${token}`)
+  }
+}
+
 const messageSource = read('common/api/message.js')
 for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) {
   if (messageSource.includes(staleToken)) {
@@ -483,6 +497,13 @@ for (const token of ['notifyApplicationSubmitted', 'notifyApplicationReviewed', 
 for (const token of ['getApplicationForActivity', 'getMineByActivity', 'writeApplicationCache', 'adjustLocalActivityParticipantCount']) {
   if (!appMessageSource.includes(token)) {
     errors.push(`common/api/application.js must guard duplicate applications/member count with ${token}`)
+  }
+}
+
+const memberApiSource = read('common/api/member.js')
+for (const token of ['fallbackName', 'applicantName', 'applicantAvatar', "role: '参与者'"]) {
+  if (!memberApiSource.includes(token)) {
+    errors.push(`common/api/member.js must avoid generic applicant placeholders with ${token}`)
   }
 }
 

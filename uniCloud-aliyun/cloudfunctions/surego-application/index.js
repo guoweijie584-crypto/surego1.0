@@ -5,6 +5,7 @@ const dbCmd = db.command;
 const collection = db.collection('surego-applications');
 const activityCollection = db.collection('surego-activities');
 const uniIdUsers = db.collection('uni-id-users');
+const suregoUsers = db.collection('surego-users');
 
 function normalizeRoles(roles) {
   if (!roles) return [];
@@ -56,6 +57,16 @@ async function getActivity(activityId) {
   return (result.data || [])[0] || null;
 }
 
+async function getSuregoUserProfile(userId) {
+  if (!userId) return null;
+  try {
+    const result = await suregoUsers.where({ user_id: String(userId) }).limit(1).get();
+    return (result.data || [])[0] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function getExistingApplication(activityId, userId) {
   const result = await collection.where({
     activity_id: String(activityId || ''),
@@ -76,6 +87,10 @@ function normalizeApplication(item = {}) {
     id: item.id || item._id,
     activityId: item.activityId || item.activity_id,
     userId: item.userId || item.user_id,
+    nickname: item.nickname || item.applicant_name || item.applicantName || '',
+    avatar: item.avatar || item.applicant_avatar || item.applicantAvatar || '',
+    applicantName: item.applicantName || item.applicant_name || item.nickname || '',
+    applicantAvatar: item.applicantAvatar || item.applicant_avatar || item.avatar || '',
     reviewNote: item.reviewNote || item.review_note || '',
     rejectReason: item.rejectReason || item.reject_reason || '',
     reviewerId: item.reviewerId || item.reviewer_id || '',
@@ -123,12 +138,17 @@ exports.main = async (event) => {
         data: normalizeApplication(existing)
       };
     }
+    const profile = await getSuregoUserProfile(user.uid);
     const application = buildRecord({
       ...payload,
       activityId,
       activity_id: activityId,
       userId: user.uid,
       user_id: user.uid,
+      nickname: payload.nickname || payload.applicantName || payload.applicant_name || profile?.nickname || '',
+      avatar: payload.avatar || payload.applicantAvatar || payload.applicant_avatar || profile?.avatar || '',
+      applicant_name: payload.applicantName || payload.applicant_name || payload.nickname || profile?.nickname || '',
+      applicant_avatar: payload.applicantAvatar || payload.applicant_avatar || payload.avatar || profile?.avatar || '',
       status: payload.status || 'pending',
       created_at: Date.now()
     });
