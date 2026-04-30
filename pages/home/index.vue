@@ -3,7 +3,7 @@
     <view class="home__top" :style="navStyle">
       <view class="home__top-row" :style="navRowStyle">
       <view class="home__brand" @tap="goUserProfile">
-        <image class="home__avatar" src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
+        <image class="home__avatar" :src="currentAvatar" mode="aspectFill" />
         <view>
           <text class="home__eyebrow">SUREGO</text>
           <text class="home__title">成行</text>
@@ -117,11 +117,14 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivities, listMyActivities } from '@/common/api/activity.js'
+import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goMessages, goMyActivities, goSearch, goUserProfile } from '@/common/utils/route.js'
 
+const DEFAULT_AVATAR = '/static/userImg/user.png'
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 390 })
+const currentAvatar = ref(DEFAULT_AVATAR)
 const allActivities = ref([])
 const myGroups = ref({
   hosting: [],
@@ -134,9 +137,17 @@ const userActivities = computed(() => [...myGroups.value.hosting, ...myGroups.va
 const recommendedActivities = computed(() => allActivities.value)
 
 onShow(async () => {
+  refreshCurrentAvatar()
   allActivities.value = await listActivities()
   myGroups.value = await listMyActivities()
 })
+
+function refreshCurrentAvatar() {
+  const profile = getCurrentUserProfile()
+  currentAvatar.value = isLoggedIn() && isSuregoProfileComplete(profile)
+    ? (profile.avatar || DEFAULT_AVATAR)
+    : DEFAULT_AVATAR
+}
 
 function getShortLocation(location) {
   return (location || '').split(' 路 ')[0] || location

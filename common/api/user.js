@@ -183,7 +183,7 @@ function buildLocalUserProfiles(ids) {
     uid: id,
     userId: id,
     nickname: id === getCurrentUserId() ? getCurrentUserProfile().nickname : `用户 ${id.slice(-4)}`,
-    avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(id)}`
+    avatar: '/static/userImg/user.png'
   }))
 }
 
@@ -203,7 +203,7 @@ export async function getUserProfiles(userIds = []) {
       uid: id,
       userId: id,
       nickname: id === current.userId || id === current.uid ? current.nickname : `用户 ${id.slice(-4)}`,
-      avatar: id === current.userId || id === current.uid ? current.avatar : `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(id)}`
+      avatar: id === current.userId || id === current.uid ? (current.avatar || '/static/userImg/user.png') : '/static/userImg/user.png'
     }
   })
 }

@@ -3,7 +3,7 @@
     <view class="discover__top" :style="navStyle">
       <view class="discover__top-row" :style="navRowStyle">
       <view class="discover__avatar" @tap="goUserProfile">
-        <image src="https://api.dicebear.com/7.x/avataaars/png?seed=Lucky" mode="aspectFill" />
+        <image :src="currentAvatar" mode="aspectFill" />
       </view>
       <view class="discover__tools" :style="navActionsStyle">
         <view class="discover__city" @tap="goCityPicker">
@@ -108,8 +108,10 @@ import { onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { listActivitiesByCity } from '@/common/api/activity.js'
+import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goCalendar, goCityPicker, goMessages, goSearch, goUserProfile } from '@/common/utils/route.js'
 
+const DEFAULT_AVATAR = '/static/userImg/user.png'
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
 const categories = ['全部', '户外', '美食', '运动', '学习', '展览', '夜生活']
@@ -123,6 +125,7 @@ const topics = [
 const activeCategory = ref('全部')
 const selectedCity = ref('杭州')
 const selectedCityCode = ref('330100')
+const currentAvatar = ref(DEFAULT_AVATAR)
 const activities = ref([])
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
@@ -135,10 +138,18 @@ const filteredActivities = computed(() => {
 })
 
 onShow(async () => {
+  refreshCurrentAvatar()
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   activities.value = await listActivitiesByCity(selectedCity.value, selectedCityCode.value)
 })
+
+function refreshCurrentAvatar() {
+  const profile = getCurrentUserProfile()
+  currentAvatar.value = isLoggedIn() && isSuregoProfileComplete(profile)
+    ? (profile.avatar || DEFAULT_AVATAR)
+    : DEFAULT_AVATAR
+}
 
 function countByCategory(category) {
   return activities.value.filter((item) => item.category === category).length

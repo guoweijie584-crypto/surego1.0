@@ -3,7 +3,7 @@ export function createEmptyActivity(id = '') {
     id,
     title: '',
     organizer: '',
-    organizerAvatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=SureGo',
+    organizerAvatar: '/static/userImg/user.png',
     creatorId: '',
     creator_id: '',
     image: 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=900',

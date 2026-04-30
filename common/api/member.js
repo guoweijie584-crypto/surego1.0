@@ -5,8 +5,12 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { getUserProfiles } from '@/common/api/user.js'
 
-function buildFallbackAvatar(seed = 'surego') {
-  return `https://api.dicebear.com/7.x/avataaars/png?seed=${encodeURIComponent(seed)}`
+const DEFAULT_AVATAR = '/static/userImg/user.png'
+
+function normalizeAvatar(avatar = '') {
+  const value = String(avatar || '').trim()
+  if (!value || value.includes('api.dicebear.com') || value.includes('avataaars')) return DEFAULT_AVATAR
+  return value
 }
 
 function profileMap(profiles = []) {
@@ -35,7 +39,7 @@ export async function listActivityMembers(activityId) {
     userId: creatorId,
     name: creatorProfile.nickname || activity.organizer || '局长',
     role: '局长',
-    avatar: creatorProfile.avatar || activity.organizerAvatar || buildFallbackAvatar(creatorId),
+    avatar: normalizeAvatar(creatorProfile.avatar || activity.organizerAvatar),
     isCreator: true,
     isMe: creatorId === getCurrentUserId()
   }
@@ -47,7 +51,7 @@ export async function listActivityMembers(activityId) {
       userId,
       name: profile.nickname || `参与者 ${index + 1}`,
       role: '参与者',
-      avatar: profile.avatar || buildFallbackAvatar(userId),
+      avatar: normalizeAvatar(profile.avatar),
       application: item,
       isMe: userId === getCurrentUserId()
     }

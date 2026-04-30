@@ -1,7 +1,7 @@
 <template>
   <view class="su-card" hover-class="su-card--active" @tap="openDetail">
     <view class="su-card__organizer" @tap.stop="openUser">
-      <image class="su-card__avatar" :src="activity.organizerAvatar" mode="aspectFill" />
+      <image class="su-card__avatar" :src="organizerAvatar" mode="aspectFill" />
       <text class="su-card__name su-line-1">{{ activity.organizer }}</text>
       <text class="su-card__role">局长</text>
     </view>
@@ -69,6 +69,14 @@ const priceLabel = computed(() => {
   if (props.activity.partyMode === 'sincerity') return '诚意金'
   if (props.activity.partyMode === 'ticket') return '门票'
   return ''
+})
+
+const organizerAvatar = computed(() => {
+  const avatar = String(props.activity.organizerAvatar || '').trim()
+  if (!avatar || avatar.includes('api.dicebear.com') || avatar.includes('avataaars')) {
+    return '/static/userImg/user.png'
+  }
+  return avatar
 })
 
 function openDetail() {
