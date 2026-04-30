@@ -19,6 +19,14 @@ export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', '
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
 export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
 export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
+export const ACTIVITY_CREATOR_STATUS_TRANSITIONS = {
+  draft: ['reviewing'],
+  reviewing: ['draft'],
+  published: ['formed', 'cancelled'],
+  recruiting: ['formed', 'cancelled'],
+  formed: ['ongoing', 'cancelled'],
+  ongoing: ['finished']
+}
 
 const legacyActivityStatusMap = {
   hosting: 'recruiting',
@@ -31,6 +39,28 @@ const legacyActivityStatusMap = {
 export function normalizeActivityStatus(status = 'recruiting') {
   const mapped = legacyActivityStatusMap[status] || status
   return ACTIVITY_LIFECYCLE_STATUSES.includes(mapped) ? mapped : 'recruiting'
+}
+
+export function getAllowedActivityStatusTransitions(activity = {}) {
+  const status = normalizeActivityStatus(activity.status || activity.lifecycleStatus)
+  const moderationStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
+  if (['hidden', 'rejected'].includes(moderationStatus)) return []
+  if (status === 'draft') return ACTIVITY_CREATOR_STATUS_TRANSITIONS.draft
+  if (status === 'reviewing') return ACTIVITY_CREATOR_STATUS_TRANSITIONS.reviewing
+  if (!PUBLIC_ACTIVITY_MODERATION_STATUSES.includes(moderationStatus)) return []
+  return ACTIVITY_CREATOR_STATUS_TRANSITIONS[status] || []
+}
+
+export function canTransitionActivityStatus(activity = {}, nextStatus = '') {
+  const normalizedNext = normalizeActivityStatus(nextStatus)
+  return getAllowedActivityStatusTransitions(activity).includes(normalizedNext)
+}
+
+function assertActivityStatusTransition(activity = {}, nextStatus = '') {
+  if (canTransitionActivityStatus(activity, nextStatus)) return
+  const current = normalizeActivityStatus(activity.status || activity.lifecycleStatus)
+  const next = normalizeActivityStatus(nextStatus)
+  throw new Error(`不允许从${current}切换到${next}`)
 }
 
 function normalizeApplicationStatus(status = 'not_applied') {
@@ -341,10 +371,25 @@ export async function createActivity(form) {
 }
 
 function updateLocalActivityStatus(id, status) {
+  const nextStatus = normalizeActivityStatus(status)
   const created = readCreatedActivities()
-  const next = created.map((item) => (item.id === String(id) ? { ...item, status } : item))
+  const found = created.find((item) => item.id === String(id))
+  if (!found) {
+    throw new Error('活动不存在或不可更新')
+  }
+  assertActivityStatusTransition(found, nextStatus)
+  const next = created.map((item) => (
+    item.id === String(id)
+      ? {
+          ...item,
+          status: nextStatus,
+          lifecycleStatus: nextStatus,
+          ...(nextStatus === 'reviewing' ? { moderationStatus: 'pending', moderation_status: 'pending' } : {})
+        }
+      : item
+  ))
   writeCreatedActivities(next)
-  return Promise.resolve({ id, status: normalizeActivityStatus(status) })
+  return Promise.resolve({ id, status: nextStatus })
 }
 
 export async function updateActivityStatus(id, status) {
@@ -353,6 +398,9 @@ export async function updateActivityStatus(id, status) {
     try {
       return await callSuregoFunction('surego-activity', 'updateStatus', { id, status: nextStatus })
     } catch (error) {
+      if (['INVALID_TRANSITION', 'FORBIDDEN'].includes(String(error?.code || ''))) {
+        throw error
+      }
       return handleSuregoCloudError(error, () => updateLocalActivityStatus(id, nextStatus))
     }
   }

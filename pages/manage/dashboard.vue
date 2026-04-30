@@ -42,17 +42,31 @@
           </view>
           <text>LIFECYCLE</text>
         </view>
-        <view class="state-grid">
+        <view class="state-summary">
+          <view>
+            <text>当前阶段</text>
+            <text>{{ lifecycleLabel }}</text>
+          </view>
+          <view>
+            <text>运营审核</text>
+            <text>{{ moderationLabel }}</text>
+          </view>
+        </view>
+        <text class="state-hint">{{ lifecycleHint }}</text>
+        <view v-if="availableLifecycleActions.length" class="state-action-list">
           <view
-            v-for="item in lifecycleActions"
+            v-for="item in availableLifecycleActions"
             :key="item.key"
             class="state-action"
-            :class="{ 'state-action--active': activity.status === item.key }"
-            @tap="setActivityLifecycle(item.key)"
+            :class="{ 'state-action--danger': item.tone === 'danger' }"
+            @tap="handleLifecycleAction(item)"
           >
             <text>{{ item.label }}</text>
             <text>{{ item.desc }}</text>
           </view>
+        </view>
+        <view v-else class="state-readonly">
+          <text>当前阶段暂时没有可执行状态动作</text>
         </view>
       </view>
 
@@ -150,7 +164,7 @@
 import { computed, nextTick, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
-import { getActivityDetail, updateActivityStatus } from '@/common/api/activity.js'
+import { getActivityDetail, getAllowedActivityStatusTransitions, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -188,8 +202,58 @@ const lifecycleActions = [
   { key: 'cancelled', label: '已取消', desc: '停止报名' }
 ]
 
+const lifecycleLabels = {
+  draft: '草稿',
+  reviewing: '审核中',
+  published: '已发布',
+  recruiting: '报名中',
+  formed: '已成局',
+  ongoing: '进行中',
+  finished: '已结束',
+  cancelled: '已取消'
+}
+const moderationLabels = {
+  pending: '待运营审核',
+  approved: '运营已通过',
+  visible: '运营已通过',
+  rejected: '运营已驳回',
+  hidden: '运营已下架'
+}
+const lifecycleActionCopy = {
+  reviewing: { key: 'reviewing', label: '提交审核', desc: '进入平台审核，审核通过后公开报名' },
+  draft: { key: 'draft', label: '撤回编辑', desc: '从审核中撤回，活动仅自己可见' },
+  formed: { key: 'formed', label: '确认成局', desc: '锁定名额，准备现场组织' },
+  cancelled: { key: 'cancelled', label: '取消活动', desc: '停止报名并保留记录', tone: 'danger', confirm: true },
+  ongoing: { key: 'ongoing', label: '开始活动', desc: '标记现场进行中' },
+  finished: { key: 'finished', label: '结束活动', desc: '结束后进入复盘状态', confirm: true }
+}
+
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
-const lifecycleLabel = computed(() => getLifecycleLabel(activity.value.status))
+const lifecycleLabel = computed(() => lifecycleLabels[activity.value.status] || '报名中')
+const moderationLabel = computed(() => moderationLabels[activity.value.moderationStatus] || moderationLabels.pending)
+const availableLifecycleActions = computed(() => (
+  getAllowedActivityStatusTransitions(activity.value)
+    .map((status) => lifecycleActionCopy[status])
+    .filter(Boolean)
+))
+const lifecycleHint = computed(() => {
+  const status = activity.value.status
+  const moderationStatus = activity.value.moderationStatus
+  if (moderationStatus === 'pending') return '活动正在等待运营审核，审核通过后才会公开展示。'
+  if (moderationStatus === 'rejected') return '活动未通过运营审核，可编辑后重新提交。'
+  if (moderationStatus === 'hidden') return '活动已被运营下架，状态只读。'
+  const hints = {
+    draft: '草稿仅自己可见，提交审核后等待平台确认。',
+    reviewing: '审核中不能直接公开，需等待运营通过。',
+    recruiting: '活动正在开放报名，可确认成局或取消活动。',
+    published: '历史已发布状态按报名中处理，可确认成局或取消活动。',
+    formed: '活动已成局，可开始活动或取消。',
+    ongoing: '现场进行中，活动结束后请标记结束。',
+    finished: '活动已结束，状态只读。',
+    cancelled: '活动已取消，状态只读。'
+  }
+  return hints[status] || '当前状态只读。'
+})
 const ticketStats = computed(() => {
   const paid = ticketOrders.value.filter((item) => item.status === 'paid')
   const pending = ticketOrders.value.filter((item) => item.status === 'pending')
@@ -233,6 +297,29 @@ function getLifecycleLabel(status) {
   return lifecycleActions.find((item) => item.key === status)?.label || '报名中'
 }
 
+async function handleLifecycleAction(item) {
+  if (!item) return
+  const run = async () => {
+    try {
+      await setActivityLifecycle(item.key)
+    } catch (error) {
+      uni.showToast({ title: error?.message || '状态暂不可切换', icon: 'none' })
+    }
+  }
+  if (item.confirm) {
+    uni.showModal({
+      title: item.label,
+      content: `确认${item.label}？该操作会更新参与者看到的活动状态。`,
+      confirmColor: item.tone === 'danger' ? '#ef4444' : '#0f172a',
+      success: (res) => {
+        if (res.confirm) run()
+      }
+    })
+    return
+  }
+  await run()
+}
+
 async function setActivityLifecycle(status) {
   if (activity.value.status === status) {
     uni.showToast({ title: '已是当前状态', icon: 'none' })
@@ -242,7 +329,8 @@ async function setActivityLifecycle(status) {
   activity.value = {
     ...activity.value,
     status: result.status || status,
-    lifecycleStatus: result.status || status
+    lifecycleStatus: result.status || status,
+    ...((result.status || status) === 'reviewing' ? { moderationStatus: 'pending', moderation_status: 'pending' } : {})
   }
   uni.showToast({ title: `已切换为${getLifecycleLabel(activity.value.status)}`, icon: 'none' })
 }
@@ -445,6 +533,57 @@ async function submitReview() {
   font-weight: 900;
 }
 
+.state-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14rpx;
+}
+
+.state-summary view {
+  padding: 22rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.state-summary text:first-child {
+  display: block;
+  color: #94a3b8;
+  font-size: 19rpx;
+  font-weight: 900;
+}
+
+.state-summary text:last-child {
+  display: block;
+  margin-top: 8rpx;
+  color: #0f172a;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.state-hint {
+  display: block;
+  margin: 18rpx 0;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.state-action-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14rpx;
+}
+
+.state-readonly {
+  padding: 22rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
 .state-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -482,6 +621,15 @@ async function submitReview() {
 
 .state-action--active text:first-child {
   color: #ff6b6b;
+}
+
+.state-action--danger {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.state-action--danger text:first-child {
+  color: #ef4444;
 }
 
 .action-grid {

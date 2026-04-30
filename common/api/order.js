@@ -120,6 +120,7 @@ async function notifyOrderStatus(order = {}, status = '', options = {}) {
 
   return safeCreateMessage({
     userId: nextOrder.userId || getCurrentUserId(),
+    eventKey: `order:status:${nextOrder.id || options.orderId || nextOrder.activityId}:${status}`,
     type: 'activity',
     title: copy.title,
     content: copy.content,

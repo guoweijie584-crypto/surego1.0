@@ -20,19 +20,28 @@ function buildMessage(payload = {}) {
   return {
     id: payload.id || `msg_${Date.now()}`,
     userId: payload.userId || payload.user_id || getCurrentUserId(),
+    eventKey: payload.eventKey || payload.event_key || '',
     type: payload.type || 'system',
     title: payload.title || '',
     content: payload.content || '',
     sender: payload.sender || '',
     activityId: payload.activityId || payload.activity_id || '',
     read: Boolean(payload.read),
-    createdAt: payload.createdAt || payload.created_at || new Date().toISOString()
+    createdAt: payload.createdAt || payload.created_at || new Date().toISOString(),
+    updatedAt: payload.updatedAt || payload.updated_at || ''
   }
 }
 
 function createLocalMessage(payload) {
   const items = readMessages()
   const message = buildMessage(payload)
+  if (message.eventKey) {
+    const existing = items.find((item) => (
+      String(item.userId || item.user_id || '') === String(message.userId)
+        && String(item.eventKey || item.event_key || '') === String(message.eventKey)
+    ))
+    if (existing) return Promise.resolve(buildMessage(existing))
+  }
 
   writeMessages([message, ...items])
   return Promise.resolve(message)
@@ -50,7 +59,7 @@ export async function createMessage(payload) {
 }
 
 function listLocalMessages(userId = getCurrentUserId()) {
-  return Promise.resolve(readMessages().filter((item) => isCurrentUserMessage(item, userId)))
+  return Promise.resolve(readMessages().filter((item) => isCurrentUserMessage(item, userId)).map(buildMessage))
 }
 
 export async function listMessages() {

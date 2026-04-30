@@ -63,6 +63,7 @@ async function notifyApplicationSubmitted(application = {}, payload = {}) {
   const isPending = application.status === 'pending'
   return safeCreateMessage({
     userId: creatorId,
+    eventKey: `application:submitted:${application.id || application._id || `${application.activityId || payload.activityId}:${application.userId || payload.userId || ''}`}`,
     type: 'application',
     title: isPending ? '新的报名申请' : '新的报名加入',
     content: isPending
@@ -81,6 +82,7 @@ async function notifyApplicationReviewed(application = {}, status = '') {
   const note = approved ? application.reviewNote : application.rejectReason
   return safeCreateMessage({
     userId: application.userId,
+    eventKey: `application:reviewed:${application.id || application._id || `${application.activityId}:${application.userId}`}:${status}`,
     type: 'activity',
     title: approved ? '报名审核已通过' : '报名审核未通过',
     content: note

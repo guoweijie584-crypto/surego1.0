@@ -10,6 +10,14 @@ const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'for
 const publicLifecycleStatuses = ['published', 'recruiting', 'formed', 'ongoing'];
 const publicModerationStatuses = ['approved', 'visible'];
 const moderationStatuses = ['pending', 'approved', 'rejected', 'hidden', 'visible'];
+const creatorStatusTransitions = {
+  draft: ['reviewing'],
+  reviewing: ['draft'],
+  published: ['formed', 'cancelled'],
+  recruiting: ['formed', 'cancelled'],
+  formed: ['ongoing', 'cancelled'],
+  ongoing: ['finished']
+};
 const legacyStatusMap = {
   hosting: 'recruiting',
   not_applied: 'recruiting',
@@ -69,6 +77,13 @@ async function canEditActivity(id, user) {
   return Boolean(found && String(found.creator_id || found.creatorId || '') === user.uid);
 }
 
+async function getCreatorActivity(id, user) {
+  const result = await collection.doc(id).get();
+  const found = (result.data || [])[0];
+  if (!found || String(found.creator_id || found.creatorId || '') !== user.uid) return null;
+  return found;
+}
+
 function normalizeStatus(status = 'recruiting') {
   const mapped = legacyStatusMap[status] || status;
   return lifecycleStatuses.includes(mapped) ? mapped : 'recruiting';
@@ -77,6 +92,20 @@ function normalizeStatus(status = 'recruiting') {
 function normalizeModerationStatus(status = 'pending') {
   const nextStatus = status || 'pending';
   return moderationStatuses.includes(nextStatus) ? nextStatus : 'pending';
+}
+
+function getAllowedStatusTransitions(activity = {}) {
+  const status = normalizeStatus(activity.status || activity.lifecycleStatus);
+  const moderationStatus = normalizeModerationStatus(activity.moderation_status || activity.moderationStatus);
+  if (['hidden', 'rejected'].includes(moderationStatus)) return [];
+  if (status === 'draft') return creatorStatusTransitions.draft;
+  if (status === 'reviewing') return creatorStatusTransitions.reviewing;
+  if (!publicModerationStatuses.includes(moderationStatus)) return [];
+  return creatorStatusTransitions[status] || [];
+}
+
+function canTransitionStatus(activity = {}, nextStatus = '') {
+  return getAllowedStatusTransitions(activity).includes(normalizeStatus(nextStatus));
 }
 
 function isPubliclyVisibleActivity(item = {}) {
@@ -229,18 +258,27 @@ exports.main = async (event) => {
 
   if (action === 'updateStatus') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    if (!(await canEditActivity(payload.id, user))) {
+    const existing = await getCreatorActivity(payload.id, user);
+    if (!existing) {
       return { code: 'FORBIDDEN', message: 'Only the creator can update this activity.' };
     }
+    const nextStatus = normalizeStatus(payload.status);
+    if (!canTransitionStatus(existing, nextStatus)) {
+      return {
+        code: 'INVALID_TRANSITION',
+        message: `Cannot transition activity from ${normalizeStatus(existing.status)} to ${nextStatus}.`
+      };
+    }
     await collection.doc(payload.id).update({
-      status: normalizeStatus(payload.status),
+      status: nextStatus,
+      ...(nextStatus === 'reviewing' ? { moderation_status: 'pending' } : {}),
       updated_at: Date.now()
     });
     return {
       code: 0,
       data: {
         id: payload.id,
-        status: normalizeStatus(payload.status)
+        status: nextStatus
       }
     };
   }

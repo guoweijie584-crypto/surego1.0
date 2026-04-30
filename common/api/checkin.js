@@ -70,6 +70,7 @@ async function notifyCheckinConfirmed(checkin = {}, payload = {}) {
   const activityTitle = payload.activityTitle || payload.activity_title || '活动'
   return safeCreateMessage({
     userId,
+    eventKey: `checkin:confirmed:${checkin.activityId || payload.activityId}:${userId}`,
     type: 'activity',
     title: '签到成功',
     content: `「${activityTitle}」签到成功，感谢准时到场。`,

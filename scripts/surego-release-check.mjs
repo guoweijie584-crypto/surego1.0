@@ -298,6 +298,16 @@ if (!opsDashboardSource.includes('goOpsUsers')) {
   errors.push('pages/ops/dashboard.vue must link to user role management')
 }
 
+const manageDashboardSourceForLifecycle = read('pages/manage/dashboard.vue')
+for (const token of ['getAllowedActivityStatusTransitions', 'availableLifecycleActions', 'handleLifecycleAction', 'state-summary']) {
+  if (!manageDashboardSourceForLifecycle.includes(token)) {
+    errors.push(`pages/manage/dashboard.vue must guard lifecycle actions with ${token}`)
+  }
+}
+if (manageDashboardSourceForLifecycle.includes('v-for="item in lifecycleActions"') || manageDashboardSourceForLifecycle.includes('@tap="setActivityLifecycle(item.key)"')) {
+  errors.push('pages/manage/dashboard.vue must not expose arbitrary lifecycle status selection')
+}
+
 const opsUsersSource = read('pages/ops/users.vue')
 for (const token of ['listUsers', 'updateUserRoles', 'roleOptions', 'isAdminUser']) {
   if (!opsUsersSource.includes(token)) {
@@ -640,6 +650,23 @@ for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "stat
   if (!activityCloudSource.includes(token)) {
     errors.push(`surego-activity must enforce review-gated visibility: ${token}`)
   }
+}
+for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must guard creator lifecycle transitions with ${token}`)
+  }
+}
+
+const messageCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-message/index.js')
+for (const token of ['event_key', 'eventKey', 'record.event_key']) {
+  if (!messageCloudSource.includes(token)) {
+    errors.push(`surego-message must support idempotent event keys with ${token}`)
+  }
+}
+
+const messageApiSource = read('common/api/message.js')
+if (!messageApiSource.includes('eventKey') || !messageApiSource.includes('existing')) {
+  errors.push('common/api/message.js must dedupe local messages by eventKey')
 }
 
 const moderationCloudSourceForReview = read('uniCloud-aliyun/cloudfunctions/surego-moderation/index.js')

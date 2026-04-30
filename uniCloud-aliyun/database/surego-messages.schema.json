@@ -11,11 +11,13 @@
     "_id": { "description": "Message id" },
     "user_id": { "bsonType": "string", "title": "Recipient user id" },
     "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "event_key": { "bsonType": "string", "title": "Idempotent business event key" },
     "type": { "bsonType": "string", "title": "Message type" },
     "title": { "bsonType": "string", "title": "Title" },
     "content": { "bsonType": "string", "title": "Content" },
     "sender": { "bsonType": "string", "title": "Sender" },
     "read": { "bsonType": "bool", "title": "Read state" },
-    "created_at": { "bsonType": "timestamp", "title": "Created at" }
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
   }
 }

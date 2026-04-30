@@ -234,6 +234,7 @@ async function notifyActivityModerated(activity) {
   }
   await createMessage({
     userId,
+    eventKey: `activity:moderation:${activity.id || activity._id}:${activity.moderationStatus}`,
     type: 'system',
     title: statusCopy[activity.moderationStatus] || '活动状态已更新',
     content: activity.moderationNote || statusCopy[activity.moderationStatus] || '运营已更新活动状态。',

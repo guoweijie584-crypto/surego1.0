@@ -57,13 +57,15 @@ function normalizeMessage(record = {}) {
   return {
     id: record._id || record.id,
     userId: record.user_id || record.userId || '',
+    eventKey: record.event_key || record.eventKey || '',
     type: record.type || 'system',
     title: record.title || '',
     content: record.content || '',
     sender: record.sender || '',
     activityId: record.activity_id || record.activityId || '',
     read: Boolean(record.read),
-    createdAt: record.created_at || record.createdAt || now()
+    createdAt: record.created_at || record.createdAt || now(),
+    updatedAt: record.updated_at || record.updatedAt || ''
   };
 }
 
@@ -75,12 +77,14 @@ function buildRecord(payload = {}) {
   return {
     user_id: payload.userId || payload.user_id,
     activity_id: payload.activityId || payload.activity_id || '',
+    event_key: payload.eventKey || payload.event_key || '',
     type: payload.type || 'system',
     title: payload.title || '',
     content: payload.content || '',
     sender: payload.sender || '',
     read: Boolean(payload.read),
-    created_at: payload.createdAt || payload.created_at || now()
+    created_at: payload.createdAt || payload.created_at || now(),
+    updated_at: payload.updatedAt || payload.updated_at || ''
   };
 }
 
@@ -93,6 +97,22 @@ exports.main = async (event) => {
 
   if (action === 'create') {
     const record = buildRecord(payload);
+    if (record.event_key) {
+      const existing = await collection
+        .where({
+          user_id: record.user_id,
+          event_key: record.event_key
+        })
+        .limit(1)
+        .get();
+      const found = (existing.data || [])[0];
+      if (found) {
+        return {
+          code: 0,
+          data: normalizeMessage(found)
+        };
+      }
+    }
     const result = await collection.add(record);
     return {
       code: 0,

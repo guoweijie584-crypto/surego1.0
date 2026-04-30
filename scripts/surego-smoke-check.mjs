@@ -774,10 +774,13 @@ if (fs.existsSync(manageDashboardPath)) {
   if (!source.includes('updateActivityStatus')) {
     errors.push('pages/manage/dashboard.vue is missing updateActivityStatus');
   }
-  for (const status of ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']) {
-    if (!source.includes(status)) {
-      errors.push(`pages/manage/dashboard.vue is missing lifecycle action ${status}`);
+  for (const token of ['getAllowedActivityStatusTransitions', 'availableLifecycleActions', 'handleLifecycleAction', 'state-summary']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/dashboard.vue is missing guarded lifecycle token ${token}`);
     }
+  }
+  if (source.includes('v-for="item in lifecycleActions"') || source.includes('@tap="setActivityLifecycle(item.key)"')) {
+    errors.push('pages/manage/dashboard.vue must not expose arbitrary lifecycle status selection');
   }
 }
 
@@ -799,6 +802,11 @@ if (fs.existsSync(activityCloudPath)) {
   for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "status: 'reviewing'", "activity.moderation_status = 'pending'"]) {
     if (!source.includes(token)) {
       errors.push(`surego-activity cloud function is missing review visibility token: ${token}`);
+    }
+  }
+  for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-activity cloud function is missing lifecycle transition guard ${token}`);
     }
   }
 }
@@ -856,6 +864,11 @@ if (fs.existsSync(messageCloudPath)) {
   }
   if (!source.includes('collection.where({ user_id: userId })')) {
     errors.push('surego-message cloud function must list messages scoped to the current user');
+  }
+  for (const token of ['event_key', 'eventKey', 'record.event_key', 'collection.where({']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-message cloud function is missing idempotent message token ${token}`);
+    }
   }
 }
 
