@@ -49,7 +49,7 @@
         <view class="grid">
           <view class="field">
             <text class="label">日期</text>
-            <picker mode="date" :value="form.dateValue" @change="handleDateChange">
+            <picker mode="date" :value="form.dateValue" :start="minDateValue" @change="handleDateChange">
               <view class="input input--picker">{{ form.date }}</view>
             </picker>
           </view>
@@ -146,6 +146,7 @@
             {{ isSubmitting ? '发布中...' : '发布活动' }}
           </button>
         </view>
+        <text v-if="fieldErrorText" class="form-error">{{ fieldErrorText }}</text>
       </view>
     </scroll-view>
 
@@ -215,6 +216,7 @@ import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
 import { DEFAULT_CITY, DEFAULT_CITY_CODE, HOT_CITY_OPTIONS, findCityOption, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
+import { buildFieldHint, collectMissingFields, isFutureDate, normalizeTimeValue } from '@/common/utils/form.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
@@ -233,6 +235,7 @@ const showPreview = ref(false)
 const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
 const isSubmitting = ref(false)
+const fieldErrorText = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -265,6 +268,12 @@ const form = reactive({
 const currentMode = computed(() => partyModes.find((item) => item.value === form.partyMode) || partyModes[0])
 const canSubmit = computed(() => form.title.trim() && form.location.trim() && form.description.trim())
 const coverPresets = computed(() => listCoverPresets(coverCategory.value))
+const minDateValue = computed(() => {
+  const now = new Date()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+})
 
 function handleCategoryChange(event) {
   const previousImage = form.image
@@ -288,9 +297,15 @@ function handleCitySelect(city = {}) {
 }
 
 function handleDateChange(event) {
-  form.dateValue = event.detail.value
+  const nextDate = event.detail.value
+  if (!isFutureDate(nextDate)) {
+    uni.showToast({ title: '仅可选择今天及未来日期', icon: 'none' })
+    return
+  }
+  form.dateValue = nextDate
   const parts = form.dateValue.split('-')
   form.date = `${Number(parts[1])}月${Number(parts[2])}日`
+  fieldErrorText.value = ''
 }
 
 function openCoverPicker() {
@@ -301,11 +316,21 @@ function openCoverPicker() {
 function selectCoverPreset(preset, options = {}) {
   if (!preset?.image) return
   form.image = preset.image
+  fieldErrorText.value = ''
   if (!options.keepSheetOpen) showCoverPicker.value = false
 }
 
 function useRandomCover() {
-  selectCoverPreset(pickRandomCoverPreset(coverCategory.value), { keepSheetOpen: true })
+  const nextPreset = pickRandomCoverPreset(coverCategory.value, `${Date.now()}-${Math.random()}`)
+  if (!nextPreset?.image) return
+  if (nextPreset.image === form.image) {
+    const candidates = coverPresets.value.filter((item) => item.image !== form.image)
+    if (candidates.length) {
+      selectCoverPreset(candidates[Math.floor(Math.random() * candidates.length)], { keepSheetOpen: true })
+      return
+    }
+  }
+  selectCoverPreset(nextPreset, { keepSheetOpen: true })
 }
 
 async function uploadCoverFromAlbum() {
@@ -360,8 +385,42 @@ function removeQuestion(index) {
   form.questions.splice(index, 1)
 }
 
+function validateForm() {
+  const missingFields = collectMissingFields([
+    { label: '活动标题', required: true, value: form.title },
+    { label: '活动日期', required: true, value: form.dateValue, validate: isFutureDate },
+    { label: '开始时间', required: true, value: form.time, validate: (value) => Boolean(normalizeTimeValue(value)) },
+    { label: '结束时间', required: true, value: form.endTime, validate: (value) => Boolean(normalizeTimeValue(value)) },
+    { label: '地点', required: true, value: form.location },
+    { label: '活动介绍', required: true, value: form.description },
+    { label: '活动封面', required: true, value: form.image }
+  ])
+
+  if (!missingFields.length) {
+    const startTime = normalizeTimeValue(form.time)
+    const endTime = normalizeTimeValue(form.endTime)
+    if (startTime && endTime && endTime <= startTime) {
+      fieldErrorText.value = '结束时间需晚于开始时间'
+      uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+      return false
+    }
+    if (form.partyMode !== 'free' && Number(form.amount || 0) <= 0) {
+      fieldErrorText.value = form.partyMode === 'ticket' ? '请填写有效门票金额' : '请填写有效诚意金金额'
+      uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+      return false
+    }
+    fieldErrorText.value = ''
+    return true
+  }
+
+  fieldErrorText.value = buildFieldHint(missingFields)
+  uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+  return false
+}
+
 async function handleSubmit() {
-  if (!canSubmit.value || isSubmitting.value) return
+  if (isSubmitting.value) return
+  if (!validateForm()) return
   isSubmitting.value = true
   const created = await createActivity({
     ...form,
@@ -776,6 +835,15 @@ async function handleSubmit() {
 
 .publish-btn--disabled {
   opacity: 0.45;
+}
+
+.form-error {
+  display: block;
+  margin-top: 18rpx;
+  color: #ef4444;
+  font-size: 22rpx;
+  font-weight: 900;
+  line-height: 1.5;
 }
 
 .preview__image {

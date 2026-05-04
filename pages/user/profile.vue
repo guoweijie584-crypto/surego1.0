@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="profile su-page">
+  <view v-if="isPageLoading" class="profile su-page">
+    <SuPageLoading :style="contentTopStyle" text="个人资料加载中..." />
+  </view>
+  <view v-else class="profile su-page">
     <view class="profile__nav" :style="navStyle">
       <view class="profile__nav-row" :style="navRowStyle">
         <view class="profile__back" @tap="goBackOrFallback">
@@ -141,7 +144,7 @@
             <uni-icons type="wallet-filled" size="42" color="#cbd5e1" />
             <text>暂无订单</text>
           </view>
-          <view v-for="item in filteredOrders" :key="item.id" class="order-card" @tap="goOrderDetail(item.id)">
+          <view v-for="item in filteredOrders" :key="item.id" class="order-card" @tap="goOrderDetail(item.id, { activityId: item.activityId })">
             <view>
               <text class="order-card__title">{{ item.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
               <text class="order-card__meta">{{ item.activityTitle || 'SureGo 活动' }}</text>
@@ -164,13 +167,15 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
 
 const activeTab = ref('activities')
@@ -184,6 +189,7 @@ const orders = ref([])
 const reviews = ref([])
 const user = ref(getCurrentUserProfile())
 const profileSheetVisible = ref(false)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 210 })
@@ -215,30 +221,47 @@ const tabs = computed(() => [
   { key: 'orders', label: '订单', count: orders.value.length }
 ])
 
-onShow(async () => {
-  loggedIn.value = isLoggedIn()
-  if (!loggedIn.value) {
-    user.value = getCurrentUserProfile()
-    canUseOps.value = false
-    myActivities.value = { hosting: [], joined: [], pending: [] }
-    orders.value = []
-    reviews.value = []
-    unreadCount.value = 0
-    return
-  }
-
-  user.value = await getCurrentUser()
-  canUseOps.value = hasOpsRole(user.value)
-  const [activities, orderItems, unread] = await Promise.all([
-    listMyActivities(),
-    listOrders(),
-    getUnreadMessageCount()
+function withTimeout(promise, fallback, timeout = 5000) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      setTimeout(() => resolve(fallback), timeout)
+    })
   ])
-  myActivities.value = activities
-  orders.value = orderItems
-  unreadCount.value = unread
-  reviews.value = []
-})
+}
+
+async function loadData() {
+  isPageLoading.value = true
+  try {
+    loggedIn.value = isLoggedIn()
+    if (!loggedIn.value) {
+      user.value = getCurrentUserProfile()
+      canUseOps.value = false
+      myActivities.value = { hosting: [], joined: [], pending: [] }
+      orders.value = []
+      reviews.value = []
+      unreadCount.value = 0
+      return
+    }
+
+    user.value = await withTimeout(getCurrentUser(), getCurrentUserProfile(), 5000)
+    canUseOps.value = hasOpsRole(user.value)
+    const [activities, orderItems, unread] = await Promise.all([
+      listMyActivities(),
+      listOrders(),
+      getUnreadMessageCount()
+    ])
+    myActivities.value = Array.isArray(activities) ? activities : { hosting: [], joined: [], pending: [] }
+    orders.value = Array.isArray(orderItems) ? orderItems : []
+    unreadCount.value = Number(unread) || 0
+    reviews.value = []
+  } finally {
+    isPageLoading.value = false
+  }
+}
+
+onShow(loadData)
+onPullDownRefresh(makeRefreshHandler(loadData))
 
 function goLogin() {
   goAuthLogin({ redirect: '/pages/user/profile' })

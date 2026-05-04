@@ -1,5 +1,8 @@
 <template>
-  <view class="poster su-page">
+  <view v-if="isPageLoading" class="poster su-page">
+    <SuPageLoading :style="contentTopStyle" text="?????..." />
+  </view>
+  <view v-else class="poster su-page">
     <view class="poster__nav" :style="navStyle">
       <view class="poster__nav-row" :style="navRowStyle">
       <view class="poster__nav-btn" @tap="handleBack">
@@ -93,6 +96,7 @@ import { computed, nextTick, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 import { buildActivityPosterCopy, buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
@@ -100,6 +104,7 @@ const activityId = ref('101')
 const activity = ref(createEmptyActivity('101'))
 const posterImage = ref('')
 const isGenerating = ref(false)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
@@ -123,9 +128,14 @@ const seatsLeftText = computed(() => {
 
 onLoad(async (query) => {
   activityId.value = (query && query.id) || '101'
-  activity.value = await getActivityDetail(activityId.value)
-  await nextTick()
-  generatePosterImage()
+  isPageLoading.value = true
+  try {
+    activity.value = await getActivityDetail(activityId.value)
+    await nextTick()
+    generatePosterImage()
+  } finally {
+    isPageLoading.value = false
+  }
 })
 
 onShareAppMessage(() => buildActivitySharePayload(activity.value, posterImage.value || activity.value.image))

@@ -4,63 +4,63 @@
       "path": "pages/home/index",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/discover/index",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/discover/search",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/discover/city",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/calendar/index",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/activity/detail",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/activity/members",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/activity/register",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/activity/create",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false,
+        "enablePullDownRefresh": true,
         "disableScroll": true
       }
     },
@@ -68,7 +68,7 @@
       "path": "pages/activity/edit",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false,
+        "enablePullDownRefresh": true,
         "disableScroll": true
       }
     },
@@ -76,112 +76,112 @@
       "path": "pages/manage/dashboard",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/manage/checkin",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/participant/dashboard",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/order/detail",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/share/poster",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/my/activities",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/messages/index",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/auth/login",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/user/profile",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/user/detail",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/user/edit",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/ops/dashboard",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/ops/reports",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/ops/users",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/payment/index",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {
       "path": "pages/status/success",
       "style": {
         "navigationStyle": "custom",
-        "enablePullDownRefresh": false
+        "enablePullDownRefresh": true
       }
     },
     {

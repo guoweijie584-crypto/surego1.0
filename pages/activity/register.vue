@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="register su-page">
+  <view v-if="isPageLoading" class="register su-page">
+    <SuPageLoading :style="contentTopStyle" text="报名信息加载中..." />
+  </view>
+  <view v-else class="register su-page">
     <view class="register__glow register__glow--green" />
     <view class="register__glow register__glow--blue" />
 
@@ -123,6 +126,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { getApplicationForActivity, submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('101'))
@@ -131,6 +135,7 @@ const mbtiIndex = ref(0)
 const message = ref('')
 const answers = ref([])
 const isSubmitting = ref(false)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -196,10 +201,15 @@ const canSubmit = computed(() => {
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
-  activity.value = await getActivityDetail(id)
-  await syncApplicationStatus(id)
-  answers.value = (activity.value.questions || []).map(() => '')
-  validateJoinEligibility(true)
+  isPageLoading.value = true
+  try {
+    activity.value = await getActivityDetail(id)
+    await syncApplicationStatus(id)
+    answers.value = (activity.value.questions || []).map(() => '')
+    validateJoinEligibility(true)
+  } finally {
+    isPageLoading.value = false
+  }
 })
 
 async function syncApplicationStatus(id = activity.value.id) {

@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="members-page">
+  <view v-if="isPageLoading" class="members-page">
+    <SuPageLoading :style="contentTopStyle" text="???????..." />
+  </view>
+  <view v-else class="members-page">
     <view class="topbar" :style="navStyle">
       <view class="topbar__row" :style="navRowStyle">
         <view class="topbar__button" @tap="goBackOrFallback">
@@ -107,12 +110,14 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goUserDetail } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity())
 const applications = ref([])
 const memberProfiles = ref([])
 const selectedMember = ref(null)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -169,9 +174,14 @@ const seatsLeft = computed(() => {
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
-  activity.value = await getActivityDetail(id)
-  applications.value = await listApplications(id)
-  memberProfiles.value = await listActivityMembers(id)
+  isPageLoading.value = true
+  try {
+    activity.value = await getActivityDetail(id)
+    applications.value = await listApplications(id)
+    memberProfiles.value = await listActivityMembers(id)
+  } finally {
+    isPageLoading.value = false
+  }
 })
 
 async function refreshMembers() {

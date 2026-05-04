@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="participant su-page">
+  <view v-if="isPageLoading" class="participant su-page">
+    <SuPageLoading :style="contentTopStyle" text="参与信息加载中..." />
+  </view>
+  <view v-else class="participant su-page">
     <view class="participant__nav" :style="navStyle">
       <view class="participant__nav-row" :style="navRowStyle">
       <view class="participant__nav-btn" @tap="goBackOrFallback">
@@ -76,7 +79,7 @@
             <text>{{ primaryActionText }}</text>
           </view>
         </view>
-        <view v-if="order" class="order-strip" @tap="goOrderDetail(order.id)">
+        <view v-if="order" class="order-strip" @tap="goOrderDetail(order.id, { activityId: activity.value.id })">
           <text>{{ order.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
           <text>{{ getOrderStatusText(order.status) }} · 查看详情</text>
         </view>
@@ -113,7 +116,7 @@
           <view class="message-card__body">
             <view class="message-card__row">
               <text class="message-card__title su-line-1">{{ item.title }}</text>
-              <text class="message-card__time">{{ item.createdAt }}</text>
+                <text class="message-card__time">{{ getMessageTime(item) }}</text>
             </view>
             <text class="message-card__content su-line-2">{{ item.content }}</text>
           </view>
@@ -125,7 +128,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
@@ -133,6 +136,9 @@ import { buildParticipantCheckinCode, getCheckinForUser } from '@/common/api/che
 import { getUnreadMessageCount, listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
+import { formatMessageTime } from '@/common/utils/time-format.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 import SuQrCode from '@/components/surego/SuQrCode.vue'
 
@@ -144,6 +150,7 @@ const checkin = ref(null)
 const entryCode = ref('')
 const relatedMessages = ref([])
 const unreadCount = ref(0)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 420 })
@@ -265,27 +272,34 @@ onShow(async () => {
   await loadState()
 })
 
+onPullDownRefresh(makeRefreshHandler(loadState))
+
 async function loadState() {
-  const userId = getCurrentUserId()
-  const [detail, applications, orders, currentCheckin, messages] = await Promise.all([
-    getActivityDetail(activityId.value),
-    listApplications(activityId.value),
-    listOrders(),
-    getCheckinForUser(activityId.value, userId),
-    listMessages()
-  ])
+  isPageLoading.value = true
+  try {
+    const userId = getCurrentUserId()
+    const [detail, applications, orders, currentCheckin, messages] = await Promise.all([
+      getActivityDetail(activityId.value),
+      listApplications(activityId.value),
+      listOrders(),
+      getCheckinForUser(activityId.value, userId),
+      listMessages()
+    ])
 
-  activity.value = detail
-  application.value = applications.find((item) => item.activityId === String(activityId.value)) || null
-  order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
-  checkin.value = currentCheckin || null
-  relatedMessages.value = messages.filter((item) => item.activityId === String(activityId.value)).slice(0, 3)
-  unreadCount.value = messages.filter((item) => !item.read).length
+    activity.value = detail
+    application.value = applications.find((item) => item.activityId === String(activityId.value)) || null
+    order.value = orders.find((item) => item.activityId === String(activityId.value) && item.userId === userId) || null
+    checkin.value = currentCheckin || null
+    relatedMessages.value = messages.filter((item) => item.activityId === String(activityId.value)).slice(0, 3)
+    unreadCount.value = messages.filter((item) => !item.read).length
 
-  if (activity.value.isCreator || applicationState.value.key === 'approved') {
-    entryCode.value = buildParticipantCheckinCode(activityId.value, userId)
-  } else {
-    entryCode.value = ''
+    if (activity.value.isCreator || applicationState.value.key === 'approved') {
+      entryCode.value = buildParticipantCheckinCode(activityId.value, userId)
+    } else {
+      entryCode.value = ''
+    }
+  } finally {
+    isPageLoading.value = false
   }
 }
 
@@ -293,6 +307,10 @@ function getMessageIcon(item) {
   if (item.type === 'application') return 'personadd-filled'
   if (item.type === 'activity') return 'calendar'
   return 'notification-filled'
+}
+
+function getMessageTime(item) {
+  return formatMessageTime(item.createdAt)
 }
 
 function refreshEntryCode() {
@@ -343,7 +361,7 @@ async function handlePrimaryAction() {
   }
 
   if (['refunded', 'closed'].includes(paymentState.value.key) && order.value) {
-    goOrderDetail(order.value.id)
+    goOrderDetail(order.value.id, { activityId: activity.value.id })
     return
   }
 

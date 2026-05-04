@@ -1,4 +1,4 @@
-import { isLoggedIn } from '@/common/api/auth.js'
+﻿import { isLoggedIn } from '@/common/api/auth.js'
 
 function buildQuery(params = {}) {
   return Object.entries(params)
@@ -218,16 +218,6 @@ export function goUserProfile() {
   })
 }
 
-export function goUserDetail(userId) {
-  const id = String(userId || '').trim()
-  if (!id) {
-    uni.showToast({ title: '暂未获取到用户资料', icon: 'none' })
-    return
-  }
-  uni.navigateTo({
-    url: `/pages/user/detail?id=${encodeURIComponent(id)}`
-  })
-}
 
 export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
@@ -264,8 +254,22 @@ export function goParticipantDashboard(id, options = {}) {
   goToUrl(`/pages/participant/dashboard?id=${encodeURIComponent(id)}`, options)
 }
 
+export function goUserDetail(userId, options = {}) {
+  const id = String(userId || '').trim()
+  if (!id) {
+    uni.showToast({ title: '鏆傛棤鐢ㄦ埛淇℃伅', icon: 'none' })
+    return
+  }
+  goToUrl(`/pages/user/detail?id=${encodeURIComponent(id)}`, options)
+}
+
 export function goOrderDetail(id, options = {}) {
-  guardLoginAction(`/pages/order/detail?id=${encodeURIComponent(id)}`, options)
+  const activityId = options.activityId || options.activity_id || ''
+  const query = buildQuery({
+    id,
+    activityId
+  })
+  guardLoginAction(`/pages/order/detail${query ? `?${query}` : ''}`, options)
 }
 
 export function goSharePoster(id) {
@@ -329,7 +333,7 @@ export function goBackHome() {
   goBackOrFallback('/pages/home/index')
 }
 
-export function showComingSoon(title = '功能开发中') {
+export function showComingSoon(title = '鍔熻兘寮€鍙戜腑') {
   uni.showToast({
     title,
     icon: 'none'

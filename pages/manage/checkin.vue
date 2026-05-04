@@ -1,14 +1,14 @@
-<template>
+﻿<template>
   <view class="checkin su-page">
     <view class="checkin__nav" :style="navStyle">
       <view class="checkin__nav-row" :style="navRowStyle">
-      <view class="checkin__nav-btn" @tap="handleBack">
-        <uni-icons type="left" size="24" color="#fff" />
-      </view>
-      <text class="checkin__nav-title">签到核销</text>
-      <view class="checkin__nav-btn" @tap="refreshCode">
-        <uni-icons type="refresh" size="20" color="#fff" />
-      </view>
+        <view class="checkin__nav-btn" @tap="handleBack">
+          <uni-icons type="left" size="24" color="#fff" />
+        </view>
+        <text class="checkin__nav-title">签到核销</text>
+        <view class="checkin__nav-btn" @tap="refreshCode">
+          <uni-icons type="refresh" size="20" color="#fff" />
+        </view>
       </view>
     </view>
 
@@ -44,7 +44,8 @@
         </view>
 
         <view class="code-box">
-          <text>{{ nextCheckablePerson ? nextCheckablePerson.entryCode : '暂无待核销' }}</text>
+          <SuQrCode v-if="nextCheckablePerson" class="code-box__qr" :value="nextCheckablePerson.entryCode" :size="304" />
+          <text class="code-box__value">{{ nextCheckablePerson ? nextCheckablePerson.entryCode : '暂无待核销' }}</text>
         </view>
 
         <view class="code-actions">
@@ -57,9 +58,9 @@
           </view>
         </view>
 
-        <view class="scan-button" @tap="scanCheckinCode">
+        <view class="scan-button" @tap="scanCheckinCode()">
           <uni-icons type="scan" size="22" color="#0f172a" />
-          <text>扫码核销</text>
+          <text>扫码核销 / 模拟扫码</text>
         </view>
       </view>
 
@@ -94,13 +95,15 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
 import { buildParticipantCheckinCode, confirmCheckin, getCheckinSummary, isValidCheckinCode, parseScannedCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goUserDetail } from '@/common/utils/route.js'
+import SuQrCode from '@/components/surego/SuQrCode.vue'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
@@ -108,10 +111,10 @@ const applications = ref([])
 const memberProfiles = ref([])
 const checkins = ref([])
 const codeInput = ref('')
-const hasOwnerAccess = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
+
 const checkinSourceOptions = {
   manual: { source: 'manual' },
   scan: { source: 'scan' }
@@ -123,7 +126,9 @@ const participantList = computed(() => {
     name: item.name,
     avatar: item.avatar,
     status: 'approved',
-    note: item.role || '参与者'
+    note: item.role || '参与者',
+    isMe: Boolean(item.isMe),
+    role: item.role || '参与者'
   }))
 
   const applicantMembers = applications.value
@@ -133,7 +138,9 @@ const participantList = computed(() => {
       name: item.nickname || `申请者 ${index + 1}`,
       avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${item.id}`,
       status: item.status,
-      note: item.message || '来自报名申请'
+      note: item.message || '来自报名申请',
+      isMe: false,
+      role: '参与者'
     }))
 
   const knownIds = new Set([...baseMembers, ...applicantMembers].map((person) => person.userId))
@@ -144,7 +151,9 @@ const participantList = computed(() => {
       name: item.nickname || `现场用户 ${index + 1}`,
       avatar: `https://api.dicebear.com/7.x/avataaars/png?seed=${item.userId}`,
       status: 'approved',
-      note: '已通过入场凭证签到'
+      note: '已通过入场凭证签到',
+      isMe: false,
+      role: '参与者'
     }))
 
   const merged = [...baseMembers, ...applicantMembers, ...checkedGuests]
@@ -168,6 +177,8 @@ onShow(async () => {
   await loadState()
 })
 
+onPullDownRefresh(makeRefreshHandler(loadState))
+
 async function loadState() {
   activity.value = await getActivityDetail(activityId.value)
   if (!ensureOwnerAccess()) return
@@ -178,11 +189,7 @@ async function loadState() {
 }
 
 function ensureOwnerAccess() {
-  if (activity.value?.isCreator) {
-    hasOwnerAccess.value = true
-    return true
-  }
-  hasOwnerAccess.value = false
+  if (activity.value?.isCreator) return true
   uni.showToast({ title: '只有局长可以核销签到', icon: 'none' })
   setTimeout(() => {
     goActivityDetail(activity.value?.id || activityId.value, { replace: true })
@@ -211,7 +218,12 @@ async function toggleCheckin(person) {
     return
   }
 
-  await confirmPerson(person, person.entryCode, checkinSourceOptions.manual.source)
+  if (person.isMe || person.role === '局长') {
+    await confirmPerson(person, person.entryCode, checkinSourceOptions.manual.source)
+    return
+  }
+
+  await scanCheckinCode(person)
 }
 
 async function confirmByCode() {
@@ -231,9 +243,19 @@ async function confirmByCode() {
   codeInput.value = ''
 }
 
-async function scanCheckinCode() {
+async function simulateScanCheckin(target = null) {
+  const person = target || nextCheckablePerson.value
+  if (!person) {
+    uni.showToast({ title: '暂无可签到成员', icon: 'none' })
+    return
+  }
+  codeInput.value = person.entryCode
+  await confirmPerson(person, person.entryCode, checkinSourceOptions.scan.source)
+}
+
+async function scanCheckinCode(target = null) {
   if (typeof uni.scanCode !== 'function') {
-    uni.showToast({ title: '当前环境不支持扫码，请手动输入凭证码', icon: 'none' })
+    await simulateScanCheckin(target)
     return
   }
 
@@ -246,24 +268,26 @@ async function scanCheckinCode() {
         uni.showToast({ title: '未识别到有效凭证码', icon: 'none' })
         return
       }
-      const target = participantList.value.find((person) => person.entryCode === code)
-      if (!target) {
+      const matchedPerson = target
+        ? (target.entryCode === code ? target : null)
+        : participantList.value.find((person) => person.entryCode === code)
+      if (!matchedPerson) {
         uni.showToast({ title: '该凭证不属于本活动成员', icon: 'none' })
         return
       }
       codeInput.value = code
-      await confirmPerson(target, code, checkinSourceOptions.scan.source)
+      await confirmPerson(matchedPerson, code, checkinSourceOptions.scan.source)
     },
-    fail: (error) => {
+    fail: async (error) => {
       const message = String(error?.errMsg || '')
       if (message.includes('cancel')) return
-      uni.showToast({ title: '扫码失败，请手动输入凭证码', icon: 'none' })
+      await simulateScanCheckin(target)
     }
   })
 }
 
 async function confirmNextByScan() {
-  uni.showToast({ title: '请扫描成员入场凭证码', icon: 'none' })
+  await scanCheckinCode(nextCheckablePerson.value)
 }
 
 async function confirmPerson(person, code, source = 'manual') {
@@ -296,7 +320,6 @@ async function confirmPerson(person, code, source = 'manual') {
   min-height: 100vh;
   background: #0f172a;
 }
-
 .checkin__nav {
   position: fixed;
   top: 0;
@@ -307,19 +330,16 @@ async function confirmPerson(person, code, source = 'manual') {
   background: rgba(15, 23, 42, 0.82);
   backdrop-filter: blur(18px);
 }
-
 .checkin__nav-row {
   display: flex;
   box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
 }
-
 .checkin__nav-title {
   font-size: 30rpx;
   font-weight: 900;
 }
-
 .checkin__nav-btn {
   display: flex;
   width: 64rpx;
@@ -327,22 +347,18 @@ async function confirmPerson(person, code, source = 'manual') {
   align-items: center;
   justify-content: center;
 }
-
 .checkin__scroll {
   height: 100vh;
   box-sizing: border-box;
 }
-
 .hero {
   padding: 0 40rpx 38rpx;
 }
-
 .hero__kicker {
   color: #818cf8;
   font-size: 20rpx;
   font-weight: 900;
 }
-
 .hero__title {
   display: block;
   margin-top: 14rpx;
@@ -351,7 +367,6 @@ async function confirmPerson(person, code, source = 'manual') {
   font-weight: 900;
   line-height: 1.38;
 }
-
 .hero__meta {
   display: block;
   margin-top: 18rpx;
@@ -360,27 +375,23 @@ async function confirmPerson(person, code, source = 'manual') {
   font-weight: 800;
   line-height: 1.5;
 }
-
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16rpx;
   padding: 0 28rpx 28rpx;
 }
-
 .stat {
   padding: 26rpx 20rpx;
   border-radius: 30rpx;
   background: rgba(255, 255, 255, 0.08);
 }
-
 .stat text:first-child {
   display: block;
   color: rgba(255, 255, 255, 0.42);
   font-size: 19rpx;
   font-weight: 900;
 }
-
 .stat text:last-child {
   display: block;
   margin-top: 12rpx;
@@ -389,40 +400,33 @@ async function confirmPerson(person, code, source = 'manual') {
   font-style: italic;
   font-weight: 900;
 }
-
 .stat--blue {
   background: rgba(79, 70, 229, 0.22);
 }
-
 .stat--green {
   background: rgba(34, 197, 94, 0.18);
 }
-
 .panel {
   margin: 0 28rpx 28rpx;
   padding: 30rpx;
   border-radius: 38rpx;
   background: #fff;
 }
-
 .panel--code {
   background: linear-gradient(135deg, #ffffff, #eef2ff);
 }
-
 .panel__head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 18rpx;
 }
-
 .panel__title {
   display: block;
   color: #0f172a;
   font-size: 32rpx;
   font-weight: 900;
 }
-
 .panel__sub,
 .panel__hint {
   display: block;
@@ -431,33 +435,35 @@ async function confirmPerson(person, code, source = 'manual') {
   font-size: 19rpx;
   font-weight: 900;
 }
-
 .code-box {
   display: flex;
-  height: 150rpx;
+  flex-direction: column;
+  min-height: 150rpx;
   align-items: center;
   justify-content: center;
   margin-top: 28rpx;
   border: 2rpx dashed rgba(79, 70, 229, 0.28);
   border-radius: 34rpx;
   background: rgba(79, 70, 229, 0.08);
+  padding: 24rpx;
 }
-
-.code-box text {
+.code-box__qr {
+  margin-bottom: 18rpx;
+}
+.code-box__value {
   color: #0f172a;
-  font-size: 54rpx;
+  font-size: 40rpx;
   font-style: italic;
   font-weight: 900;
-  letter-spacing: 5rpx;
+  letter-spacing: 4rpx;
+  text-align: center;
 }
-
 .code-actions {
   display: grid;
   grid-template-columns: 1fr 170rpx;
   gap: 16rpx;
   margin-top: 24rpx;
 }
-
 .code-actions__input {
   display: flex;
   height: 86rpx;
@@ -466,18 +472,15 @@ async function confirmPerson(person, code, source = 'manual') {
   border-radius: 26rpx;
   background: #fff;
 }
-
 .code-actions__input input {
   width: 100%;
   color: #0f172a;
   font-size: 25rpx;
   font-weight: 800;
 }
-
 .input-placeholder {
   color: #cbd5e1;
 }
-
 .code-actions__button,
 .scan-button {
   display: flex;
@@ -488,19 +491,16 @@ async function confirmPerson(person, code, source = 'manual') {
   font-size: 24rpx;
   font-weight: 900;
 }
-
 .code-actions__button {
   background: #0f172a;
   color: #fff;
 }
-
 .scan-button {
   height: 86rpx;
   margin-top: 18rpx;
   background: #fff;
   color: #0f172a;
 }
-
 .member {
   display: flex;
   align-items: center;
@@ -508,11 +508,9 @@ async function confirmPerson(person, code, source = 'manual') {
   padding: 22rpx 0;
   border-top: 1rpx solid #f1f5f9;
 }
-
 .member:first-of-type {
   border-top: 0;
 }
-
 .member__avatar {
   width: 78rpx;
   height: 78rpx;
@@ -520,25 +518,21 @@ async function confirmPerson(person, code, source = 'manual') {
   border-radius: 26rpx;
   background: #eef2ff;
 }
-
 .member__body {
   flex: 1;
   min-width: 0;
 }
-
 .member__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
 }
-
 .member__name {
   color: #0f172a;
   font-size: 26rpx;
   font-weight: 900;
 }
-
 .member__status {
   padding: 7rpx 14rpx;
   border-radius: 999rpx;
@@ -547,12 +541,10 @@ async function confirmPerson(person, code, source = 'manual') {
   font-size: 18rpx;
   font-weight: 900;
 }
-
 .member__status--done {
   background: #dcfce7;
   color: #16a34a;
 }
-
 .member__meta {
   display: block;
   margin-top: 8rpx;
@@ -560,7 +552,6 @@ async function confirmPerson(person, code, source = 'manual') {
   font-size: 21rpx;
   font-weight: 800;
 }
-
 .member__button {
   display: flex;
   width: 68rpx;
@@ -571,7 +562,6 @@ async function confirmPerson(person, code, source = 'manual') {
   border-radius: 24rpx;
   background: #0f172a;
 }
-
 .member__button--done {
   background: #dcfce7;
 }

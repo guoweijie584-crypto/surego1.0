@@ -1,5 +1,8 @@
 <template>
-  <view class="success su-page" :style="contentTopStyle">
+  <view v-if="isPageLoading" class="success su-page" :style="contentTopStyle">
+    <SuPageLoading text="状态加载中..." />
+  </view>
+  <view v-else class="success su-page" :style="contentTopStyle">
     <view class="success__wash" />
     <view class="success__nav" :style="navStyle">
       <view class="success__nav-row" :style="navRowStyle">
@@ -61,12 +64,14 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goHomeRoot, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const type = ref('JOIN')
 const activityId = ref('101')
 const requireApproval = ref(false)
 const currentActivity = ref(createEmptyActivity('101'))
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 44, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 8 })
@@ -112,7 +117,9 @@ onLoad(async (query) => {
   type.value = (query && query.type) || 'JOIN'
   activityId.value = (query && query.activityId) || '101'
   requireApproval.value = Boolean(query && query.requireApproval === '1')
+  isPageLoading.value = true
   currentActivity.value = await getActivityDetail(activityId.value)
+  isPageLoading.value = false
 })
 
 function openNext() {

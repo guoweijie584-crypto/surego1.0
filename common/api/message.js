@@ -27,7 +27,7 @@ function buildMessage(payload = {}) {
     sender: payload.sender || '',
     activityId: payload.activityId || payload.activity_id || '',
     read: Boolean(payload.read),
-    createdAt: payload.createdAt || payload.created_at || new Date().toISOString(),
+    createdAt: payload.createdAt || payload.created_at || payload.sentAt || payload.sent_at || new Date().toISOString(),
     updatedAt: payload.updatedAt || payload.updated_at || ''
   }
 }
@@ -48,14 +48,18 @@ function createLocalMessage(payload) {
 }
 
 export async function createMessage(payload) {
+  const nextPayload = {
+    ...payload,
+    createdAt: payload.createdAt || payload.created_at || new Date().toISOString()
+  }
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-message', 'create', buildMessage(payload))
+      return await callSuregoFunction('surego-message', 'create', buildMessage(nextPayload))
     } catch (error) {
-      return handleSuregoCloudError(error, () => createLocalMessage(payload))
+      return handleSuregoCloudError(error, () => createLocalMessage(nextPayload))
     }
   }
-  return createLocalMessage(payload)
+  return createLocalMessage(nextPayload)
 }
 
 function listLocalMessages(userId = getCurrentUserId()) {

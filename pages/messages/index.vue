@@ -6,8 +6,9 @@
         <uni-icons type="left" size="24" color="#111827" />
       </view>
       <text>消息中心</text>
-      <view class="messages__back" @tap="handleMarkAllRead">
-        <uni-icons type="trash" size="20" color="#94a3b8" />
+      <view class="messages__action" @tap="handleMarkAllRead">
+        <uni-icons type="checkmarkempty" size="14" color="#475569" />
+        <text>全部已读</text>
       </view>
       </view>
     </view>
@@ -46,7 +47,7 @@
           <view class="message-card__body">
             <view class="message-card__head">
               <text class="message-card__title su-line-1">{{ item.title }}</text>
-              <text class="message-card__time">{{ item.createdAt }}</text>
+              <text class="message-card__time">{{ getMessageTime(item) }}</text>
             </view>
             <text class="message-card__content su-line-2">{{ item.content }}</text>
             <text v-if="item.type === 'application'" class="message-card__link">进入审核</text>
@@ -61,10 +62,12 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listMessages, markAllMessagesRead, markMessageRead } from '@/common/api/message.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
+import { formatMessageTime } from '@/common/utils/time-format.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const tabs = ['全部', '未读', '申请', '活动']
@@ -81,14 +84,21 @@ const filteredMessages = computed(() => {
   return messages.value
 })
 
-onShow(async () => {
+async function loadData() {
   messages.value = await listMessages()
-})
+}
+
+onShow(loadData)
+onPullDownRefresh(makeRefreshHandler(loadData))
 
 function getIcon(item) {
   if (item.type === 'application') return 'personadd-filled'
   if (item.type === 'activity') return 'calendar'
   return 'notification-filled'
+}
+
+function getMessageTime(item) {
+  return formatMessageTime(item.createdAt)
 }
 
 async function handleMarkAllRead() {
@@ -156,6 +166,23 @@ async function openMessage(item) {
   justify-content: center;
   border-radius: 50%;
   background: #fff;
+}
+
+.messages__action {
+  display: inline-flex;
+  height: 64rpx;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 999rpx;
+  background: rgba(248, 250, 252, 0.92);
+  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.04);
+  color: #475569;
+  font-size: 20rpx;
+  font-weight: 900;
+  letter-spacing: 1rpx;
 }
 
 .messages__scroll {

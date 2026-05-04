@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="detail su-page">
+  <view v-if="isPageLoading" class="detail su-page">
+    <SuPageLoading :style="contentTopStyle" text="活动详情加载中..." />
+  </view>
+  <view v-else class="detail su-page">
     <view class="detail__nav" :style="navStyle">
       <view class="detail__nav-row" :style="navRowStyle">
       <view class="detail__nav-btn" @tap="goBackOrFallback">
@@ -195,6 +198,16 @@
           <uni-icons type="flag" size="20" color="#ef4444" />
           <text>举报该活动</text>
         </view>
+        <view class="more-report">
+          <text class="more-report__label">举报理由</text>
+          <textarea
+            v-model="reportReason"
+            class="more-report__textarea"
+            maxlength="120"
+            placeholder="请填写举报理由，例如内容违规、活动异常等"
+            placeholder-class="more-report__placeholder"
+          />
+        </view>
         <view class="more-list__item" @tap="toastAndClose('已减少类似推荐')">
           <uni-icons type="hand-down-filled" size="20" color="#64748b" />
           <text>不喜欢这类内容</text>
@@ -225,13 +238,15 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getApplicationForActivity } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
@@ -240,6 +255,7 @@ const visibleMembers = ref([])
 const showShare = ref(false)
 const showMore = ref(false)
 const selectedMember = ref(null)
+const reportReason = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 240 })
@@ -321,6 +337,10 @@ const primaryButtonClass = computed(() => ({
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
+  await loadData(id)
+})
+
+async function loadData(id = activity.value.id || '101') {
   const detail = await getActivityDetail(id)
   const [application, members] = await Promise.all([
     getApplicationForActivity(detail.id || id),
@@ -338,7 +358,9 @@ onLoad(async (query) => {
     participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
   }
   visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
-})
+}
+
+onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '101')))
 
 onShareAppMessage(() => buildActivitySharePayload(activity.value))
 onShareTimeline(() => buildActivitySharePayload(activity.value))
@@ -410,12 +432,18 @@ function openPoster() {
 }
 
 async function submitActivityReport() {
+  const note = reportReason.value.trim()
+  if (!note) {
+    uni.showToast({ title: '请填写举报理由', icon: 'none' })
+    return
+  }
   await createReport({
     activityId: activity.value.id,
     activityTitle: activity.value.title,
     reason: 'content',
-    note: '用户从活动详情提交举报'
+    note
   })
+  reportReason.value = ''
   showMore.value = false
   uni.showToast({ title: '举报已提交', icon: 'none' })
 }
@@ -1040,6 +1068,35 @@ function toastAndClose(title) {
 .more-list {
   display: flex;
   flex-direction: column;
+}
+
+.more-report {
+  padding: 10rpx 0 20rpx;
+}
+
+.more-report__label {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #94a3b8;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.more-report__textarea {
+  width: 100%;
+  min-height: 160rpx;
+  box-sizing: border-box;
+  padding: 22rpx;
+  border: 1rpx solid #e2e8f0;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.more-report__placeholder {
+  color: #cbd5e1;
 }
 
 .more-list__item {

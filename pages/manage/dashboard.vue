@@ -162,12 +162,14 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, getAllowedActivityStatusTransitions, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
+import { createMessage } from '@/common/api/message.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
@@ -269,11 +271,17 @@ const ticketStats = computed(() => {
 
 onLoad(async (query) => {
   activityId.value = (query && query.id) || '103'
+  await loadData()
+})
+
+async function loadData() {
   activity.value = await getActivityDetail(activityId.value)
   if (!ensureOwnerAccess()) return
   applications.value = await listApplications(activityId.value)
   ticketOrders.value = await listOrdersByActivity(activityId.value)
-})
+}
+
+onPullDownRefresh(makeRefreshHandler(loadData))
 
 function ensureOwnerAccess() {
   if (activity.value?.isCreator) return true
@@ -302,6 +310,19 @@ async function handleLifecycleAction(item) {
   const run = async () => {
     try {
       await setActivityLifecycle(item.key)
+      if (item.key === 'cancelled') {
+        const targets = applications.value.filter((application) => ['approved', 'pending'].includes(application.status))
+        await Promise.all(targets.map((application) => createMessage({
+          userId: application.userId || application.user_id,
+          eventKey: `activity:cancelled:${activity.value.id}:${application.userId || application.user_id}` ,
+          type: 'activity',
+          title: '?????',
+          content: `?????${activity.value.title}?????????????????`,
+          sender: activity.value.organizer || 'SureGo',
+          activityId: activity.value.id,
+          read: false
+        }).catch(() => null)))
+      }
     } catch (error) {
       uni.showToast({ title: error?.message || '状态暂不可切换', icon: 'none' })
     }

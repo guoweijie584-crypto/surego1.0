@@ -141,7 +141,7 @@ function createLocalOrder(payload) {
 export async function createOrder(payload) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'create', buildOrder(payload))
+      return normalizeOrder(await callSuregoFunction('surego-order', 'create', buildOrder(payload)))
     } catch (error) {
       return handleSuregoCloudError(error, () => createLocalOrder(payload))
     }
@@ -157,7 +157,8 @@ function getLocalOrderForActivity(activityId, userId = getCurrentUserId()) {
 export async function getOrderForActivity(activityId, userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
+      const order = await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
+      return order ? normalizeOrder(order) : null
     } catch (error) {
       return handleSuregoCloudError(error, () => getLocalOrderForActivity(activityId, userId))
     }
@@ -187,7 +188,7 @@ function ensureLocalOrderForActivity(payload) {
 export async function ensureOrderForActivity(payload) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload))
+      return normalizeOrder(await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload)))
     } catch (error) {
       return handleSuregoCloudError(error, () => ensureLocalOrderForActivity(payload))
     }
@@ -221,7 +222,7 @@ export async function updateOrderStatus(id, status, options = {}) {
   let order
   if (USE_UNICLOUD) {
     try {
-      order = await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options })
+      order = normalizeOrder(await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, status, options))
     }
@@ -240,7 +241,7 @@ export async function refundOrder(id, refundNote = '退款状态已登记', opti
   let order
   if (USE_UNICLOUD) {
     try {
-      order = await callSuregoFunction('surego-order', 'refund', { id, refundNote })
+      order = normalizeOrder(await callSuregoFunction('surego-order', 'refund', { id, refundNote }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'refunded', { refundNote, ...options }))
     }
@@ -255,7 +256,7 @@ export async function closeOrder(id, closeReason = '订单已关闭', options = 
   let order
   if (USE_UNICLOUD) {
     try {
-      order = await callSuregoFunction('surego-order', 'close', { id, closeReason })
+      order = normalizeOrder(await callSuregoFunction('surego-order', 'close', { id, closeReason }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'closed', { closeReason, ...options }))
     }
@@ -274,7 +275,8 @@ function getLocalOrderDetail(id) {
 export async function getOrderDetail(id) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'getDetail', { id })
+      const order = await callSuregoFunction('surego-order', 'getDetail', { id })
+      return order ? normalizeOrder(order) : null
     } catch (error) {
       return handleSuregoCloudError(error, () => getLocalOrderDetail(id))
     }
@@ -289,7 +291,8 @@ function listLocalOrders(userId = getCurrentUserId()) {
 export async function listOrders(userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
+      const orders = await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
+      return Array.isArray(orders) ? orders.map(normalizeOrder) : []
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalOrders(userId))
     }
@@ -310,7 +313,8 @@ function listLocalOrdersByActivity(activityId) {
 export async function listOrdersByActivity(activityId) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-order', 'listByActivity', { activityId, limit: 100 })
+      const orders = await callSuregoFunction('surego-order', 'listByActivity', { activityId, limit: 100 })
+      return Array.isArray(orders) ? orders.map(normalizeOrder) : []
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalOrdersByActivity(activityId))
     }

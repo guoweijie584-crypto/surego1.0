@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="edit-profile su-page">
+  <view v-if="isPageLoading" class="edit-profile su-page">
+    <SuPageLoading :style="contentTopStyle" text="?????..." />
+  </view>
+  <view v-else class="edit-profile su-page">
     <view class="edit-profile__nav" :style="navStyle">
       <view class="edit-profile__nav-row" :style="navRowStyle">
         <view class="edit-profile__back" @tap="goBackOrFallback">
@@ -54,6 +57,7 @@ import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'
 import { uploadImageFile } from '@/common/api/upload.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
@@ -62,6 +66,7 @@ const isSaving = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
+const isPageLoading = ref(true)
 const form = reactive({
   nickname: '',
   avatar: '',
@@ -74,9 +79,14 @@ const form = reactive({
 const canSave = computed(() => form.nickname.trim() && form.bio.trim())
 
 onShow(async () => {
-  const user = await getCurrentUser()
-  Object.assign(form, user)
-  mbtiIndex.value = Math.max(0, mbtiOptions.indexOf(form.mbti))
+  isPageLoading.value = true
+  try {
+    const user = await getCurrentUser()
+    Object.assign(form, user)
+    mbtiIndex.value = Math.max(0, mbtiOptions.indexOf(form.mbti))
+  } finally {
+    isPageLoading.value = false
+  }
 })
 
 function handleMbtiChange(event) {

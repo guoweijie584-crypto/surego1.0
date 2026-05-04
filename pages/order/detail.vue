@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="order-detail su-page">
+  <view v-if="isPageLoading" class="order-detail su-page">
+    <SuPageLoading :style="contentTopStyle" text="订单详情加载中..." />
+  </view>
+  <view v-else class="order-detail su-page">
     <view class="order-nav" :style="navStyle">
       <view class="order-nav__row" :style="navRowStyle">
       <view class="order-nav__btn" @tap="goBackOrFallback">
@@ -93,15 +96,19 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { closeOrder, getOrderDetail, getOrderStatusText, refundOrder } from '@/common/api/order.js'
+import { closeOrder, getOrderDetail, getOrderForActivity, getOrderStatusText, refundOrder } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
 const orderId = ref('')
+const fallbackActivityId = ref('')
 const order = ref(null)
 const activity = ref(createEmptyActivity('102'))
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
@@ -126,6 +133,7 @@ const timeline = computed(() => {
 
 onLoad(async (query) => {
   orderId.value = (query && query.id) || ''
+  fallbackActivityId.value = (query && query.activityId) || ''
   await reloadOrder()
 })
 
@@ -133,11 +141,27 @@ onShow(async () => {
   if (orderId.value) await reloadOrder()
 })
 
+onPullDownRefresh(makeRefreshHandler(reloadOrder))
+
 async function reloadOrder() {
-  if (!orderId.value) return
-  order.value = await getOrderDetail(orderId.value)
-  if (order.value?.activityId) {
-    activity.value = await getActivityDetail(order.value.activityId)
+  isPageLoading.value = true
+  try {
+    if (!orderId.value && !fallbackActivityId.value) {
+      order.value = null
+      return
+    }
+    order.value = orderId.value ? await getOrderDetail(orderId.value) : null
+    const nextActivityId = order.value?.activityId || fallbackActivityId.value || activity.value?.id
+    if (!order.value && nextActivityId) {
+      order.value = await getOrderForActivity(nextActivityId)
+    }
+    if (order.value?.activityId) {
+      activity.value = await getActivityDetail(order.value.activityId)
+    } else if (fallbackActivityId.value) {
+      activity.value = await getActivityDetail(fallbackActivityId.value)
+    }
+  } finally {
+    isPageLoading.value = false
   }
 }
 

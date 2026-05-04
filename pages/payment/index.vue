@@ -1,5 +1,8 @@
 ﻿<template>
-  <view class="payment su-page">
+  <view v-if="isPageLoading" class="payment su-page">
+    <SuPageLoading :style="contentTopStyle" text="订单加载中..." />
+  </view>
+  <view v-else class="payment su-page">
     <view class="payment__nav" :style="navStyle">
       <view class="payment__nav-row" :style="navRowStyle">
         <view class="payment__back" @tap="goBackOrFallback">
@@ -33,7 +36,7 @@
           <text>¥{{ activity.amount }}</text>
         </view>
 
-        <view class="order-state" @tap="order && goOrderDetail(order.id)">
+        <view class="order-state" @tap="order && goOrderDetail(order.id, { activityId: activity.id })">
           <text>订单状态</text>
           <text :class="`order-state__badge order-state__badge--${orderStatus}`">{{ orderStatusText }}</text>
         </view>
@@ -48,7 +51,7 @@
         <button class="pay-button" :disabled="isPaying" @tap="handlePay">
           {{ payButtonText }}
         </button>
-        <view v-if="order" class="order-link" @tap="goOrderDetail(order.id)">查看订单详情</view>
+        <view v-if="order" class="order-link" @tap="goOrderDetail(order.id, { activityId: activity.id })">查看订单详情</view>
         <text class="payment__note">试运营订单确认，不发生真实扣款。</text>
       </view>
     </view>
@@ -57,15 +60,18 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
+import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activity = ref(createEmptyActivity('102'))
 const order = ref(null)
 const isPaying = ref(false)
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -91,15 +97,26 @@ const payButtonText = computed(() => {
 
 onLoad(async (query) => {
   const id = (query && query.activityId) || '102'
-  activity.value = await getActivityDetail(id)
-  order.value = await ensureOrderForActivity({
-    activityId: activity.value.id,
-    type: activity.value.partyMode,
-    amount: activity.value.amount,
-    activityTitle: activity.value.title,
-    activityCover: activity.value.image
-  })
+  await loadData(id)
 })
+
+async function loadData(id = activity.value.id || '102') {
+  isPageLoading.value = true
+  try {
+    activity.value = await getActivityDetail(id)
+    order.value = await ensureOrderForActivity({
+      activityId: activity.value.id,
+      type: activity.value.partyMode,
+      amount: activity.value.amount,
+      activityTitle: activity.value.title,
+      activityCover: activity.value.image
+    })
+  } finally {
+    isPageLoading.value = false
+  }
+}
+
+onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '102')))
 
 async function handlePay() {
   if (isPaying.value) return

@@ -115,12 +115,13 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard, goMessages, goMyActivities, goParticipantDashboard, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
@@ -146,7 +147,7 @@ const userActivities = computed(() => sortActivitiesByStatusPriority([
 const recommendedActivities = computed(() => allActivities.value)
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
-onShow(async () => {
+async function loadData() {
   refreshCurrentAvatar()
   const [activities, groups, unread] = await Promise.all([
     listActivities(),
@@ -156,7 +157,10 @@ onShow(async () => {
   allActivities.value = activities
   myGroups.value = groups
   unreadCount.value = unread
-})
+}
+
+onShow(loadData)
+onPullDownRefresh(makeRefreshHandler(loadData))
 
 function refreshCurrentAvatar() {
   const profile = getCurrentUserProfile()
