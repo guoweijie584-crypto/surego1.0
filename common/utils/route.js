@@ -260,7 +260,12 @@ export function goUserDetail(userId, options = {}) {
     uni.showToast({ title: '鏆傛棤鐢ㄦ埛淇℃伅', icon: 'none' })
     return
   }
-  goToUrl(`/pages/user/detail?id=${encodeURIComponent(id)}`, options)
+  const activityId = options.activityId || options.activity_id || ''
+  const query = buildQuery({
+    id,
+    activityId
+  })
+  goToUrl(`/pages/user/detail${query ? `?${query}` : ''}`, options)
 }
 
 export function goOrderDetail(id, options = {}) {

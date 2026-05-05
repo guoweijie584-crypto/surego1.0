@@ -192,7 +192,7 @@ async function refreshMembers() {
 
 function openMemberProfile(member) {
   if (member?.userId || member?.id) {
-    goUserDetail(member.userId || member.id)
+    goUserDetail(member.userId || member.id, { activityId: activity.value.id })
     return
   }
   selectedMember.value = member

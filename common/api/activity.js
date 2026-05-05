@@ -605,7 +605,8 @@ export async function getCityActivityStats() {
 function getLocalActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
-  return Promise.resolve(applyModerationOverlay(found || findActivityById(id)))
+  const source = found || markReferenceActivityApproved(findActivityById(id))
+  return Promise.resolve(applyModerationOverlay(source))
 }
 
 export async function getActivityDetail(id) {

@@ -404,14 +404,14 @@ function openLocation() {
 
 function selectMember(member) {
   if (member?.userId || member?.id) {
-    goUserDetail(member.userId || member.id)
+    goUserDetail(member.userId || member.id, { activityId: activity.value.id })
     return
   }
   selectedMember.value = member
 }
 
 function openOrganizerProfile() {
-  goUserDetail(activity.value.creatorId || activity.value.creator_id)
+  goUserDetail(activity.value.creatorId || activity.value.creator_id, { activityId: activity.value.id })
 }
 
 function handlePrimaryAction() {
