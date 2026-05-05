@@ -10,6 +10,9 @@
       <view class="su-card__cover-wrap">
         <image class="su-card__cover" :src="activity.image" mode="aspectFill" />
         <text class="su-card__category">{{ activity.category }}</text>
+        <view class="su-card__status" :class="`su-card__status--${cardStatus.tone}`">
+          <text>{{ cardStatus.label }}</text>
+        </view>
         <view class="su-card__count">
           <uni-icons type="person-filled" size="12" color="#fff" />
           <text>{{ activity.participantCount }}人参加</text>
@@ -22,6 +25,10 @@
           <view class="su-card__meta">
             <uni-icons type="calendar" size="14" color="#94a3b8" />
             <text class="su-line-1">{{ activity.date }} {{ activity.time }}</text>
+          </view>
+          <view class="su-card__meta su-card__meta--countdown">
+            <uni-icons type="reload" size="14" color="#94a3b8" />
+            <text class="su-line-1">{{ countdownMeta.label }} {{ countdownMeta.text }}</text>
           </view>
           <view class="su-card__meta">
             <uni-icons type="location" size="14" color="#94a3b8" />
@@ -41,6 +48,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { getActivityCardStatusMeta, getActivityCountdownMeta } from '@/common/api/activity.js'
 import { goActivityDetail, goUserDetail, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
@@ -49,6 +57,9 @@ const props = defineProps({
     required: true
   }
 })
+
+const cardStatus = computed(() => getActivityCardStatusMeta(props.activity))
+const countdownMeta = computed(() => getActivityCountdownMeta(props.activity))
 
 const displayLocation = computed(() => {
   return (props.activity.location || '').split(' 路 ')[0] || props.activity.location
@@ -173,6 +184,34 @@ function openUser() {
   font-weight: 900;
 }
 
+.su-card__status {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  box-shadow: 0 8rpx 20rpx rgba(15, 23, 42, 0.18);
+}
+
+.su-card__status--green {
+  background: rgba(34, 197, 94, 0.92);
+}
+
+.su-card__status--blue {
+  background: rgba(59, 130, 246, 0.92);
+}
+
+.su-card__status--gray {
+  background: rgba(100, 116, 139, 0.92);
+}
+
 .su-card__count {
   position: absolute;
   right: 0;
@@ -212,6 +251,10 @@ function openUser() {
   color: #64748b;
   font-size: 22rpx;
   font-weight: 800;
+}
+
+.su-card__meta--countdown {
+  color: #475569;
 }
 
 .su-card__distance {

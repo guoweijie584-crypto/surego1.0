@@ -151,6 +151,7 @@ const entryCode = ref('')
 const relatedMessages = ref([])
 const unreadCount = ref(0)
 const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 420 })
@@ -275,7 +276,9 @@ onShow(async () => {
 onPullDownRefresh(makeRefreshHandler(loadState))
 
 async function loadState() {
-  isPageLoading.value = true
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
+  }
   try {
     const userId = getCurrentUserId()
     const [detail, applications, orders, currentCheckin, messages] = await Promise.all([
@@ -299,6 +302,7 @@ async function loadState() {
       entryCode.value = ''
     }
   } finally {
+    hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }

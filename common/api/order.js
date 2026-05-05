@@ -14,6 +14,25 @@ function writeOrders(items) {
   uni.setStorageSync(STORAGE_KEY, items)
 }
 
+function mergeOrderCache(order) {
+  const normalized = normalizeOrder(order)
+  const items = readOrders()
+  const next = [
+    normalized,
+    ...items.filter((item) => item.id !== normalized.id)
+  ]
+  writeOrders(next)
+  return normalized
+}
+
+function replaceOrderCache(orders = []) {
+  const normalized = orders.map(normalizeOrder)
+  const byId = new Map()
+  normalized.forEach((item) => byId.set(item.id, item))
+  writeOrders(Array.from(byId.values()))
+  return Array.from(byId.values())
+}
+
 function normalizeOrderStatus(status = 'pending') {
   return ORDER_STATUSES.includes(status) ? status : 'pending'
 }
@@ -52,7 +71,7 @@ function normalizeOrder(item = {}) {
 }
 
 function buildOrder(payload, status = 'pending') {
-  const now = new Date().toISOString()
+  const now = Date.now()
   return {
     id: payload.id || `order_${Date.now()}`,
     activityId: String(payload.activityId),
@@ -141,7 +160,7 @@ function createLocalOrder(payload) {
 export async function createOrder(payload) {
   if (USE_UNICLOUD) {
     try {
-      return normalizeOrder(await callSuregoFunction('surego-order', 'create', buildOrder(payload)))
+      return mergeOrderCache(await callSuregoFunction('surego-order', 'create', buildOrder(payload)))
     } catch (error) {
       return handleSuregoCloudError(error, () => createLocalOrder(payload))
     }
@@ -158,7 +177,7 @@ export async function getOrderForActivity(activityId, userId = getCurrentUserId(
   if (USE_UNICLOUD) {
     try {
       const order = await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
-      return order ? normalizeOrder(order) : null
+      return order ? mergeOrderCache(order) : getLocalOrderForActivity(activityId, userId)
     } catch (error) {
       return handleSuregoCloudError(error, () => getLocalOrderForActivity(activityId, userId))
     }
@@ -188,7 +207,7 @@ function ensureLocalOrderForActivity(payload) {
 export async function ensureOrderForActivity(payload) {
   if (USE_UNICLOUD) {
     try {
-      return normalizeOrder(await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload)))
+      return mergeOrderCache(await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload)))
     } catch (error) {
       return handleSuregoCloudError(error, () => ensureLocalOrderForActivity(payload))
     }
@@ -198,7 +217,7 @@ export async function ensureOrderForActivity(payload) {
 
 function updateLocalOrderStatus(id, status, options = {}) {
   const nextStatus = normalizeOrderStatus(status)
-  const now = new Date().toISOString()
+  const now = Date.now()
   const next = readOrders().map((item) => (
     item.id === id
       ? normalizeOrder({
@@ -222,7 +241,7 @@ export async function updateOrderStatus(id, status, options = {}) {
   let order
   if (USE_UNICLOUD) {
     try {
-      order = normalizeOrder(await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options }))
+      order = mergeOrderCache(await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, status, options))
     }
@@ -241,7 +260,7 @@ export async function refundOrder(id, refundNote = '退款状态已登记', opti
   let order
   if (USE_UNICLOUD) {
     try {
-      order = normalizeOrder(await callSuregoFunction('surego-order', 'refund', { id, refundNote }))
+      order = mergeOrderCache(await callSuregoFunction('surego-order', 'refund', { id, refundNote }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'refunded', { refundNote, ...options }))
     }
@@ -256,7 +275,7 @@ export async function closeOrder(id, closeReason = '订单已关闭', options = 
   let order
   if (USE_UNICLOUD) {
     try {
-      order = normalizeOrder(await callSuregoFunction('surego-order', 'close', { id, closeReason }))
+      order = mergeOrderCache(await callSuregoFunction('surego-order', 'close', { id, closeReason }))
     } catch (error) {
       order = await handleSuregoCloudError(error, () => updateLocalOrderStatus(id, 'closed', { closeReason, ...options }))
     }
@@ -276,7 +295,7 @@ export async function getOrderDetail(id) {
   if (USE_UNICLOUD) {
     try {
       const order = await callSuregoFunction('surego-order', 'getDetail', { id })
-      return order ? normalizeOrder(order) : null
+      return order ? mergeOrderCache(order) : getLocalOrderDetail(id)
     } catch (error) {
       return handleSuregoCloudError(error, () => getLocalOrderDetail(id))
     }
@@ -292,7 +311,7 @@ export async function listOrders(userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
       const orders = await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
-      return Array.isArray(orders) ? orders.map(normalizeOrder) : []
+      return Array.isArray(orders) ? replaceOrderCache(orders) : listLocalOrders(userId)
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalOrders(userId))
     }
@@ -314,7 +333,7 @@ export async function listOrdersByActivity(activityId) {
   if (USE_UNICLOUD) {
     try {
       const orders = await callSuregoFunction('surego-order', 'listByActivity', { activityId, limit: 100 })
-      return Array.isArray(orders) ? orders.map(normalizeOrder) : []
+      return Array.isArray(orders) ? replaceOrderCache(orders) : listLocalOrdersByActivity(activityId)
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalOrdersByActivity(activityId))
     }

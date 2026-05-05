@@ -72,6 +72,7 @@ const activityId = ref('101')
 const requireApproval = ref(false)
 const currentActivity = ref(createEmptyActivity('101'))
 const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 44, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 8 })
@@ -117,9 +118,15 @@ onLoad(async (query) => {
   type.value = (query && query.type) || 'JOIN'
   activityId.value = (query && query.activityId) || '101'
   requireApproval.value = Boolean(query && query.requireApproval === '1')
-  isPageLoading.value = true
-  currentActivity.value = await getActivityDetail(activityId.value)
-  isPageLoading.value = false
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
+  }
+  try {
+    currentActivity.value = await getActivityDetail(activityId.value)
+  } finally {
+    hasLoadedOnce.value = true
+    isPageLoading.value = false
+  }
 })
 
 function openNext() {

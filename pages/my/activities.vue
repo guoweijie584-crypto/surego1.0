@@ -37,10 +37,11 @@
           <view class="activity__head">
             <text class="activity__badge">{{ getBadge(item) }}</text>
             <text class="activity__mode">{{ getMode(item) }}</text>
-            <text class="activity__status" :class="`activity__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
+            <text class="activity__status" :class="`activity__status--${getActivityCardStatusMeta(item).tone}`">{{ getActivityCardStatusMeta(item).label }}</text>
           </view>
           <text class="activity__title su-line-2">{{ item.title }}</text>
           <text class="activity__meta">{{ item.date }} {{ item.time }}</text>
+          <text class="activity__meta">{{ getActivityCountdownMeta(item).label }} {{ getActivityCountdownMeta(item).text }}</text>
           <text class="activity__meta">{{ item.location }}</text>
         </view>
       </view>
@@ -52,7 +53,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { getActivityCardStatusMeta, getActivityCountdownMeta, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activeTab = ref('hosting')

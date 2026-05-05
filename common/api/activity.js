@@ -87,20 +87,230 @@ function normalizeModerationStatus(status = 'pending') {
   return ['pending', 'approved', 'rejected', 'hidden', 'visible'].includes(nextStatus) ? nextStatus : 'pending'
 }
 
-export function getActivityStatusMeta(activity = {}) {
+function parseDatePart(value = '') {
+  if (!value && value !== 0) return null
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      day: date.getDate()
+    }
+  }
+
+  const text = String(value || '').trim()
+  if (!text) return null
+
+  const ymdMatch = text.match(/^(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/)
+  if (ymdMatch) {
+    return {
+      year: Number(ymdMatch[1]),
+      month: Number(ymdMatch[2]),
+      day: Number(ymdMatch[3])
+    }
+  }
+
+  const mdMatch = text.match(/^(\d{1,2})月(\d{1,2})[日号]?$/)
+  if (mdMatch) {
+    return {
+      year: new Date().getFullYear(),
+      month: Number(mdMatch[1]),
+      day: Number(mdMatch[2])
+    }
+  }
+
+  const parsed = Date.parse(text.replace(/\./g, '-').replace(/\//g, '-'))
+  if (Number.isNaN(parsed)) return null
+
+  const date = new Date(parsed)
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate()
+  }
+}
+
+function parseClockPart(value = '') {
+  const text = String(value || '').trim()
+  const match = text.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/)
+  if (!match) return null
+  return {
+    hour: Number(match[1]),
+    minute: Number(match[2]),
+    second: Number(match[3] || 0)
+  }
+}
+
+function parseAbsoluteTimestamp(value = '') {
+  if (!value && value !== 0) return null
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : date.getTime()
+  }
+
+  const text = String(value || '').trim()
+  if (!text) return null
+  const parsed = Date.parse(text.replace(/\./g, '-').replace(/\//g, '-'))
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+function buildLocalTimestamp(dateValue = '', timeValue = '') {
+  const datePart = parseDatePart(dateValue)
+  if (!datePart) return null
+  const clockPart = parseClockPart(timeValue || '') || { hour: 0, minute: 0, second: 0 }
+  const date = new Date(
+    datePart.year,
+    Math.max(0, datePart.month - 1),
+    datePart.day,
+    clockPart.hour,
+    clockPart.minute,
+    clockPart.second,
+    0
+  )
+  return Number.isNaN(date.getTime()) ? null : date.getTime()
+}
+
+export function getActivityStartTimestamp(activity = {}) {
+  const directCandidates = [activity.startAt, activity.start_at]
+  for (const candidate of directCandidates) {
+    const parsed = parseAbsoluteTimestamp(candidate)
+    if (parsed) return parsed
+  }
+
+  const dateValue = activity.dateValue || activity.date_value || activity.date
+  const timeValue = activity.time || activity.startTime || activity.start_time || ''
+  return buildLocalTimestamp(dateValue, timeValue)
+}
+
+export function getActivityEndTimestamp(activity = {}) {
+  const directCandidates = [activity.endAt, activity.end_at]
+  for (const candidate of directCandidates) {
+    const parsed = parseAbsoluteTimestamp(candidate)
+    if (parsed) return parsed
+  }
+
+  const endTime = activity.endTime || activity.end_time || ''
+  if (!endTime) return null
+
+  const dateValue = activity.endDateValue || activity.end_date_value || activity.dateValue || activity.date_value || activity.date
+  return buildLocalTimestamp(dateValue, endTime)
+}
+
+function getActivityPhase(activity = {}, now = Date.now()) {
+  const currentTime = typeof now === 'number' ? now : Date.now()
+  const startTimestamp = getActivityStartTimestamp(activity)
+  const endTimestamp = getActivityEndTimestamp(activity)
+
+  if (endTimestamp && currentTime >= endTimestamp) return 'finished'
+  if (startTimestamp && currentTime >= startTimestamp) return 'ongoing'
+  if (startTimestamp) return 'upcoming'
+  return 'unknown'
+}
+
+function getActivityRuntimeStatus(activity = {}, now = Date.now()) {
   const status = normalizeActivityStatus(activity.status || activity.lifecycleStatus)
   const moderationStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
 
-  if (moderationStatus === 'hidden') return ACTIVITY_STATUS_META.hidden
-  if (moderationStatus === 'rejected') return ACTIVITY_STATUS_META.rejected
-  if (status === 'cancelled') return ACTIVITY_STATUS_META.cancelled
-  if (status === 'finished') return ACTIVITY_STATUS_META.finished
-  if (moderationStatus === 'pending' && status !== 'draft') return ACTIVITY_STATUS_META.reviewing
-  return ACTIVITY_STATUS_META[status] || ACTIVITY_STATUS_META.recruiting
+  if (moderationStatus === 'hidden') return 'hidden'
+  if (moderationStatus === 'rejected') return 'rejected'
+  if (status === 'cancelled') return 'cancelled'
+  if (status === 'finished') return 'finished'
+  if (moderationStatus === 'pending' && status !== 'draft') return 'reviewing'
+
+  const phase = getActivityPhase(activity, now)
+  if (phase === 'finished') return 'finished'
+  if (phase === 'ongoing' && ['published', 'recruiting', 'formed', 'ongoing'].includes(status)) {
+    return 'ongoing'
+  }
+
+  return status
+}
+
+export function getActivityStatusMeta(activity = {}, now = Date.now()) {
+  const runtimeStatus = getActivityRuntimeStatus(activity, now)
+  return ACTIVITY_STATUS_META[runtimeStatus] || ACTIVITY_STATUS_META.recruiting
+}
+
+export function getActivityCardStatusMeta(activity = {}, now = Date.now()) {
+  const currentTime = typeof now === 'number' ? now : Date.now()
+  const status = normalizeActivityStatus(activity.status || activity.lifecycleStatus)
+  const moderationStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
+  const startTimestamp = getActivityStartTimestamp(activity)
+  const endTimestamp = getActivityEndTimestamp(activity)
+
+  if (['hidden', 'rejected', 'cancelled', 'finished'].includes(status) || ['hidden', 'rejected'].includes(moderationStatus)) {
+    return { key: 'finished', label: '已结束', tone: 'gray', group: 'done', rank: 70 }
+  }
+  if (endTimestamp && currentTime >= endTimestamp) {
+    return { key: 'finished', label: '已结束', tone: 'gray', group: 'done', rank: 70 }
+  }
+  if (startTimestamp && currentTime >= startTimestamp) {
+    return { key: 'ongoing', label: '热行中', tone: 'blue', group: 'active', rank: 10 }
+  }
+  return { key: 'recruiting', label: '报名中', tone: 'green', group: 'active', rank: 30 }
+}
+
+export function isActivityRegistrationClosed(activity = {}, now = Date.now()) {
+  const statusKey = getActivityStatusMeta(activity, now).key
+  return ['draft', 'reviewing', 'ongoing', 'finished', 'cancelled', 'hidden', 'rejected'].includes(statusKey)
+}
+
+export function getActivityRegistrationClosedReason(activity = {}, now = Date.now()) {
+  const statusKey = getActivityStatusMeta(activity, now).key
+  const reasonMap = {
+    draft: '活动暂未发布',
+    reviewing: '活动审核中，暂不可报名',
+    ongoing: '活动已开始，停止报名',
+    finished: '活动已结束',
+    cancelled: '活动已取消',
+    hidden: '活动暂不可报名',
+    rejected: '活动暂不可报名'
+  }
+  return reasonMap[statusKey] || ''
+}
+
+export function getActivityCountdownMeta(activity = {}, now = Date.now()) {
+  const currentTime = typeof now === 'number' ? now : Date.now()
+  const startTimestamp = getActivityStartTimestamp(activity)
+  const statusMeta = getActivityStatusMeta(activity, currentTime)
+
+  if (!startTimestamp) {
+    return {
+      label: '活动状态',
+      text: statusMeta.label,
+      state: 'unknown'
+    }
+  }
+
+  const remainingMs = startTimestamp - currentTime
+  if (remainingMs <= 0) {
+    if (statusMeta.key === 'finished') {
+      return { label: '活动状态', text: '已结束', state: 'finished' }
+    }
+    return { label: '活动状态', text: '已开始', state: 'ongoing' }
+  }
+
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60000))
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+  const parts = []
+
+  if (days > 0) parts.push(`${days}天`)
+  if (days > 0 || hours > 0) parts.push(`${hours}小时`)
+  parts.push(`${minutes}分钟`)
+
+  return {
+    label: '距离开始',
+    text: parts.join(''),
+    state: 'upcoming'
+  }
 }
 
 function getActivitySortTime(activity = {}) {
   const candidates = [
+    getActivityStartTimestamp(activity),
     activity.dateValue,
     activity.startAt,
     activity.start_at,
@@ -131,7 +341,7 @@ export function sortActivitiesByStatusPriority(items = []) {
 }
 
 export function isHomeVisibleMyActivity(activity = {}) {
-  return ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing'].includes(getActivityStatusMeta(activity).key)
+  return !['hidden', 'rejected'].includes(getActivityStatusMeta(activity).key)
 }
 
 export function filterActivitiesByStatusGroup(items = [], filterKey = 'all') {

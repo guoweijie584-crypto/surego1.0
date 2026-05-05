@@ -123,7 +123,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getActivityDetail } from '@/common/api/activity.js'
+import { getActivityDetail, getActivityRegistrationClosedReason, isActivityRegistrationClosed } from '@/common/api/activity.js'
 import { getApplicationForActivity, submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
@@ -136,6 +136,7 @@ const message = ref('')
 const answers = ref([])
 const isSubmitting = ref(false)
 const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -186,6 +187,7 @@ const submitText = computed(() => {
   if (activity.value.applicationStatus === 'pending') return '已申请，等待审核'
   if (activity.value.applicationStatus === 'approved') return '已加入该活动'
   if (activity.value.applicationStatus === 'rejected') return '申请未通过'
+  if (isActivityRegistrationClosed(activity.value)) return getActivityRegistrationClosedReason(activity.value) || '暂不可报名'
   if (activity.value.partyMode === 'free') return '申请入局'
   return '提交申请并确认订单'
 })
@@ -196,18 +198,25 @@ const requiredAnswersDone = computed(() => {
 })
 
 const canSubmit = computed(() => {
-  return !hasExistingApplication.value && gender.value && message.value.trim().length > 0 && requiredAnswersDone.value
+  return !hasExistingApplication.value
+    && !isActivityRegistrationClosed(activity.value)
+    && gender.value
+    && message.value.trim().length > 0
+    && requiredAnswersDone.value
 })
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
-  isPageLoading.value = true
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
+  }
   try {
     activity.value = await getActivityDetail(id)
     await syncApplicationStatus(id)
     answers.value = (activity.value.questions || []).map(() => '')
     validateJoinEligibility(true)
   } finally {
+    hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 })
@@ -288,8 +297,8 @@ function validateJoinEligibility(silent = false) {
     messageText = '该活动申请未通过，暂不可重复提交'
   } else if (current.hasParticipantLimit && Number(current.participantCount || 0) >= Number(current.maxParticipants || 0)) {
     messageText = '活动名额已满'
-  } else if (['finished', 'cancelled'].includes(current.status) || ['finished', 'cancelled'].includes(current.lifecycleStatus)) {
-    messageText = '活动已结束或取消'
+  } else if (isActivityRegistrationClosed(current)) {
+    messageText = getActivityRegistrationClosedReason(current) || '活动已结束或取消'
   } else if (current.moderationStatus && current.moderationStatus !== 'visible' && current.moderationStatus !== 'approved') {
     messageText = '活动暂不可报名'
   }

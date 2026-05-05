@@ -108,11 +108,12 @@
               <view class="profile-card__row">
                 <text class="profile-card__title su-line-1">{{ item.title }}</text>
                 <view class="profile-card__tags">
-                  <text class="profile-card__status" :class="`profile-card__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
+                  <text class="profile-card__status" :class="`profile-card__status--${getActivityCardStatusMeta(item).tone}`">{{ getActivityCardStatusMeta(item).label }}</text>
                   <text class="profile-card__badge">{{ item.isCreator ? '主办' : '参与' }}</text>
                 </view>
               </view>
               <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
+              <text class="profile-card__meta">{{ getActivityCountdownMeta(item).label }} {{ getActivityCountdownMeta(item).text }}</text>
             </view>
           </view>
         </view>
@@ -170,7 +171,7 @@ import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
-import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityCardStatusMeta, getActivityCountdownMeta, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'

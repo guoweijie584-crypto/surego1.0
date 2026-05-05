@@ -101,6 +101,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { closeOrder, getOrderDetail, getOrderForActivity, getOrderStatusText, refundOrder } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
+import { formatDateTime } from '@/common/utils/time-format.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
@@ -109,6 +110,7 @@ const fallbackActivityId = ref('')
 const order = ref(null)
 const activity = ref(createEmptyActivity('102'))
 const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
@@ -124,10 +126,10 @@ const rules = computed(() => {
 const timeline = computed(() => {
   if (!order.value) return []
   return [
-    { label: '订单创建', time: order.value.createdAt, active: true },
-    { label: '支付确认', time: order.value.paidAt, desc: order.value.status === 'pending' ? '等待确认' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
-    { label: '退款记录', time: order.value.refundedAt, desc: order.value.status === 'refunded' ? '已记录退款' : '暂无退款', active: order.value.status === 'refunded' },
-    { label: '订单关闭', time: order.value.closedAt, desc: order.value.status === 'closed' ? '已关闭' : '未关闭', active: order.value.status === 'closed' }
+    { label: '订单创建', time: formatDateTime(order.value.createdAt), active: true },
+    { label: '支付确认', time: formatDateTime(order.value.paidAt), desc: order.value.status === 'pending' ? '等待确认' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
+    { label: '退款记录', time: formatDateTime(order.value.refundedAt), desc: order.value.status === 'refunded' ? '已记录退款' : '暂无退款', active: order.value.status === 'refunded' },
+    { label: '订单关闭', time: formatDateTime(order.value.closedAt), desc: order.value.status === 'closed' ? '已关闭' : '未关闭', active: order.value.status === 'closed' }
   ]
 })
 
@@ -144,7 +146,9 @@ onShow(async () => {
 onPullDownRefresh(makeRefreshHandler(reloadOrder))
 
 async function reloadOrder() {
-  isPageLoading.value = true
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
+  }
   try {
     if (!orderId.value && !fallbackActivityId.value) {
       order.value = null
@@ -161,6 +165,7 @@ async function reloadOrder() {
       activity.value = await getActivityDetail(fallbackActivityId.value)
     }
   } finally {
+    hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }

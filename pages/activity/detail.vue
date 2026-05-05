@@ -241,7 +241,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
-import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
+import { getActivityDetail, getActivityRegistrationClosedReason, getActivityStatusMeta, isActivityRegistrationClosed } from '@/common/api/activity.js'
 import { getApplicationForActivity } from '@/common/api/application.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
@@ -256,6 +256,8 @@ const showShare = ref(false)
 const showMore = ref(false)
 const selectedMember = ref(null)
 const reportReason = ref('')
+const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 240 })
@@ -265,6 +267,8 @@ const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
 const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
 const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
+const registrationClosed = computed(() => isActivityRegistrationClosed(activity.value))
+const registrationClosedReason = computed(() => getActivityRegistrationClosedReason(activity.value))
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
@@ -289,6 +293,7 @@ const seatsLeftText = computed(() => {
 
 const statusText = computed(() => {
   if (isTerminalActivity.value) return activityStatusMeta.value.label
+  if (registrationClosed.value) return registrationClosedReason.value || activityStatusMeta.value.label
   if (isLeader.value) return '作为局长管理中'
   if (activity.value.applicationStatus === 'approved') return '已获得准入'
   if (activity.value.applicationStatus === 'pending') return '申请审核中'
@@ -318,6 +323,7 @@ const statusClass = computed(() => {
 const primaryButtonText = computed(() => {
   if (isLeader.value) return '局面中心'
   if (isTerminalActivity.value) return activityStatusMeta.value.label
+  if (registrationClosed.value) return registrationClosedReason.value || activityStatusMeta.value.label
   if (isJoined.value) return '入场凭证'
   if (activity.value.applicationStatus === 'pending') return '审核中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
@@ -331,7 +337,7 @@ const primaryIcon = computed(() => {
 })
 
 const primaryButtonClass = computed(() => ({
-  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending' || (isTerminalActivity.value && !isLeader.value),
+  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending' || ((isTerminalActivity.value || registrationClosed.value) && !isLeader.value),
   'bottom-bar__button--leader': isLeader.value
 }))
 
@@ -341,23 +347,31 @@ onLoad(async (query) => {
 })
 
 async function loadData(id = activity.value.id || '101') {
-  const detail = await getActivityDetail(id)
-  const [application, members] = await Promise.all([
-    getApplicationForActivity(detail.id || id),
-    listActivityMembers(detail.id || id)
-  ])
-  const memberCount = members.length
-  activity.value = {
-    ...detail,
-    ...(application ? {
-      application,
-      applicationStatus: application.status || detail.applicationStatus,
-      reviewNote: application.reviewNote || detail.reviewNote || '',
-      rejectReason: application.rejectReason || detail.rejectReason || ''
-    } : {}),
-    participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
   }
-  visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
+  try {
+    const detail = await getActivityDetail(id)
+    const [application, members] = await Promise.all([
+      getApplicationForActivity(detail.id || id),
+      listActivityMembers(detail.id || id)
+    ])
+    const memberCount = members.length
+    activity.value = {
+      ...detail,
+      ...(application ? {
+        application,
+        applicationStatus: application.status || detail.applicationStatus,
+        reviewNote: application.reviewNote || detail.reviewNote || '',
+        rejectReason: application.rejectReason || detail.rejectReason || ''
+      } : {}),
+      participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
+    }
+    visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
+  } finally {
+    hasLoadedOnce.value = true
+    isPageLoading.value = false
+  }
 }
 
 onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '101')))
@@ -401,8 +415,8 @@ function openOrganizerProfile() {
 }
 
 function handlePrimaryAction() {
-  if (isTerminalActivity.value && !isLeader.value) {
-    uni.showToast({ title: `${activityStatusMeta.value.label}，暂不可报名`, icon: 'none' })
+  if ((isTerminalActivity.value || registrationClosed.value) && !isLeader.value) {
+    uni.showToast({ title: registrationClosedReason.value || `${activityStatusMeta.value.label}，暂不可报名`, icon: 'none' })
     return
   }
   if (activity.value.applicationStatus === 'pending') return

@@ -72,6 +72,7 @@ const activity = ref(createEmptyActivity('102'))
 const order = ref(null)
 const isPaying = ref(false)
 const isPageLoading = ref(true)
+const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -101,7 +102,9 @@ onLoad(async (query) => {
 })
 
 async function loadData(id = activity.value.id || '102') {
-  isPageLoading.value = true
+  if (!hasLoadedOnce.value) {
+    isPageLoading.value = true
+  }
   try {
     activity.value = await getActivityDetail(id)
     order.value = await ensureOrderForActivity({
@@ -112,6 +115,7 @@ async function loadData(id = activity.value.id || '102') {
       activityCover: activity.value.image
     })
   } finally {
+    hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }

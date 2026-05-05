@@ -39,6 +39,9 @@
           >
             <image class="featured-card__image" :src="item.image" mode="aspectFill" />
             <view class="featured-card__shade" />
+            <view class="featured-card__status" :class="`featured-card__status--${getActivityCardStatusMeta(item).tone}`">
+              <text>{{ getActivityCardStatusMeta(item).label }}</text>
+            </view>
             <view class="featured-card__glass">
               <view class="featured-card__main">
                 <text class="featured-card__title su-line-1">{{ item.title }}</text>
@@ -75,16 +78,20 @@
             <view class="mine-card__head">
               <image class="mine-card__avatar" :src="item.organizerAvatar" mode="aspectFill" />
               <text class="mine-card__name su-line-1">{{ item.organizer }}</text>
-              <view class="mine-card__days">
-                <text>距离开始</text>
-                <text class="mine-card__days-number">{{ getDaysLabel(item.id) }}</text>
-                <text>天</text>
+              <view class="mine-card__days" :class="`mine-card__days--${getCountdownMeta(item).state}`">
+                <text>{{ getCountdownMeta(item).label }}</text>
+                <text class="mine-card__days-number">{{ getCountdownMeta(item).text }}</text>
               </view>
             </view>
             <view class="mine-card__body">
               <image class="mine-card__cover" :src="item.image" mode="aspectFill" />
               <view class="mine-card__info">
-                <text class="mine-card__badge">{{ getMineRoleLabel(item) }}</text>
+                <view class="mine-card__badges">
+                  <text class="mine-card__badge">{{ getMineRoleLabel(item) }}</text>
+                  <text class="mine-card__badge mine-card__badge--status" :class="`mine-card__badge--${getActivityStatusMeta(item).tone}`">
+                    {{ getActivityStatusMeta(item).label }}
+                  </text>
+                </view>
                 <text class="mine-card__title su-line-2">{{ item.title }}</text>
                 <text class="mine-card__meta su-line-1">{{ item.date }} {{ item.time }}</text>
                 <text class="mine-card__meta su-line-1">{{ getShortLocation(item.location) }} 路 距您{{ item.distance }}km</text>
@@ -118,7 +125,7 @@ import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
-import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { getActivityCardStatusMeta, getActivityCountdownMeta, getActivityStatusMeta, isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
@@ -198,9 +205,8 @@ function openUserActivity(item) {
   goActivityDetail(item.id)
 }
 
-function getDaysLabel(id) {
-  const seed = Number(String(id).replace(/\D/g, '').slice(-1)) || 1
-  return (seed % 6) + 1
+function getCountdownMeta(item) {
+  return getActivityCountdownMeta(item)
 }
 </script>
 
@@ -379,6 +385,35 @@ function getDaysLabel(id) {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.34));
 }
 
+.featured-card__status {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  box-shadow: 0 12rpx 28rpx rgba(15, 23, 42, 0.2);
+}
+
+.featured-card__status--green {
+  background: rgba(34, 197, 94, 0.9);
+}
+
+.featured-card__status--blue {
+  background: rgba(59, 130, 246, 0.9);
+}
+
+.featured-card__status--gray {
+  background: rgba(100, 116, 139, 0.9);
+}
+
 .featured-card__glass {
   position: absolute;
   right: 28rpx;
@@ -486,6 +521,16 @@ function getDaysLabel(id) {
   font-weight: 900;
 }
 
+.mine-card__days--ongoing {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.mine-card__days--finished {
+  background: rgba(148, 163, 184, 0.18);
+  color: #64748b;
+}
+
 .mine-card__days-number {
   font-size: 25rpx;
 }
@@ -509,6 +554,12 @@ function getDaysLabel(id) {
   flex: 1;
 }
 
+.mine-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
 .mine-card__badge {
   display: inline-flex;
   padding: 8rpx 18rpx;
@@ -517,6 +568,11 @@ function getDaysLabel(id) {
   color: #3b82f6;
   font-size: 18rpx;
   font-weight: 900;
+}
+
+.mine-card__badge--status {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
 }
 
 .mine-card__title {
