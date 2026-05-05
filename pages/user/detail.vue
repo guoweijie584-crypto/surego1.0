@@ -27,39 +27,53 @@
         </view>
       </view>
 
+      <view v-if="hasActivityContext" class="context-card">
+        <view class="context-card__icon">
+          <uni-icons type="person-filled" size="20" color="#4f46e5" />
+        </view>
+        <view class="context-card__copy">
+          <text class="context-card__title">来自同一场活动</text>
+          <text class="context-card__text">你正在查看这位成员的公开 SureGo 名片。</text>
+        </view>
+      </view>
+
       <view class="stats">
         <view class="stat">
           <text>{{ profile.activityCount || 0 }}</text>
           <text>活动</text>
         </view>
         <view class="stat">
-          <text>{{ profile.reviewCount || 0 }}</text>
-          <text>评价</text>
+          <text>{{ profile.hostedCount || 0 }}</text>
+          <text>主办</text>
         </view>
         <view class="stat">
-          <text>{{ profile.orderCount || 0 }}</text>
-          <text>订单</text>
+          <text>{{ profile.joinedCount || 0 }}</text>
+          <text>参与</text>
         </view>
       </view>
 
       <view class="panel">
         <view class="panel__head">
           <view>
-            <text class="panel__title">SureGo 名片</text>
-            <text class="panel__sub">PUBLIC PROFILE</text>
+            <text class="panel__title">最近公开活动</text>
+            <text class="panel__sub">PUBLIC ACTIVITIES</text>
           </view>
         </view>
-        <view class="info-row">
-          <text>用户 ID</text>
-          <text>{{ maskedUserId }}</text>
+        <view v-if="recentActivities.length === 0" class="empty">
+          <uni-icons type="calendar" size="36" color="#cbd5e1" />
+          <text>暂无公开活动</text>
         </view>
-        <view class="info-row">
-          <text>角色</text>
-          <text>{{ profile.roleText || '普通用户' }}</text>
-        </view>
-        <view class="info-row">
-          <text>资料状态</text>
-          <text>{{ profile.profileCompletedAt ? '已完善' : '未完善' }}</text>
+        <view v-for="item in recentActivities" :key="item.id" class="activity-row" @tap="openActivity(item)">
+          <image class="activity-row__cover" :src="item.image" mode="aspectFill" />
+          <view class="activity-row__body">
+            <view class="activity-row__line">
+              <text class="activity-row__title su-line-1">{{ item.title }}</text>
+              <text class="activity-row__badge" :class="`activity-row__badge--${item.relation || 'joined'}`">
+                {{ getActivityRelationLabel(item.relation) }}
+              </text>
+            </view>
+            <text class="activity-row__meta">{{ getActivityMeta(item) }}</text>
+          </view>
         </view>
       </view>
     </scroll-view>
@@ -71,9 +85,10 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { DEFAULT_USER_AVATAR } from '@/common/api/auth.js'
 import { getUserProfileById } from '@/common/api/user.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback } from '@/common/utils/route.js'
 
 const userId = ref('')
+const contextActivityId = ref('')
 const profile = ref({
   nickname: '微信用户',
   avatar: DEFAULT_USER_AVATAR,
@@ -81,21 +96,21 @@ const profile = ref({
   mbti: '',
   bio: '',
   quote: '',
-  roleText: '普通用户'
+  activityCount: 0,
+  hostedCount: 0,
+  joinedCount: 0,
+  recentActivities: []
 })
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 
-const maskedUserId = computed(() => {
-  const id = String(profile.value.userId || profile.value.uid || userId.value || '')
-  if (!id) return '未知'
-  if (id.length <= 8) return id
-  return `${id.slice(0, 4)}...${id.slice(-4)}`
-})
+const hasActivityContext = computed(() => Boolean(contextActivityId.value))
+const recentActivities = computed(() => Array.isArray(profile.value.recentActivities) ? profile.value.recentActivities : [])
 
 onLoad(async (query = {}) => {
   userId.value = String(query.id || query.userId || '')
+  contextActivityId.value = String(query.activityId || '')
   if (!userId.value) {
     uni.showToast({ title: '未找到用户', icon: 'none' })
     return
@@ -105,9 +120,23 @@ onLoad(async (query = {}) => {
     ...profile.value,
     ...data,
     avatar: data.avatar || DEFAULT_USER_AVATAR,
-    nickname: data.nickname || '微信用户'
+    nickname: data.nickname || '微信用户',
+    recentActivities: Array.isArray(data.recentActivities) ? data.recentActivities : []
   }
 })
+
+function getActivityRelationLabel(relation = '') {
+  return relation === 'hosted' ? '主办' : '参与'
+}
+
+function getActivityMeta(item = {}) {
+  return [item.date, item.time, item.city || item.location].filter(Boolean).join(' · ') || '公开活动'
+}
+
+function openActivity(item = {}) {
+  if (!item.id) return
+  goActivityDetail(item.id)
+}
 </script>
 
 <style scoped>
@@ -241,6 +270,51 @@ onLoad(async (query = {}) => {
   color: #94a3b8;
 }
 
+.context-card {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin: 0 34rpx 26rpx;
+  padding: 22rpx 24rpx;
+  border: 1rpx solid #e0e7ff;
+  border-radius: 28rpx;
+  background: #eef2ff;
+}
+
+.context-card__icon {
+  display: flex;
+  width: 56rpx;
+  height: 56rpx;
+  flex: 0 0 56rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18rpx;
+  background: #fff;
+}
+
+.context-card__copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.context-card__title,
+.context-card__text {
+  display: block;
+}
+
+.context-card__title {
+  color: #1e293b;
+  font-size: 24rpx;
+  font-weight: 900;
+}
+
+.context-card__text {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 800;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -296,24 +370,78 @@ onLoad(async (query = {}) => {
   font-weight: 900;
 }
 
-.info-row {
+.empty {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  padding: 22rpx 0;
-  border-top: 1rpx solid #f1f5f9;
-  color: #64748b;
+  justify-content: center;
+  flex-direction: column;
+  gap: 14rpx;
+  padding: 70rpx 0 48rpx;
+  color: #94a3b8;
   font-size: 23rpx;
-  font-weight: 800;
+  font-weight: 900;
 }
 
-.info-row:first-of-type {
+.activity-row {
+  display: flex;
+  gap: 20rpx;
+  padding: 24rpx 0;
+  border-top: 1rpx solid #f1f5f9;
+}
+
+.activity-row:first-of-type {
   margin-top: 18rpx;
 }
 
-.info-row text:last-child {
+.activity-row__cover {
+  width: 118rpx;
+  height: 118rpx;
+  flex: 0 0 118rpx;
+  border-radius: 24rpx;
+  background: #e2e8f0;
+}
+
+.activity-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-row__line {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.activity-row__title {
+  flex: 1;
+  min-width: 0;
   color: #0f172a;
-  text-align: right;
+  font-size: 26rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.activity-row__badge {
+  flex: 0 0 auto;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: #e0e7ff;
+  color: #4f46e5;
+  font-size: 18rpx;
+  font-weight: 900;
+}
+
+.activity-row__badge--hosted {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.activity-row__meta {
+  display: block;
+  margin-top: 16rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  font-weight: 800;
+  line-height: 1.4;
 }
 </style>

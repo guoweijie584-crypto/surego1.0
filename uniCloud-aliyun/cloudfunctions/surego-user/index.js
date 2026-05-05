@@ -1,11 +1,25 @@
 'use strict';
 
 const db = uniCloud.database();
+const dbCmd = db.command;
 const profileCollection = db.collection('surego-users');
 const uniIdUsers = db.collection('uni-id-users');
+const activityCollection = db.collection('surego-activities');
+const applicationCollection = db.collection('surego-applications');
 
 const ROLE_VALUES = ['user', 'operator', 'admin'];
 const DEFAULT_ROLE = 'user';
+const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'];
+const publicLifecycleStatuses = ['published', 'recruiting', 'formed', 'ongoing'];
+const publicModerationStatuses = ['approved', 'visible'];
+const moderationStatuses = ['pending', 'approved', 'rejected', 'hidden', 'visible'];
+const legacyStatusMap = {
+  hosting: 'recruiting',
+  not_applied: 'recruiting',
+  pending: 'recruiting',
+  approved: 'recruiting',
+  rejected: 'recruiting'
+};
 
 function now() {
   return Date.now();
@@ -73,6 +87,62 @@ function normalizeProfile(record = {}) {
   };
 }
 
+function normalizeStatus(status = 'recruiting') {
+  const mapped = legacyStatusMap[status] || status;
+  return lifecycleStatuses.includes(mapped) ? mapped : 'recruiting';
+}
+
+function normalizeModerationStatus(status = 'pending') {
+  const nextStatus = status || 'pending';
+  return moderationStatuses.includes(nextStatus) ? nextStatus : 'pending';
+}
+
+function isPubliclyVisibleActivity(item = {}) {
+  const rawStatus = String(item.status || item.lifecycleStatus || '');
+  const status = normalizeStatus(item.status || item.lifecycleStatus);
+  const moderationStatus = normalizeModerationStatus(item.moderation_status || item.moderationStatus);
+  if (rawStatus === 'rejected' || rawStatus === 'hidden') return false;
+  return publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
+}
+
+function pickActivityId(activity = {}) {
+  return String(activity._id || activity.id || '');
+}
+
+function pickActivityCreatorId(activity = {}) {
+  return String(activity.creator_id || activity.creatorId || '');
+}
+
+function normalizePublicActivity(activity = {}, relation = 'joined') {
+  return {
+    id: pickActivityId(activity),
+    title: activity.title || 'SureGo 活动',
+    image: activity.image || activity.cover || '',
+    date: activity.date || '',
+    time: activity.time || '',
+    location: activity.location || activity.address || '',
+    city: activity.city || '',
+    relation
+  };
+}
+
+function normalizePublicProfile(record = {}, activitySummary = {}) {
+  const profile = normalizeProfile(record);
+  return {
+    nickname: profile.nickname,
+    avatar: profile.avatar,
+    profileCompletedAt: profile.profileCompletedAt,
+    mbti: profile.mbti,
+    bio: profile.bio,
+    quote: profile.quote,
+    credit: profile.credit,
+    activityCount: Number(activitySummary.activityCount || 0),
+    hostedCount: Number(activitySummary.hostedCount || 0),
+    joinedCount: Number(activitySummary.joinedCount || 0),
+    recentActivities: activitySummary.recentActivities || []
+  };
+}
+
 function normalizeUser(record = {}, profile = {}) {
   const roles = normalizeRoles(record.role || profile.roles || profile.role);
   return {
@@ -87,6 +157,68 @@ function normalizeUser(record = {}, profile = {}) {
     registerDate: record.register_date || record.registerDate || 0,
     roleUpdatedAt: profile.role_updated_at || profile.roleUpdatedAt || 0,
     roleUpdatedBy: profile.role_updated_by || profile.roleUpdatedBy || ''
+  };
+}
+
+function dedupeActivitiesById(items = []) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const id = pickActivityId(item);
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function getActivitySortTime(activity = {}) {
+  return Number(activity.updated_at || activity.created_at || activity.dateValue || 0) || 0;
+}
+
+async function listApprovedApplicationsForUser(userId) {
+  const [snakeResult, camelResult] = await Promise.all([
+    applicationCollection.where({ user_id: userId, status: 'approved' }).limit(100).get(),
+    applicationCollection.where({ userId: userId, status: 'approved' }).limit(100).get()
+  ]);
+  const seen = new Set();
+  return [...(snakeResult.data || []), ...(camelResult.data || [])].filter((item) => {
+    const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function listPublicActivitiesForUser(userId) {
+  const [hostedSnakeResult, hostedCamelResult, approvedApplications] = await Promise.all([
+    activityCollection.where({ creator_id: userId }).limit(100).get(),
+    activityCollection.where({ creatorId: userId }).limit(100).get(),
+    listApprovedApplicationsForUser(userId)
+  ]);
+
+  const hosted = dedupeActivitiesById([
+    ...(hostedSnakeResult.data || []),
+    ...(hostedCamelResult.data || [])
+  ])
+    .filter(isPubliclyVisibleActivity)
+    .map((activity) => ({ ...activity, publicRelation: 'hosted' }));
+
+  const joinedActivityIds = Array.from(new Set(approvedApplications.map((item) => String(item.activity_id || item.activityId || '')).filter(Boolean)));
+  const joinedResult = joinedActivityIds.length
+    ? await activityCollection.where({ _id: dbCmd.in(joinedActivityIds) }).limit(joinedActivityIds.length).get()
+    : { data: [] };
+  const joined = dedupeActivitiesById(joinedResult.data || [])
+    .filter(isPubliclyVisibleActivity)
+    .filter((activity) => pickActivityCreatorId(activity) !== userId)
+    .map((activity) => ({ ...activity, publicRelation: 'joined' }));
+
+  const publicActivities = dedupeActivitiesById([...hosted, ...joined])
+    .sort((a, b) => getActivitySortTime(b) - getActivitySortTime(a));
+
+  return {
+    activityCount: publicActivities.length,
+    hostedCount: hosted.length,
+    joinedCount: joined.length,
+    recentActivities: publicActivities.slice(0, 3).map((activity) => normalizePublicActivity(activity, activity.publicRelation || 'joined'))
   };
 }
 
@@ -220,6 +352,24 @@ exports.main = async (event) => {
       data: found
         ? normalizeProfile({ ...found, roles: user.roles })
         : normalizeProfile({ user_id: user.uid, roles: user.roles })
+    };
+  }
+
+  if (action === 'publicProfile') {
+    const targetUserId = String(payload.targetUserId || payload.target_user_id || payload.profileUserId || payload.profile_user_id || '').trim();
+    if (!targetUserId) return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
+    const [found, uniIdUser, activitySummary] = await Promise.all([
+      findByUserId(targetUserId),
+      findUniIdUser(targetUserId),
+      listPublicActivitiesForUser(targetUserId)
+    ]);
+    return {
+      code: 0,
+      data: normalizePublicProfile(found || {
+        user_id: targetUserId,
+        nickname: uniIdUser?.nickname || uniIdUser?.username || '',
+        avatar: uniIdUser?.avatar || ''
+      }, activitySummary)
     };
   }
 

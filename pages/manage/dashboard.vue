@@ -96,7 +96,7 @@
           <text>暂无新的申请，等风来。</text>
         </view>
         <view v-for="item in applications" :key="item.id" class="applicant">
-          <view class="applicant__avatar" @tap.stop="goUserDetail(item.userId || item.user_id)">{{ getInitial(item) }}</view>
+          <view class="applicant__avatar" @tap.stop="goUserDetail(item.userId || item.user_id, { activityId: activity.id })">{{ getInitial(item) }}</view>
           <view class="applicant__content">
             <view class="applicant__line">
               <text class="applicant__name">申请者</text>

@@ -74,7 +74,7 @@
         </view>
 
         <view v-for="person in participantList" :key="person.userId" class="member">
-          <image class="member__avatar" :src="person.avatar" mode="aspectFill" @tap.stop="goUserDetail(person.userId)" />
+          <image class="member__avatar" :src="person.avatar" mode="aspectFill" @tap.stop="goUserDetail(person.userId, { activityId: activity.id })" />
           <view class="member__body">
             <view class="member__row">
               <text class="member__name">{{ person.name }}</text>
