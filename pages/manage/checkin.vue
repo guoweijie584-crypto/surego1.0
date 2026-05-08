@@ -44,8 +44,8 @@
         </view>
 
         <view class="code-box">
-          <SuQrCode v-if="nextCheckablePerson" class="code-box__qr" :value="nextCheckablePerson.entryCode" :size="304" />
-          <text class="code-box__value">{{ nextCheckablePerson ? nextCheckablePerson.entryCode : '暂无待核销' }}</text>
+          <SuQrCode v-if="nextCheckablePerson && nextCheckablePerson.entryCode" class="code-box__qr" :value="nextCheckablePerson.entryCode" :size="304" />
+          <text class="code-box__value">{{ nextCheckablePerson ? (nextCheckablePerson.entryCode || '请刷新生成凭证') : '暂无待核销' }}</text>
         </view>
 
         <view class="code-actions">
@@ -98,7 +98,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { listApplications } from '@/common/api/application.js'
-import { buildParticipantCheckinCode, confirmCheckin, getCheckinSummary, isValidCheckinCode, parseScannedCheckinCode } from '@/common/api/checkin.js'
+import { confirmCheckin, createCheckinCode, getCheckinSummary, isValidCheckinCode, parseScannedCheckinCode } from '@/common/api/checkin.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
@@ -111,6 +111,7 @@ const applications = ref([])
 const memberProfiles = ref([])
 const checkins = ref([])
 const codeInput = ref('')
+const entryCodes = ref({})
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -160,7 +161,7 @@ const participantList = computed(() => {
   return merged.map((person) => ({
     ...person,
     checked: checkins.value.some((item) => item.userId === person.userId),
-    entryCode: buildParticipantCheckinCode(activityId.value, person.userId)
+    entryCode: entryCodes.value[person.userId] || ''
   }))
 })
 
@@ -180,12 +181,16 @@ onShow(async () => {
 onPullDownRefresh(makeRefreshHandler(loadState))
 
 async function loadState() {
-  activity.value = await getActivityDetail(activityId.value)
-  if (!ensureOwnerAccess()) return
-  applications.value = await listApplications(activityId.value)
-  memberProfiles.value = await listActivityMembers(activityId.value)
-  const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
-  checkins.value = summary.items || []
+  try {
+    activity.value = await getActivityDetail(activityId.value)
+    if (!ensureOwnerAccess()) return
+    applications.value = await listApplications(activityId.value)
+    memberProfiles.value = await listActivityMembers(activityId.value)
+    const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
+    checkins.value = summary.items || []
+  } catch (error) {
+    uni.showToast({ title: error?.message || '核销数据加载失败', icon: 'none' })
+  }
 }
 
 function ensureOwnerAccess() {
@@ -203,9 +208,25 @@ function handleBack() {
 }
 
 async function refreshCode() {
-  codeInput.value = ''
-  await loadState()
-  uni.showToast({ title: '核销状态已刷新', icon: 'none' })
+  try {
+    codeInput.value = ''
+    const person = nextCheckablePerson.value
+    if (person) {
+      const pass = await createCheckinCode(activityId.value, person.userId)
+      const code = pass?.code || ''
+      if (!code) {
+        uni.showToast({ title: '凭证生成失败', icon: 'none' })
+        return
+      }
+      entryCodes.value = { ...entryCodes.value, [person.userId]: code }
+      codeInput.value = code
+    } else {
+      await loadState()
+    }
+    uni.showToast({ title: '核销状态已刷新', icon: 'none' })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '凭证刷新失败', icon: 'none' })
+  }
 }
 
 function getStatusLabel(person) {
@@ -215,11 +236,6 @@ function getStatusLabel(person) {
 async function toggleCheckin(person) {
   if (person.checked) {
     uni.showToast({ title: '该成员已签到', icon: 'none' })
-    return
-  }
-
-  if (person.isMe || person.role === '局长') {
-    await confirmPerson(person, person.entryCode, checkinSourceOptions.manual.source)
     return
   }
 
@@ -233,12 +249,7 @@ async function confirmByCode() {
     return
   }
 
-  const target = participantList.value.find((person) => person.entryCode === parseScannedCheckinCode(code))
-  if (!target) {
-    uni.showToast({ title: '未找到对应成员', icon: 'none' })
-    return
-  }
-
+  const target = participantList.value.find((person) => person.entryCode === parseScannedCheckinCode(code)) || null
   await confirmPerson(target, code, checkinSourceOptions.manual.source)
   codeInput.value = ''
 }
@@ -249,8 +260,23 @@ async function simulateScanCheckin(target = null) {
     uni.showToast({ title: '暂无可签到成员', icon: 'none' })
     return
   }
-  codeInput.value = person.entryCode
-  await confirmPerson(person, person.entryCode, checkinSourceOptions.scan.source)
+  if (!person.entryCode) {
+    try {
+      const pass = await createCheckinCode(activityId.value, person.userId)
+      const code = pass?.code || ''
+      if (!code) {
+        uni.showToast({ title: '凭证生成失败', icon: 'none' })
+        return
+      }
+      entryCodes.value = { ...entryCodes.value, [person.userId]: code }
+    } catch (error) {
+      uni.showToast({ title: error?.message || '凭证生成失败', icon: 'none' })
+      return
+    }
+  }
+  const code = entryCodes.value[person.userId] || person.entryCode
+  codeInput.value = code
+  await confirmPerson({ ...person, entryCode: code }, code, checkinSourceOptions.scan.source)
 }
 
 async function scanCheckinCode(target = null) {
@@ -268,13 +294,7 @@ async function scanCheckinCode(target = null) {
         uni.showToast({ title: '未识别到有效凭证码', icon: 'none' })
         return
       }
-      const matchedPerson = target
-        ? (target.entryCode === code ? target : null)
-        : participantList.value.find((person) => person.entryCode === code)
-      if (!matchedPerson) {
-        uni.showToast({ title: '该凭证不属于本活动成员', icon: 'none' })
-        return
-      }
+      const matchedPerson = target || participantList.value.find((person) => person.entryCode === code) || null
       codeInput.value = code
       await confirmPerson(matchedPerson, code, checkinSourceOptions.scan.source)
     },
@@ -291,27 +311,38 @@ async function confirmNextByScan() {
 }
 
 async function confirmPerson(person, code, source = 'manual') {
-  if (person.status === 'pending') {
+  if (person && person.status === 'pending') {
     uni.showToast({ title: '待审核成员不能签到', icon: 'none' })
     return
   }
 
-  if (person.checked) {
+  if (person && person.checked) {
     uni.showToast({ title: '该成员已签到', icon: 'none' })
     return
   }
 
-  const result = await confirmCheckin({
-    activityId: activityId.value,
-    userId: person.userId,
-    code,
-    source,
-    remark: source === 'scan' ? '局长扫码核销' : '局长手动输入核销',
-    checkedBy: 'leader'
-  })
+  let result = null
+  try {
+    result = await confirmCheckin({
+      activityId: activityId.value,
+      userId: person?.userId || '',
+      code,
+      source,
+      remark: source === 'scan' ? '局长扫码核销' : '局长手动输入核销',
+      checkedBy: 'leader'
+    })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '签到核销失败', icon: 'none' })
+    return
+  }
   if (!result) return
+  if (person?.userId) {
+    const nextEntryCodes = { ...entryCodes.value }
+    delete nextEntryCodes[person.userId]
+    entryCodes.value = nextEntryCodes
+  }
   await loadState()
-  uni.showToast({ title: `${person.name} 已签到`, icon: 'none' })
+  uni.showToast({ title: `${person?.name || '成员'} 已签到`, icon: 'none' })
 }
 </script>
 

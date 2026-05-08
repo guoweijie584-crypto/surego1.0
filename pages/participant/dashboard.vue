@@ -132,7 +132,7 @@ import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { listApplications } from '@/common/api/application.js'
-import { buildParticipantCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
+import { createCheckinCode, getCheckinForUser } from '@/common/api/checkin.js'
 import { getUnreadMessageCount, listMessages, markMessageRead } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -297,10 +297,14 @@ async function loadState() {
     unreadCount.value = messages.filter((item) => !item.read).length
 
     if (activity.value.isCreator || applicationState.value.key === 'approved') {
-      entryCode.value = buildParticipantCheckinCode(activityId.value, userId)
+      const pass = await createCheckinCode(activityId.value, userId)
+      entryCode.value = pass?.code || ''
     } else {
       entryCode.value = ''
     }
+  } catch (error) {
+    entryCode.value = ''
+    uni.showToast({ title: error?.message || '活动数据加载失败', icon: 'none' })
   } finally {
     hasLoadedOnce.value = true
     isPageLoading.value = false
@@ -323,9 +327,14 @@ function refreshEntryCode() {
     return
   }
 
-  Promise.resolve().then(() => {
-    entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
-    uni.showToast({ title: '凭证已刷新', icon: 'none' })
+  Promise.resolve().then(async () => {
+    try {
+      const pass = await createCheckinCode(activityId.value, getCurrentUserId())
+      entryCode.value = pass?.code || ''
+      uni.showToast({ title: '凭证已刷新', icon: 'none' })
+    } catch (error) {
+      uni.showToast({ title: error?.message || '凭证刷新失败', icon: 'none' })
+    }
   })
 }
 
@@ -389,7 +398,13 @@ async function handlePrimaryAction() {
   }
 
   if (!entryCode.value) {
-    entryCode.value = buildParticipantCheckinCode(activityId.value, getCurrentUserId())
+    try {
+      const pass = await createCheckinCode(activityId.value, getCurrentUserId())
+      entryCode.value = pass?.code || ''
+    } catch (error) {
+      uni.showToast({ title: error?.message || '凭证生成失败', icon: 'none' })
+      return
+    }
   }
 
   uni.showToast({ title: '请向局长出示入场二维码', icon: 'none' })

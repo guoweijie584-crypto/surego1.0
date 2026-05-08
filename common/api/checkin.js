@@ -13,52 +13,40 @@ function writeCheckins(items) {
   uni.setStorageSync(STORAGE_KEY, items)
 }
 
-function buildCode(activityId) {
-  return {
-    activityId: String(activityId),
-    code: `SG${String(Date.now()).slice(-6)}`,
-    expiresIn: 300
-  }
-}
-
 export function isValidCheckinCode(code = '') {
-  return /^SG\d{4,}$/.test(String(code).trim())
-}
-
-function hashToDigits(value = '') {
-  let hash = 2166136261
-  String(value).split('').forEach((char) => {
-    hash ^= char.charCodeAt(0)
-    hash = Math.imul(hash, 16777619) >>> 0
-  })
-  return String(hash).padStart(10, '0').slice(0, 10)
+  return /^SG[A-Z0-9]{12,64}$/.test(String(code).trim().toUpperCase())
 }
 
 export function normalizeCheckinCode(code = '') {
-  const matched = String(code || '').toUpperCase().match(/SG\d{4,}/)
+  const matched = String(code || '').toUpperCase().match(/SG[A-Z0-9]{12,64}/)
   return matched ? matched[0] : ''
 }
 
-export function buildParticipantCheckinCode(activityId, userId = getCurrentUserId()) {
-  return `SG${hashToDigits(`${activityId}:${userId}`)}`
+export async function buildParticipantCheckinCode(activityId, userId = getCurrentUserId()) {
+  const result = await createCheckinCode(activityId, userId)
+  return result?.code || ''
 }
 
 export function parseScannedCheckinCode(value = '') {
   return normalizeCheckinCode(value)
 }
 
-export function isMatchingParticipantCheckinCode(code = '', activityId, userId = getCurrentUserId()) {
-  return normalizeCheckinCode(code) === buildParticipantCheckinCode(activityId, userId)
+export function isMatchingParticipantCheckinCode(code = '') {
+  return isValidCheckinCode(code)
 }
 
 function createLocalCheckinCode(activityId) {
-  return Promise.resolve(buildCode(activityId))
+  return Promise.resolve({
+    activityId: String(activityId),
+    code: '',
+    expiresIn: 0
+  })
 }
 
-export async function createCheckinCode(activityId) {
+export async function createCheckinCode(activityId, userId = getCurrentUserId()) {
   if (USE_UNICLOUD) {
     try {
-      return await callSuregoFunction('surego-checkin', 'createCode', { activityId })
+      return await callSuregoFunction('surego-checkin', 'createCode', { activityId, userId })
     } catch (error) {
       return handleSuregoCloudError(error, () => createLocalCheckinCode(activityId))
     }
@@ -72,9 +60,9 @@ function buildCheckin(payload) {
     id: payload.id || `checkin_${Date.now()}`,
     activityId: String(payload.activityId),
     userId,
-    code: payload.code || '',
+    code: normalizeCheckinCode(payload.code || ''),
     status: 'checked',
-    source: payload.source || 'participant',
+    source: payload.source || 'scan',
     remark: payload.remark || '',
     checkedBy: payload.checkedBy || payload.checked_by || getCurrentUserId(),
     checkedAt: payload.checkedAt || new Date().toISOString(),
@@ -99,7 +87,7 @@ async function notifyCheckinConfirmed(checkin = {}, payload = {}) {
     eventKey: `checkin:confirmed:${checkin.activityId || payload.activityId}:${userId}`,
     type: 'activity',
     title: '签到成功',
-    content: `「${activityTitle}」签到成功，感谢准时到场。`,
+    content: `你已完成「${activityTitle}」签到。`,
     sender: 'SureGo',
     activityId: checkin.activityId || payload.activityId,
     read: false
@@ -113,16 +101,9 @@ function confirmLocalCheckin(payload) {
   }
   const items = readCheckins()
   const userId = payload.userId || getCurrentUserId()
-  if (!isMatchingParticipantCheckinCode(payload.code, payload.activityId, userId)) {
-    uni.showToast({ title: '核销码与成员不匹配', icon: 'none' })
-    return Promise.resolve(null)
-  }
   const found = items.find((item) => item.activityId === String(payload.activityId) && item.userId === userId)
-  if (found) {
-    return Promise.resolve(found)
-  }
+  if (found) return Promise.resolve(found)
   const checkin = buildCheckin(payload)
-
   writeCheckins([checkin, ...items])
   return Promise.resolve(checkin)
 }

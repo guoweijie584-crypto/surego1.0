@@ -128,9 +128,10 @@ async function loadData() {
   refreshCurrentAvatar()
   selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
+  const loggedIn = isLoggedIn()
   const [items, unread] = await Promise.all([
     listActivitiesByCity(selectedCity.value, selectedCityCode.value),
-    getUnreadMessageCount()
+    loggedIn ? getUnreadMessageCount() : Promise.resolve(0)
   ])
   activities.value = items
   unreadCount.value = unread

@@ -1,11 +1,14 @@
 import { ALLOW_MOCK_FALLBACK } from '../config/runtime.js'
 
 export const USER_CANCEL_IMAGE_PICKER = 'USER_CANCEL_IMAGE_PICKER'
+const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
 function buildCloudPath(prefix = 'surego', filePath = '') {
   const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
-  const ext = extMatch ? extMatch[0] : '.jpg'
-  return `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`
+  const ext = extMatch ? extMatch[0].toLowerCase() : '.jpg'
+  const safeExt = ALLOWED_EXTENSIONS.includes(ext) ? ext : '.jpg'
+  return `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}${safeExt}`
 }
 
 function createCancelError(error = {}) {
@@ -30,8 +33,19 @@ export function chooseImageFile(options = {}) {
       sourceType: options.sourceType || ['album', 'camera'],
       success(result = {}) {
         const filePath = (result.tempFilePaths || [])[0]
+        const file = (result.tempFiles || [])[0] || {}
         if (!filePath) {
           reject(createCancelError())
+          return
+        }
+        const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
+        const ext = extMatch ? extMatch[0].toLowerCase() : ''
+        if (ext && !ALLOWED_EXTENSIONS.includes(ext)) {
+          reject(new Error('仅支持 JPG、PNG、WEBP 图片'))
+          return
+        }
+        if (Number(file.size || 0) > (options.maxSize || MAX_IMAGE_SIZE)) {
+          reject(new Error('图片大小不能超过 5MB'))
           return
         }
         resolve(filePath)
@@ -46,6 +60,11 @@ export function chooseImageFile(options = {}) {
 export async function uploadImageFile(filePath, options = {}) {
   if (!filePath) {
     throw new Error('Image file path is required')
+  }
+  const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
+  const ext = extMatch ? extMatch[0].toLowerCase() : ''
+  if (ext && !ALLOWED_EXTENSIONS.includes(ext)) {
+    throw new Error('仅支持 JPG、PNG、WEBP 图片')
   }
 
   if (typeof uniCloud === 'undefined' || typeof uniCloud.uploadFile !== 'function') {

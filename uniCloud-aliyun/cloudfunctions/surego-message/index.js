@@ -2,56 +2,23 @@
 
 const db = uniCloud.database();
 const collection = db.collection('surego-messages');
-const uniIdUsers = db.collection('uni-id-users');
+const activityCollection = db.collection('surego-activities');
+const applicationCollection = db.collection('surego-applications');
+const orderCollection = db.collection('surego-orders');
+const checkinCollection = db.collection('surego-checkins');
+const {
+  authRequired,
+  cleanBool,
+  cleanId,
+  cleanString,
+  forbidden,
+  now,
+  ok,
+  requireAuth,
+  unknownAction
+} = require('surego-security');
 
-function now() {
-  return Date.now();
-}
-
-function normalizeRoles(roles) {
-  if (!roles) return [];
-  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
-}
-
-async function findUniIdUser(userId) {
-  if (!userId || userId === 'mock_user') return null;
-  try {
-    const result = await uniIdUsers.doc(String(userId)).get();
-    return (result.data || [])[0] || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
-async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
-  const userRecord = await findUniIdUser(uid);
-  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
-  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
-  return {
-    uid,
-    roles,
-    exists: Boolean(userRecord && tokenValid),
-    isOps: roles.includes('admin') || roles.includes('operator')
-  };
-}
-
-function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
-}
+const ALLOWED_TYPES = ['system', 'activity', 'application', 'order', 'checkin', 'report'];
 
 function normalizeMessage(record = {}) {
   return {
@@ -74,96 +41,110 @@ function normalizeList(result = {}) {
 }
 
 function buildRecord(payload = {}) {
+  const type = ALLOWED_TYPES.includes(payload.type) ? payload.type : 'system';
   return {
-    user_id: payload.userId || payload.user_id,
-    activity_id: payload.activityId || payload.activity_id || '',
-    event_key: payload.eventKey || payload.event_key || '',
-    type: payload.type || 'system',
-    title: payload.title || '',
-    content: payload.content || '',
-    sender: payload.sender || '',
-    read: Boolean(payload.read),
+    user_id: cleanId(payload.userId || payload.user_id),
+    activity_id: cleanId(payload.activityId || payload.activity_id),
+    event_key: cleanString(payload.eventKey || payload.event_key, { max: 160 }),
+    type,
+    title: cleanString(payload.title, { max: 40 }),
+    content: cleanString(payload.content, { max: 300 }),
+    sender: cleanString(payload.sender, { max: 40 }),
+    read: cleanBool(payload.read, false),
     created_at: payload.createdAt || payload.created_at || now(),
     updated_at: payload.updatedAt || payload.updated_at || ''
   };
 }
 
+async function canCreateMessage(record, user) {
+  if (!record.user_id || !record.title || !record.content) return false;
+  if (user.isOps) return true;
+  if (!record.event_key) return false;
+
+  const activityId = record.activity_id;
+  if (activityId) {
+    const activityResult = await activityCollection.doc(activityId).get();
+    const activity = (activityResult.data || [])[0];
+    if (activity && String(activity.creator_id || activity.creatorId || '') === user.uid) {
+      return true;
+    }
+    if (
+      activity &&
+      record.event_key.startsWith('application:submitted:') &&
+      String(activity.creator_id || activity.creatorId || '') === record.user_id
+    ) {
+      const applicationResult = await applicationCollection.where({
+        activity_id: activityId,
+        user_id: user.uid
+      }).limit(1).get();
+      if ((applicationResult.data || []).length) return true;
+    }
+  }
+
+  if (record.user_id === user.uid && record.event_key.startsWith('order:')) {
+    const orderResult = await orderCollection.where({ user_id: user.uid }).limit(1).get();
+    if ((orderResult.data || []).length) return true;
+  }
+  if (record.user_id === user.uid && record.event_key.startsWith('checkin:')) {
+    const checkinResult = await checkinCollection.where({ user_id: user.uid }).limit(1).get();
+    if ((checkinResult.data || []).length) return true;
+  }
+  if (record.event_key.startsWith('application:')) {
+    const applicationResult = await applicationCollection.where({
+      activity_id: activityId,
+      user_id: record.user_id
+    }).limit(1).get();
+    if ((applicationResult.data || []).length) return true;
+  }
+  return false;
+}
+
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = await resolveUserContext(event, payload);
+  const user = await requireAuth(event);
 
-  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user) return authRequired();
 
   if (action === 'create') {
     const record = buildRecord(payload);
+    if (!(await canCreateMessage(record, user))) {
+      return forbidden('This message cannot be created by the current user.');
+    }
     if (record.event_key) {
       const existing = await collection
-        .where({
-          user_id: record.user_id,
-          event_key: record.event_key
-        })
+        .where({ user_id: record.user_id, event_key: record.event_key })
         .limit(1)
         .get();
       const found = (existing.data || [])[0];
-      if (found) {
-        return {
-          code: 0,
-          data: normalizeMessage(found)
-        };
-      }
+      if (found) return ok(normalizeMessage(found));
     }
     const result = await collection.add(record);
-    return {
-      code: 0,
-      data: normalizeMessage({
-        ...record,
-        _id: result.id || result._id
-      })
-    };
+    return ok(normalizeMessage({ ...record, _id: result.id || result._id }));
   }
 
   if (action === 'list') {
-    const userId = user.uid;
-    const result = await collection.where({ user_id: userId }).orderBy('created_at', 'desc').get();
-    return {
-      code: 0,
-      data: normalizeList(result)
-    };
+    const result = await collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').get();
+    return ok(normalizeList(result));
   }
 
   if (action === 'markRead') {
-    const existing = await collection.doc(payload.id).get();
+    const id = cleanId(payload.id);
+    const existing = await collection.doc(id).get();
     const found = (existing.data || [])[0];
     if (found && String(found.user_id || found.userId || '') !== user.uid) {
-      return { code: 'FORBIDDEN', message: 'You cannot update this message.' };
+      return forbidden('You cannot update this message.');
     }
-    await collection.doc(payload.id).update({
-      read: true,
-      updated_at: now()
-    });
-    const result = await collection.doc(payload.id).get();
-    return {
-      code: 0,
-      data: normalizeMessage((result.data || [])[0] || { _id: payload.id, read: true })
-    };
+    await collection.doc(id).update({ read: true, updated_at: now() });
+    const result = await collection.doc(id).get();
+    return ok(normalizeMessage((result.data || [])[0] || { _id: id, read: true }));
   }
 
   if (action === 'markAllRead') {
-    const userId = user.uid;
-    await collection.where({ user_id: userId }).update({
-      read: true,
-      updated_at: now()
-    });
-    const result = await collection.where({ user_id: userId }).orderBy('created_at', 'desc').get();
-    return {
-      code: 0,
-      data: normalizeList(result)
-    };
+    await collection.where({ user_id: user.uid }).update({ read: true, updated_at: now() });
+    const result = await collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').get();
+    return ok(normalizeList(result));
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

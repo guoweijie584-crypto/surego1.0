@@ -2,11 +2,6 @@
 export default {
   onLaunch() {
     console.log('SureGo Launch')
-    // #ifdef MP-WEIXIN
-    if (typeof uniCloud !== 'undefined' && uniCloud.initSecureNetworkByWeixin) {
-      uniCloud.initSecureNetworkByWeixin()
-    }
-    // #endif
   },
   onShow() {
     console.log('SureGo Show')

@@ -1,16 +1,6 @@
 'use strict';
-const {
-	secret,
-	getVersion
-} = require('hello-common')
-exports.main = async (event, context) => {
-	let version = getVersion()
 
-	console.log("secret: " + secret);
-	console.log("version: " + version);
-
-	return {
-		secret,
-		version
-	}
-};
+exports.main = async () => ({
+  code: 'DEMO_DISABLED',
+  message: 'Demo cloud function is disabled in this project.'
+});

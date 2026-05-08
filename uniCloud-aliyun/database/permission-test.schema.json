@@ -3,9 +3,9 @@
 	"bsonType": "object",
 	"required": ["text"],
 	"permission": {
-		"read": true,
-		"create": "auth.uid != null",
-		"update":"'AUDITOR' in auth.role || 'P_TEST_UPDATE' in auth.permission || auth.uid == doc.uid",
+		"read": false,
+		"create": false,
+		"update": false,
 		"delete": false
 	},
 	"properties": {
@@ -36,7 +36,7 @@
 		"phone":{
 			"bsonType":"string",
 			"permission":{
-				"read":"auth.uid != null"
+				"read":false
 			}
 		}
 	}

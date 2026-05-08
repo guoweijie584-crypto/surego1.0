@@ -4,7 +4,24 @@ const db = uniCloud.database();
 const dbCmd = db.command;
 const collection = db.collection('surego-activities');
 const applications = db.collection('surego-applications');
-const uniIdUsers = db.collection('uni-id-users');
+const {
+  authRequired,
+  cleanArray,
+  cleanBool,
+  cleanEnum,
+  cleanId,
+  cleanInt,
+  cleanNumber,
+  cleanString,
+  cleanUrl,
+  forbidden,
+  invalid,
+  now,
+  ok,
+  optionalAuth,
+  requireAuth,
+  unknownAction
+} = require('surego-security');
 
 const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'];
 const publicLifecycleStatuses = ['published', 'recruiting', 'formed', 'ongoing'];
@@ -25,51 +42,6 @@ const legacyStatusMap = {
   approved: 'recruiting',
   rejected: 'recruiting'
 };
-
-function normalizeRoles(roles) {
-  if (!roles) return [];
-  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
-}
-
-async function findUniIdUser(userId) {
-  if (!userId || userId === 'mock_user') return null;
-  try {
-    const result = await uniIdUsers.doc(String(userId)).get();
-    return (result.data || [])[0] || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
-async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
-  const userRecord = await findUniIdUser(uid);
-  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
-  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
-  return {
-    uid,
-    roles,
-    exists: Boolean(userRecord && tokenValid),
-    isOps: roles.includes('admin') || roles.includes('operator')
-  };
-}
-
-function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
-}
 
 async function canEditActivity(id, user) {
   const result = await collection.doc(id).get();
@@ -135,58 +107,94 @@ function normalizeList(result) {
   return (result.data || []).map(normalizeActivity);
 }
 
-function withoutEmptyId(payload) {
-  const next = { ...payload };
-  if (!next.id) delete next.id;
-  delete next['is' + 'Creator'];
-  delete next.moderationStatus;
-  delete next.moderation_status;
-  delete next.moderationNote;
-  delete next.moderation_note;
-  delete next.moderatedAt;
-  delete next.moderated_at;
-  delete next.moderatedBy;
-  delete next.moderated_by;
+function normalizeQuestionList(value) {
+  return cleanArray(value, { max: 5 })
+    .map((item) => cleanString(item, { max: 50 }))
+    .filter(Boolean);
+}
+
+function sanitizeActivityPayload(payload = {}, options = {}) {
+  const partyMode = cleanEnum(payload.partyMode || payload.party_mode, ['free', 'sincerity', 'ticket'], 'free');
+  const amount = partyMode === 'free' ? 0 : cleanNumber(payload.amount, { min: 0, max: 99999, fallback: 0 });
+  const hasLimit = cleanBool(payload.hasParticipantLimit || payload.has_participant_limit, true);
+  const maxParticipants = hasLimit
+    ? cleanInt(payload.maxParticipants || payload.max_participants, { min: 1, max: 500, fallback: 10 })
+    : 0;
+  const next = {
+    title: cleanString(payload.title, { min: 1, max: 40 }),
+    category: cleanString(payload.category, { max: 32, fallback: 'other' }) || 'other',
+    organizer: cleanString(payload.organizer, { max: 40 }),
+    cover: cleanUrl(payload.cover || payload.image),
+    image: cleanUrl(payload.image || payload.cover),
+    date: cleanString(payload.date, { min: 1, max: 20 }),
+    time: cleanString(payload.time, { min: 1, max: 20 }),
+    end_time: cleanString(payload.endTime || payload.end_time, { max: 20 }),
+    location: cleanString(payload.location, { min: 1, max: 120 }),
+    address: cleanString(payload.address, { max: 200 }),
+    city: cleanString(payload.city, { max: 40 }),
+    city_code: cleanString(payload.cityCode || payload.city_code, { max: 20 }),
+    district: cleanString(payload.district, { max: 40 }),
+    latitude: cleanNumber(payload.latitude, { min: -90, max: 90, fallback: 0 }),
+    longitude: cleanNumber(payload.longitude, { min: -180, max: 180, fallback: 0 }),
+    max_participants: maxParticipants,
+    maxParticipants,
+    has_participant_limit: hasLimit,
+    hasParticipantLimit: hasLimit,
+    require_approval: cleanBool(payload.requireApproval || payload.require_approval, true),
+    requireApproval: cleanBool(payload.requireApproval || payload.require_approval, true),
+    party_mode: partyMode,
+    partyMode,
+    amount,
+    description: cleanString(payload.description, { min: 1, max: 300 }),
+    questions: normalizeQuestionList(payload.questions),
+    updated_at: now()
+  };
+  if (!next.title || !next.date || !next.time || !next.location || !next.description) {
+    return null;
+  }
+  if (options.create) {
+    next.status = 'reviewing';
+    next.moderation_status = 'pending';
+    next.created_at = now();
+  } else {
+    next.status = 'reviewing';
+    next.moderation_status = 'pending';
+  }
   return next;
 }
 
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = await resolveUserContext(event, payload);
+  const user = await optionalAuth(event);
 
   if (action === 'list') {
     const requestedLimit = Number(payload.limit) > 0 ? Number(payload.limit) : 20;
     const result = await collection.orderBy('created_at', 'desc').limit(Math.min(requestedLimit * 5, 100)).get();
-    return {
-      code: 0,
-      data: normalizeList(result).filter(isPubliclyVisibleActivity).slice(0, requestedLimit)
-    };
+    return ok(normalizeList(result).filter(isPubliclyVisibleActivity).slice(0, requestedLimit));
   }
 
   if (action === 'detail') {
     const result = await collection.doc(payload.id).get();
     const activity = normalizeActivity((result.data || [])[0]);
     if (!activity?.id) {
-      return { code: 0, data: null };
+      return ok(null);
     }
     const canView = isPubliclyVisibleActivity(activity)
-      || (user.exists && (user.isOps || String(activity.creator_id || activity.creatorId || '') === user.uid));
+      || (user && (user.isOps || String(activity.creator_id || activity.creatorId || '') === user.uid));
     if (!canView) {
-      return { code: 'FORBIDDEN', message: 'This activity is still under review.' };
+      return forbidden('This activity is not publicly visible.');
     }
-    return {
-      code: 0,
-      data: activity
-    };
+    return ok(activity);
   }
 
   if (action === 'listMine') {
-    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const currentUser = await requireAuth(event);
+    if (!currentUser) return authRequired();
     const [createdResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
-      collection.where({ creator_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      applications.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      applications.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
+      collection.where({ creator_id: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
+      applications.where({ user_id: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
+      applications.where({ userId: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
     ]);
     const seenApplications = new Set();
     const applicationItems = [...(snakeApplicationResult.data || []), ...(camelApplicationResult.data || [])]
@@ -210,90 +218,67 @@ exports.main = async (event) => {
       applicationStatus: applicationStatusByActivity[String(item._id || item.id)] || 'not_applied'
     });
     const joined = (joinedResult.data || []).map(withApplicationStatus);
-    return {
-      code: 0,
-      data: {
+    return ok({
         hosting: normalizeList(createdResult),
         joined: joined.filter((item) => item.applicationStatus === 'approved'),
         pending: joined.filter((item) => item.applicationStatus === 'pending'),
         rejected: joined.filter((item) => item.applicationStatus === 'rejected')
-      }
-    };
+    });
   }
 
   if (action === 'create') {
-    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    const activity = withoutEmptyId({
-      ...payload,
-      creatorId: user.uid,
-      creator_id: user.uid,
-      status: 'reviewing',
-      created_at: Date.now(),
-      updated_at: Date.now()
-    });
-    activity.moderation_status = 'pending';
+    const currentUser = await requireAuth(event);
+    if (!currentUser) return authRequired();
+    const activity = sanitizeActivityPayload(payload, { create: true });
+    if (!activity) return invalid('Activity title, date, time, location and description are required.');
+    activity.creatorId = currentUser.uid;
+    activity.creator_id = currentUser.uid;
     const result = await collection.add(activity);
-    return {
-      code: 0,
-      data: normalizeActivity({
+    return ok(normalizeActivity({
         ...activity,
         id: result.id
-      })
-    };
+    }));
   }
 
   if (action === 'update') {
-    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    const id = payload.id;
-    if (!(await canEditActivity(id, user))) {
-      return { code: 'FORBIDDEN', message: 'Only the creator can edit this activity.' };
+    const currentUser = await requireAuth(event);
+    if (!currentUser) return authRequired();
+    const id = cleanId(payload.id);
+    if (!id || !(await canEditActivity(id, currentUser))) {
+      return forbidden('Only the creator can edit this activity.');
     }
-    const updatePayload = withoutEmptyId({
-      ...payload,
-      creatorId: user.uid,
-      creator_id: user.uid,
-      updated_at: Date.now()
-    });
-    delete updatePayload._id;
+    const updatePayload = sanitizeActivityPayload(payload);
+    if (!updatePayload) return invalid('Activity title, date, time, location and description are required.');
+    updatePayload.creatorId = currentUser.uid;
+    updatePayload.creator_id = currentUser.uid;
     await collection.doc(id).update(updatePayload);
-    return {
-      code: 0,
-      data: normalizeActivity({
+    return ok(normalizeActivity({
         ...updatePayload,
         id
-      })
-    };
+    }));
   }
 
   if (action === 'updateStatus') {
-    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    const existing = await getCreatorActivity(payload.id, user);
+    const currentUser = await requireAuth(event);
+    if (!currentUser) return authRequired();
+    const existing = await getCreatorActivity(cleanId(payload.id), currentUser);
     if (!existing) {
-      return { code: 'FORBIDDEN', message: 'Only the creator can update this activity.' };
+      return forbidden('Only the creator can update this activity.');
     }
     const nextStatus = normalizeStatus(payload.status);
     if (!canTransitionStatus(existing, nextStatus)) {
-      return {
-        code: 'INVALID_TRANSITION',
-        message: `Cannot transition activity from ${normalizeStatus(existing.status)} to ${nextStatus}.`
-      };
+      return invalid('Invalid activity status transition.');
     }
     await collection.doc(payload.id).update({
       status: nextStatus,
       ...(nextStatus === 'reviewing' ? { moderation_status: 'pending' } : {}),
-      updated_at: Date.now()
+      updated_at: now()
     });
-    return {
-      code: 0,
-      data: {
+    return ok({
         id: payload.id,
         status: nextStatus
-      }
-    };
+    });
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

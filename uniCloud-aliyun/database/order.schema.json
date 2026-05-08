@@ -3,10 +3,10 @@
 	"bsonType": "object",
 	"required": [],
 	"permission": {
-		"read": true,
-		"create":true,
-		"delete":true,
-		"update":true
+		"read": false,
+		"create": false,
+		"delete": false,
+		"update": false
 	},
 	"properties": {
 		"book_id": {

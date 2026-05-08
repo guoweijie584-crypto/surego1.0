@@ -71,6 +71,7 @@ function readLocalUser() {
 
 function buildUserPayload(payload = {}) {
   const current = readLocalUser()
+  const roles = normalizeRoles(payload.roles || payload.role || current.roles || current.role)
   return {
     ...current,
     uid: payload.uid || payload.userId || getCurrentUserId(),
@@ -83,15 +84,27 @@ function buildUserPayload(payload = {}) {
     mbti: payload.mbti || current.mbti || '',
     bio: payload.bio || current.bio || '',
     quote: payload.quote || current.quote || '',
-    roles: normalizeRoles(payload.roles || payload.role || current.roles || current.role),
-    role: normalizeRoles(payload.roles || payload.role || current.roles || current.role)
+    roles,
+    role: roles
   }
 }
 
 function writeLocalUser(payload) {
   const next = buildUserPayload(payload)
-  uni.setStorageSync(STORAGE_KEY, next)
-  saveCurrentUserProfile(next)
+  const displayOnly = {
+    uid: next.uid,
+    userId: next.userId,
+    nickname: next.nickname,
+    avatar: next.avatar,
+    avatarFileId: next.avatarFileId,
+    profileCompletedAt: next.profileCompletedAt,
+    credit: next.credit,
+    mbti: next.mbti,
+    bio: next.bio,
+    quote: next.quote
+  }
+  uni.setStorageSync(STORAGE_KEY, displayOnly)
+  saveCurrentUserProfile(displayOnly)
   return next
 }
 

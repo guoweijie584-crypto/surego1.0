@@ -3,65 +3,42 @@
 const db = uniCloud.database();
 const collection = db.collection('surego-orders');
 const activityCollection = db.collection('surego-activities');
-const uniIdUsers = db.collection('uni-id-users');
-const ORDER_STATUSES = ['pending', 'paid', 'refunded', 'closed'];
+const applicationCollection = db.collection('surego-applications');
+const {
+  authRequired,
+  cleanId,
+  cleanString,
+  forbidden,
+  invalid,
+  now,
+  ok,
+  requireAuth,
+  unknownAction
+} = require('surego-security');
 
-function normalizeRoles(roles) {
-  if (!roles) return [];
-  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
-}
+const ORDER_STATUSES = ['pending', 'paid', 'refund_requested', 'refunded', 'closed'];
+const PAYABLE_ACTIVITY_TYPES = ['sincerity', 'ticket'];
 
-async function findUniIdUser(userId) {
-  if (!userId || userId === 'mock_user') return null;
-  try {
-    const result = await uniIdUsers.doc(String(userId)).get();
-    return (result.data || [])[0] || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
-async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
-  const userRecord = await findUniIdUser(uid);
-  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
-  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
-  return {
-    uid,
-    roles,
-    exists: Boolean(userRecord && tokenValid),
-    isOps: roles.includes('admin') || roles.includes('operator')
-  };
-}
-
-function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
+async function getActivity(activityId) {
+  const result = await activityCollection.doc(String(activityId || '')).get();
+  return (result.data || [])[0] || null;
 }
 
 async function canManageActivity(activityId, user) {
   if (user.isOps) return true;
-  const result = await activityCollection.doc(String(activityId || '')).get();
-  const found = (result.data || [])[0];
-  return Boolean(found && String(found.creator_id || found.creatorId || '') === user.uid);
+  const activity = await getActivity(activityId);
+  return Boolean(activity && String(activity.creator_id || activity.creatorId || '') === user.uid);
 }
 
 async function canEditOrder(id, user) {
   const result = await collection.doc(id).get();
   const found = (result.data || [])[0];
   return Boolean(found && String(found.user_id || found.userId || '') === user.uid);
+}
+
+async function getOrder(id) {
+  const result = await collection.doc(cleanId(id)).get();
+  return (result.data || [])[0] || null;
 }
 
 function normalizeStatus(status = 'pending') {
@@ -88,199 +65,204 @@ function normalizeOrder(item = {}) {
 }
 
 function normalizeList(result) {
-  return (result.data || []).map(normalizeOrder);
+  const seen = new Set();
+  return (result.data || [])
+    .filter((item) => {
+      const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(normalizeOrder);
 }
 
 function buildRecord(payload = {}) {
-  const activityId = String(payload.activityId || payload.activity_id || '');
-  const userId = payload.userId || payload.user_id;
+  const activityId = cleanId(payload.activityId || payload.activity_id);
+  const userId = cleanId(payload.userId || payload.user_id);
   const record = {
-    ...payload,
     activityId,
     activity_id: activityId,
     userId,
     user_id: userId,
+    type: cleanString(payload.type, { max: 20 }),
     amount: Number(payload.amount) || 0,
-    status: normalizeStatus(payload.status),
-    activity_title: payload.activityTitle || payload.activity_title || payload.title || '',
-    activity_cover: payload.activityCover || payload.activity_cover || payload.image || '',
-    refund_note: payload.refundNote || payload.refund_note || '',
-    close_reason: payload.closeReason || payload.close_reason || '',
-    updated_at: Date.now()
+    status: normalizeStatus(payload.status || 'pending'),
+    activity_title: cleanString(payload.activityTitle || payload.activity_title || payload.title, { max: 80 }),
+    activity_cover: cleanString(payload.activityCover || payload.activity_cover || payload.image, { max: 500 }),
+    refund_note: cleanString(payload.refundNote || payload.refund_note, { max: 200 }),
+    close_reason: cleanString(payload.closeReason || payload.close_reason, { max: 200 }),
+    updated_at: now()
   };
-  if (!record.id) delete record.id;
-  delete record._id;
-  if (!record.created_at) record.created_at = Date.now();
+  if (payload.id) record.id = payload.id;
+  if (payload.created_at || payload.createdAt) {
+    record.created_at = payload.created_at || payload.createdAt;
+  } else {
+    record.created_at = now();
+  }
   return record;
 }
 
 async function findOrderByActivity(payload = {}) {
-  const activityId = String(payload.activityId || payload.activity_id || '');
-  const userId = payload.userId || payload.user_id;
-  const result = await collection.where({ activityId, userId }).limit(1).get();
+  const activityId = cleanId(payload.activityId || payload.activity_id);
+  const userId = cleanId(payload.userId || payload.user_id);
+  let result = await collection.where({ activity_id: activityId, user_id: userId }).limit(1).get();
+  if (!(result.data || []).length) {
+    result = await collection.where({ activityId, userId }).limit(1).get();
+  }
   return (result.data || [])[0] || null;
+}
+
+async function getApprovedApplication(activityId, userId) {
+  let result = await applicationCollection.where({ activity_id: activityId, user_id: userId, status: 'approved' }).limit(1).get();
+  if (!(result.data || []).length) {
+    result = await applicationCollection.where({ activityId, userId, status: 'approved' }).limit(1).get();
+  }
+  return (result.data || [])[0] || null;
+}
+
+async function buildOrderForActivity(activityId, user) {
+  const activity = await getActivity(activityId);
+  if (!activity) return { error: { code: 'NOT_FOUND', message: 'Activity not found.' } };
+  if (String(activity.creator_id || activity.creatorId || '') === user.uid) {
+    return { error: forbidden('Creator does not need an order for own activity.') };
+  }
+  const type = String(activity.party_mode || activity.partyMode || '');
+  if (!PAYABLE_ACTIVITY_TYPES.includes(type)) {
+    return { error: invalid('This activity does not require an order.') };
+  }
+  const application = await getApprovedApplication(activityId, user.uid);
+  if (!application) {
+    return { error: forbidden('Approved application is required before creating an order.') };
+  }
+  return {
+    order: buildRecord({
+      activityId,
+      userId: user.uid,
+      user_id: user.uid,
+      type,
+      amount: Number(activity.amount) || 0,
+      status: 'pending',
+      activityTitle: activity.title || '',
+      activityCover: activity.cover || activity.image || ''
+    })
+  };
 }
 
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = await resolveUserContext(event, payload);
+  const user = await requireAuth(event);
 
-  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user) return authRequired();
 
-  if (action === 'create') {
-    const order = buildRecord({ ...payload, userId: user.uid, user_id: user.uid });
-    const result = await collection.add(order);
-    return {
-      code: 0,
-      data: normalizeOrder({
-        ...order,
-        id: result.id
-      })
-    };
-  }
+  if (action === 'create' || action === 'ensureForActivity') {
+    const activityId = cleanId(payload.activityId || payload.activity_id);
+    const found = await findOrderByActivity({ activityId, userId: user.uid, user_id: user.uid });
+    if (found) return ok(normalizeOrder(found));
 
-  if (action === 'ensureForActivity') {
-    const nextPayload = { ...payload, userId: user.uid, user_id: user.uid };
-    const found = await findOrderByActivity(nextPayload);
-    if (found) {
-      const nextOrder = buildRecord({
-        ...found,
-        ...nextPayload,
-        id: found._id || found.id,
-        created_at: found.created_at
-      });
-      await collection.doc(found._id || found.id).update(nextOrder);
-      return {
-        code: 0,
-        data: normalizeOrder(nextOrder)
-      };
-    }
-
-    const order = buildRecord(nextPayload);
-    const result = await collection.add(order);
-    return {
-      code: 0,
-      data: normalizeOrder({
-        ...order,
-        id: result.id
-      })
-    };
+    const built = await buildOrderForActivity(activityId, user);
+    if (built.error) return built.error;
+    const result = await collection.add(built.order);
+    return ok(normalizeOrder({ ...built.order, id: result.id }));
   }
 
   if (action === 'getForActivity') {
     const found = await findOrderByActivity({ ...payload, userId: user.uid, user_id: user.uid });
-    return {
-      code: 0,
-      data: found ? normalizeOrder(found) : null
-    };
+    return ok(found ? normalizeOrder(found) : null);
   }
 
   if (action === 'getDetail') {
-    const result = await collection.doc(payload.id).get();
+    const result = await collection.doc(cleanId(payload.id)).get();
     const found = (result.data || [])[0] || null;
     if (found && String(found.user_id || found.userId || '') !== user.uid && !(await canManageActivity(found.activity_id || found.activityId, user))) {
-      return { code: 'FORBIDDEN', message: 'You cannot read this order.' };
+      return forbidden('You cannot read this order.');
     }
-    return {
-      code: 0,
-      data: found ? normalizeOrder(found) : null
-    };
+    return ok(found ? normalizeOrder(found) : null);
   }
 
   if (action === 'updateStatus' || action === 'markPaid') {
-    if (!(await canEditOrder(payload.id, user))) {
-      return { code: 'FORBIDDEN', message: 'You cannot update this order.' };
+    const id = cleanId(payload.id);
+    const requestedStatus = action === 'markPaid' ? 'paid' : normalizeStatus(payload.status);
+    if (!user.isOps || payload.trusted !== true) {
+      return forbidden('Order status can only be updated by a trusted payment callback or operator.');
     }
-    const status = normalizeStatus(action === 'markPaid' ? 'paid' : payload.status);
+    if (!(await canEditOrder(id, user)) && !user.isOps) {
+      return forbidden('You cannot update this order.');
+    }
     const patch = {
-      status,
-      updated_at: Date.now()
+      status: requestedStatus,
+      updated_at: now()
     };
-    if (status === 'paid') patch.paid_at = Date.now();
-    if (status === 'refunded') {
-      patch.refunded_at = Date.now();
-      patch.refund_note = payload.refundNote || payload.refund_note || '';
+    if (requestedStatus === 'paid') patch.paid_at = now();
+    if (requestedStatus === 'refunded') {
+      patch.refunded_at = now();
+      patch.refund_note = cleanString(payload.refundNote || payload.refund_note, { max: 200 });
     }
-    if (status === 'closed') {
-      patch.closed_at = Date.now();
-      patch.close_reason = payload.closeReason || payload.close_reason || '';
+    if (requestedStatus === 'closed') {
+      patch.closed_at = now();
+      patch.close_reason = cleanString(payload.closeReason || payload.close_reason, { max: 200 });
     }
-    await collection.doc(payload.id).update(patch);
-    return {
-      code: 0,
-      data: normalizeOrder({
-        id: payload.id,
-        ...patch
-      })
-    };
+    await collection.doc(id).update(patch);
+    return ok(normalizeOrder({ id, ...patch }));
   }
 
   if (action === 'refund') {
-    if (!(await canEditOrder(payload.id, user))) {
-      return { code: 'FORBIDDEN', message: 'You cannot refund this order.' };
+    const id = cleanId(payload.id);
+    const order = await getOrder(id);
+    if (!order || String(order.user_id || order.userId || '') !== user.uid) {
+      return forbidden('You cannot request refund for this order.');
     }
-    const refundedAt = Date.now();
+    if (normalizeStatus(order.status) !== 'paid') {
+      return forbidden('Only paid orders can request a refund.');
+    }
     const patch = {
-      status: 'refunded',
-      refund_note: payload.refundNote || payload.refund_note || '模拟退款已记录',
-      refunded_at: refundedAt,
-      updated_at: refundedAt
+      status: 'refund_requested',
+      refund_note: cleanString(payload.refundNote || payload.refund_note || 'Refund requested.', { max: 200 }),
+      updated_at: now()
     };
-    await collection.doc(payload.id).update(patch);
-    return {
-      code: 0,
-      data: normalizeOrder({
-        id: payload.id,
-        ...patch
-      })
-    };
+    await collection.doc(id).update(patch);
+    return ok(normalizeOrder({ id, ...patch }));
   }
 
   if (action === 'close') {
-    if (!(await canEditOrder(payload.id, user))) {
-      return { code: 'FORBIDDEN', message: 'You cannot close this order.' };
+    const id = cleanId(payload.id);
+    const order = await getOrder(id);
+    if (!order || String(order.user_id || order.userId || '') !== user.uid) {
+      return forbidden('You cannot close this order.');
     }
-    const closedAt = Date.now();
+    if (normalizeStatus(order.status) !== 'pending') {
+      return forbidden('Only pending orders can be closed by the user.');
+    }
+    const closedAt = now();
     const patch = {
       status: 'closed',
-      close_reason: payload.closeReason || payload.close_reason || '订单已关闭',
+      close_reason: cleanString(payload.closeReason || payload.close_reason || 'Order closed.', { max: 200 }),
       closed_at: closedAt,
       updated_at: closedAt
     };
-    await collection.doc(payload.id).update(patch);
-    return {
-      code: 0,
-      data: normalizeOrder({
-        id: payload.id,
-        ...patch
-      })
-    };
+    await collection.doc(id).update(patch);
+    return ok(normalizeOrder({ id, ...patch }));
   }
 
   if (action === 'list') {
-    const userId = user.uid;
-    const result = await collection.where({ userId }).orderBy('created_at', 'desc').limit(payload.limit || 20).get();
-    return {
-      code: 0,
-      data: normalizeList(result)
-    };
+    const [snakeResult, camelResult] = await Promise.all([
+      collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 20).get(),
+      collection.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 20).get()
+    ]);
+    return ok(normalizeList({ data: [...(snakeResult.data || []), ...(camelResult.data || [])] }));
   }
 
   if (action === 'listByActivity') {
-    const activityId = String(payload.activityId || payload.activity_id || '');
+    const activityId = cleanId(payload.activityId || payload.activity_id);
     if (!(await canManageActivity(activityId, user))) {
-      return { code: 'FORBIDDEN', message: 'Only the activity creator can list activity orders.' };
+      return forbidden('Only the activity creator can list activity orders.');
     }
-    const result = await collection.where({ activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get();
-    return {
-      code: 0,
-      data: normalizeList(result)
-    };
+    const [snakeResult, camelResult] = await Promise.all([
+      collection.where({ activity_id: activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
+      collection.where({ activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
+    ]);
+    return ok(normalizeList({ data: [...(snakeResult.data || []), ...(camelResult.data || [])] }));
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

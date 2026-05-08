@@ -1,0 +1,9 @@
+{
+  "name": "surego-security",
+  "version": "1.0.0",
+  "description": "Shared SureGo cloud function security helpers",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id": "file:../../../../uni_modules/uni-id/uniCloud/cloudfunctions/common/uni-id"
+  }
+}

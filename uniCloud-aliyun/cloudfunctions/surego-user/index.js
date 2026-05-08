@@ -6,6 +6,17 @@ const profileCollection = db.collection('surego-users');
 const uniIdUsers = db.collection('uni-id-users');
 const activityCollection = db.collection('surego-activities');
 const applicationCollection = db.collection('surego-applications');
+const {
+  authRequired: sharedAuthRequired,
+  cleanArray,
+  cleanId,
+  cleanString,
+  forbidden,
+  invalid,
+  ok,
+  requireAuth,
+  unknownAction
+} = require('surego-security');
 
 const ROLE_VALUES = ['user', 'operator', 'admin'];
 const DEFAULT_ROLE = 'user';
@@ -43,10 +54,7 @@ function hasOpsRole(roles) {
 }
 
 function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
+  return sharedAuthRequired();
 }
 
 function permissionDenied() {
@@ -237,16 +245,6 @@ async function findUniIdUser(userId) {
   }
 }
 
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
 async function ensureDefaultRole(userId) {
   const user = await findUniIdUser(userId);
   if (!user) return null;
@@ -258,20 +256,14 @@ async function ensureDefaultRole(userId) {
 }
 
 async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
-  if (!uid || uid === 'mock_user') {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
-  }
-  const userRecord = await findUniIdUser(uid);
-  if (!isTokenOwnedByUser(userRecord, event.uniIdToken)) {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
-  }
-  const roles = await ensureDefaultRole(uid);
+  const checked = await requireAuth(event);
+  if (!checked) return { uid: '', roles: [], exists: false, isAdmin: false, isOps: false };
+  const roles = await ensureDefaultRole(checked.uid);
   if (!roles) {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+    return { uid: checked.uid, roles: [], exists: false, isAdmin: false, isOps: false };
   }
   return {
-    uid,
+    uid: checked.uid,
     roles,
     exists: true,
     isAdmin: hasAdminRole(roles),
@@ -282,13 +274,13 @@ async function resolveUserContext(event = {}, payload = {}) {
 function buildProfile(payload = {}, user) {
   return {
     user_id: user.uid,
-    nickname: payload.nickname || '',
-    avatar: payload.avatar || '',
-    avatar_file_id: payload.avatarFileId || payload.avatar_file_id || '',
+    nickname: cleanString(payload.nickname, { max: 40 }),
+    avatar: cleanString(payload.avatar, { max: 500 }),
+    avatar_file_id: cleanString(payload.avatarFileId || payload.avatar_file_id, { max: 500 }),
     profile_completed_at: payload.profileCompletedAt || payload.profile_completed_at || 0,
-    mbti: payload.mbti || '',
-    bio: payload.bio || '',
-    quote: payload.quote || '',
+    mbti: cleanString(payload.mbti, { max: 8 }),
+    bio: cleanString(payload.bio, { max: 160 }),
+    quote: cleanString(payload.quote, { max: 120 }),
     credit: Number(payload.credit) || 100,
     roles: normalizeRoles(user.roles),
     updated_at: now()
@@ -346,13 +338,15 @@ exports.main = async (event) => {
   if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'profile') {
-    const found = await findByUserId(payload.userId || payload.user_id || user.uid);
-    return {
-      code: 0,
-      data: found
+    const requestedUserId = cleanId(payload.userId || payload.user_id || user.uid);
+    if (requestedUserId && requestedUserId !== user.uid && !user.isOps) {
+      return forbidden('You cannot read another user profile.');
+    }
+    const found = await findByUserId(user.uid);
+    return ok(found
         ? normalizeProfile({ ...found, roles: user.roles })
         : normalizeProfile({ user_id: user.uid, roles: user.roles })
-    };
+    );
   }
 
   if (action === 'publicProfile') {
@@ -363,14 +357,11 @@ exports.main = async (event) => {
       findUniIdUser(targetUserId),
       listPublicActivitiesForUser(targetUserId)
     ]);
-    return {
-      code: 0,
-      data: normalizePublicProfile(found || {
+    return ok(normalizePublicProfile(found || {
         user_id: targetUserId,
         nickname: uniIdUser?.nickname || uniIdUser?.username || '',
         avatar: uniIdUser?.avatar || ''
-      }, activitySummary)
-    };
+    }, activitySummary));
   }
 
   if (action === 'updateProfile') {
@@ -378,47 +369,38 @@ exports.main = async (event) => {
     const profile = buildProfile(payload, user);
     if (found) {
       await profileCollection.doc(found._id).update(profile);
-      return {
-        code: 0,
-        data: normalizeProfile({ ...found, ...profile })
-      };
+      return ok(normalizeProfile({ ...found, ...profile }));
     }
     const record = {
       ...profile,
       created_at: now()
     };
     const result = await profileCollection.add(record);
-    return {
-      code: 0,
-      data: normalizeProfile({ ...record, _id: result.id || result._id })
-    };
+    return ok(normalizeProfile({ ...record, _id: result.id || result._id }));
   }
 
   if (action === 'getProfiles') {
-    const ids = Array.from(new Set((payload.userIds || payload.user_ids || []).map(String).filter(Boolean)));
+    const ids = Array.from(new Set(cleanArray(payload.userIds || payload.user_ids, { max: 50 }).map(cleanId).filter(Boolean)));
     if (!ids.length) {
-      return { code: 0, data: [] };
+      return ok([]);
+    }
+    if (!user.isOps && !(ids.length === 1 && ids[0] === user.uid)) {
+      return forbidden('Batch profile lookup is restricted.');
     }
     const result = await profileCollection.where({ user_id: db.command.in(ids) }).limit(ids.length).get();
-    return {
-      code: 0,
-      data: (result.data || []).map(normalizeProfile)
-    };
+    return ok((result.data || []).map(normalizeProfile));
   }
 
   if (action === 'listUsers') {
     if (!user.isAdmin) return permissionDenied();
-    return {
-      code: 0,
-      data: await listUsers()
-    };
+    return ok(await listUsers());
   }
 
   if (action === 'updateUserRoles') {
     if (!user.isAdmin) return permissionDenied();
     const targetUserId = String(payload.targetUserId || payload.userId || payload.user_id || '');
     const roles = normalizeRoles(payload.roles || payload.role);
-    if (!targetUserId) return authRequired();
+    if (!targetUserId) return invalid('Target user is required.');
     const currentTarget = await findUniIdUser(targetUserId);
     if (!currentTarget) {
       return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
@@ -430,14 +412,8 @@ exports.main = async (event) => {
     }
     await uniIdUsers.doc(targetUserId).update({ role: roles });
     const profile = await syncProfileRoles(targetUserId, roles, user.uid);
-    return {
-      code: 0,
-      data: normalizeUser({ ...(currentTarget || {}), _id: targetUserId, role: roles }, profile)
-    };
+    return ok(normalizeUser({ ...(currentTarget || {}), _id: targetUserId, role: roles }, profile));
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

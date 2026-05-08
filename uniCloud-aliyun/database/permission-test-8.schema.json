@@ -3,8 +3,8 @@
 	"bsonType": "object",
 	"required": [],
 	"permission": {
-		"read": "doc.create_time > (now - 60000) && 'AUDITOR' in auth.role",
-		"create":true
+		"read": false,
+		"create": false
 	},
 	"properties": {
 		"_id": {

@@ -3,7 +3,7 @@
   "required": ["activity_id", "user_id", "status"],
   "permission": {
     "read": "doc.user_id == auth.uid",
-    "create": "auth.uid != null",
+    "create": false,
     "update": false,
     "delete": false
   },

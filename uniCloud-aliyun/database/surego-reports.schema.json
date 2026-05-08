@@ -2,9 +2,9 @@
   "bsonType": "object",
   "required": ["activity_id", "reporter_id", "status", "reason"],
   "permission": {
-    "read": "auth.uid != null",
-    "create": "auth.uid != null",
-    "update": "auth.role.indexOf('admin') > -1 || auth.role.indexOf('operator') > -1",
+    "read": "doc.reporter_id == auth.uid || 'admin' in auth.role || 'operator' in auth.role",
+    "create": false,
+    "update": "'admin' in auth.role || 'operator' in auth.role",
     "delete": false
   },
   "properties": {

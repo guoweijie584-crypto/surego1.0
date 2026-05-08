@@ -1,0 +1,22 @@
+{
+  "bsonType": "object",
+  "required": ["activity_id", "user_id", "code", "expires_at", "used"],
+  "permission": {
+    "read": false,
+    "create": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Check-in code id" },
+    "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "user_id": { "bsonType": "string", "title": "User id" },
+    "code": { "bsonType": "string", "title": "Short-lived check-in code" },
+    "created_by": { "bsonType": "string", "title": "Creator user id" },
+    "expires_at": { "bsonType": "timestamp", "title": "Expires at" },
+    "used": { "bsonType": "bool", "title": "Used flag" },
+    "used_at": { "bsonType": "timestamp", "title": "Used at" },
+    "used_by": { "bsonType": "string", "title": "Used by" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" }
+  }
+}

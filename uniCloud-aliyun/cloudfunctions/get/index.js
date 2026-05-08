@@ -1,7 +1,6 @@
 'use strict';
-const db = uniCloud.database()
-exports.main = async (event, context) => {
-	const collection = db.collection('unicloud-test')
-	const res = await collection.limit(10).get()
-	return res
-};
+
+exports.main = async () => ({
+  code: 'DEMO_DISABLED',
+  message: 'Demo cloud function is disabled in this project.'
+});

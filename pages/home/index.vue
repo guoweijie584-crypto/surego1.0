@@ -156,10 +156,11 @@ const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unre
 
 async function loadData() {
   refreshCurrentAvatar()
+  const loggedIn = isLoggedIn()
   const [activities, groups, unread] = await Promise.all([
     listActivities(),
-    listMyActivities(),
-    getUnreadMessageCount()
+    loggedIn ? listMyActivities() : Promise.resolve({ hosting: [], joined: [], pending: [] }),
+    loggedIn ? getUnreadMessageCount() : Promise.resolve(0)
   ])
   allActivities.value = activities
   myGroups.value = groups

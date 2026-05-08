@@ -1,0 +1,9 @@
+{
+  "name": "surego-checkin",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "surego-security": "file:../common/surego-security",
+    "uni-id": "file:../../../uni_modules/uni-id/uniCloud/cloudfunctions/common/uni-id"
+  }
+}

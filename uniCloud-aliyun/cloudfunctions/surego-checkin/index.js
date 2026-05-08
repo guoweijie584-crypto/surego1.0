@@ -1,98 +1,23 @@
 'use strict';
 
+const crypto = require('crypto');
 const db = uniCloud.database();
 const collection = db.collection('surego-checkins');
+const codeCollection = db.collection('surego-checkin-codes');
 const activityCollection = db.collection('surego-activities');
 const applicationCollection = db.collection('surego-applications');
 const orderCollection = db.collection('surego-orders');
-const uniIdUsers = db.collection('uni-id-users');
-
-function now() {
-  return Date.now();
-}
-
-function normalizeRoles(roles) {
-  if (!roles) return [];
-  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
-}
-
-async function findUniIdUser(userId) {
-  if (!userId || userId === 'mock_user') return null;
-  try {
-    const result = await uniIdUsers.doc(String(userId)).get();
-    return (result.data || [])[0] || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
-async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.checkedBy || payload.checked_by || payload.userId || payload.user_id || '');
-  const userRecord = await findUniIdUser(uid);
-  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
-  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
-  return {
-    uid,
-    roles,
-    exists: Boolean(userRecord && tokenValid),
-    isOps: roles.includes('admin') || roles.includes('operator')
-  };
-}
-
-function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
-}
-
-async function getActivity(activityId) {
-  const result = await activityCollection.doc(String(activityId || '')).get();
-  return (result.data || [])[0] || null;
-}
-
-async function canManageActivity(activityId, user) {
-  if (user.isOps) return true;
-  const activity = await getActivity(activityId);
-  return Boolean(activity && String(activity.creator_id || activity.creatorId || '') === user.uid);
-}
-
-async function canParticipantCheckIn(activityId, userId) {
-  let applications = await applicationCollection
-    .where({ activity_id: String(activityId || ''), user_id: userId })
-    .limit(1)
-    .get();
-  if (!(applications.data || []).length) {
-    applications = await applicationCollection
-    .where({ activityId: String(activityId || ''), userId })
-    .limit(1)
-    .get();
-  }
-  const application = (applications.data || [])[0];
-  if (!application || application.status !== 'approved') return false;
-  let orders = await orderCollection
-    .where({ activity_id: String(activityId || ''), user_id: userId })
-    .limit(1)
-    .get();
-  if (!(orders.data || []).length) {
-    orders = await orderCollection
-    .where({ activityId: String(activityId || ''), userId })
-    .limit(1)
-    .get();
-  }
-  const order = (orders.data || [])[0];
-  return !order || order.status === 'paid';
-}
+const {
+  authRequired,
+  cleanId,
+  cleanString,
+  forbidden,
+  invalid,
+  now,
+  ok,
+  requireAuth,
+  unknownAction
+} = require('surego-security');
 
 function normalizeCheckin(record = {}) {
   return {
@@ -113,172 +38,209 @@ function normalizeList(result = {}) {
   return (result.data || []).map(normalizeCheckin);
 }
 
+function isValidCheckinCode(code = '') {
+  return /^SG[A-Z0-9]{12,64}$/.test(String(code || '').trim().toUpperCase());
+}
+
+function normalizeCheckinCode(code = '') {
+  const matched = String(code || '').toUpperCase().match(/SG[A-Z0-9]{12,64}/);
+  return matched ? matched[0] : '';
+}
+
+async function getActivity(activityId) {
+  const result = await activityCollection.doc(cleanId(activityId)).get();
+  return (result.data || [])[0] || null;
+}
+
+async function canManageActivity(activityId, user) {
+  if (user.isOps) return true;
+  const activity = await getActivity(activityId);
+  return Boolean(activity && String(activity.creator_id || activity.creatorId || '') === user.uid);
+}
+
+async function canParticipantCheckIn(activityId, userId) {
+  let applications = await applicationCollection
+    .where({ activity_id: cleanId(activityId), user_id: cleanId(userId) })
+    .limit(1)
+    .get();
+  if (!(applications.data || []).length) {
+    applications = await applicationCollection
+      .where({ activityId: cleanId(activityId), userId: cleanId(userId) })
+      .limit(1)
+      .get();
+  }
+  const application = (applications.data || [])[0];
+  if (!application || application.status !== 'approved') return false;
+  let orders = await orderCollection
+    .where({ activity_id: cleanId(activityId), user_id: cleanId(userId) })
+    .limit(1)
+    .get();
+  if (!(orders.data || []).length) {
+    orders = await orderCollection
+      .where({ activityId: cleanId(activityId), userId: cleanId(userId) })
+      .limit(1)
+      .get();
+  }
+  const order = (orders.data || [])[0];
+  return !order || order.status === 'paid';
+}
+
 function buildRecord(payload = {}) {
-  const checkedAt = payload.checkedAt || payload.checked_at || now();
+  const checkedAt = now();
   return {
-    activity_id: String(payload.activityId || payload.activity_id || ''),
-    user_id: payload.userId || payload.user_id,
-    code: payload.code || '',
-    status: payload.status || 'checked',
-    checked_by: payload.checkedBy || payload.checked_by,
-    source: payload.source || 'manual',
-    remark: payload.remark || '',
+    activity_id: cleanId(payload.activityId || payload.activity_id),
+    user_id: cleanId(payload.userId || payload.user_id),
+    code: normalizeCheckinCode(payload.code),
+    status: 'checked',
+    checked_by: cleanId(payload.checkedBy || payload.checked_by),
+    source: cleanString(payload.source || 'manual', { max: 20 }),
+    remark: cleanString(payload.remark, { max: 120 }),
     checked_at: checkedAt,
-    created_at: payload.createdAt || payload.created_at || checkedAt
+    created_at: checkedAt
   };
 }
 
 async function findExistingCheckin(activityId, userId) {
-  const result = await collection
-    .where({
-      activity_id: String(activityId || ''),
-      user_id: userId
-    })
+  let result = await collection
+    .where({ activity_id: cleanId(activityId), user_id: cleanId(userId) })
     .limit(1)
     .get();
+  if (!(result.data || []).length) {
+    result = await collection
+      .where({ activityId: cleanId(activityId), userId: cleanId(userId) })
+      .limit(1)
+      .get();
+  }
   return (result.data || [])[0] || null;
 }
 
 async function getActivityCheckins(activityId) {
   const result = await collection
-    .where({ activity_id: String(activityId) })
+    .where({ activity_id: cleanId(activityId) })
     .orderBy('checked_at', 'desc')
     .get();
   return normalizeList(result);
 }
 
-function isValidCheckinCode(code = '') {
-  return /^SG\d{4,}$/.test(String(code || '').trim());
-}
-
-function hashToDigits(value = '') {
-  let hash = 2166136261;
-  String(value).split('').forEach((char) => {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  });
-  return String(hash).padStart(10, '0').slice(0, 10);
-}
-
-function normalizeCheckinCode(code = '') {
-  const matched = String(code || '').toUpperCase().match(/SG\d{4,}/);
-  return matched ? matched[0] : '';
-}
-
-function buildParticipantCheckinCode(activityId, userId) {
-  return `SG${hashToDigits(`${activityId}:${userId}`)}`;
+function generateCheckinCode() {
+  return `SG${crypto.randomBytes(16).toString('hex').toUpperCase()}`;
 }
 
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = await resolveUserContext(event, payload);
+  const user = await requireAuth(event);
 
-  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user) return authRequired();
 
   if (action === 'createCode') {
-    return {
-      code: 0,
-      data: {
-        activityId: String(payload.activityId || payload.activity_id || ''),
-        code: `SG${String(now()).slice(-6)}`,
-        expiresIn: 300
-      }
+    const activityId = cleanId(payload.activityId || payload.activity_id);
+    const targetUserId = cleanId(payload.userId || payload.user_id || user.uid);
+    if (targetUserId !== user.uid && !(await canManageActivity(activityId, user))) {
+      return forbidden('You cannot create a check-in code for this user.');
+    }
+    if (!(await canParticipantCheckIn(activityId, targetUserId))) {
+      return forbidden('This participant is not eligible for check-in.');
+    }
+    const code = generateCheckinCode();
+    const record = {
+      activity_id: activityId,
+      user_id: targetUserId,
+      code,
+      created_by: user.uid,
+      expires_at: now() + 5 * 60 * 1000,
+      used: false,
+      created_at: now()
     };
+    await codeCollection.add(record);
+    return ok({
+      activityId,
+      userId: targetUserId,
+      code,
+      expiresIn: 300
+    });
   }
 
   if (action === 'confirm') {
-    const source = payload.source || 'manual';
-    if (!isValidCheckinCode(payload.code)) {
-      return { code: 'INVALID_CHECKIN_CODE', message: 'Invalid SureGo check-in code.' };
+    const activityId = cleanId(payload.activityId || payload.activity_id);
+    const source = cleanString(payload.source || 'manual', { max: 20 });
+    const code = normalizeCheckinCode(payload.code);
+    if (!isValidCheckinCode(code)) {
+      return invalid('Invalid SureGo check-in code.');
     }
-    const activity = await getActivity(payload.activityId || payload.activity_id);
-    if (!activity) {
-      return { code: 'ACTIVITY_NOT_FOUND', message: 'Activity does not exist.' };
+    const activity = await getActivity(activityId);
+    if (!activity) return { code: 'ACTIVITY_NOT_FOUND', message: 'Activity does not exist.' };
+    if (!(await canManageActivity(activityId, user))) {
+      return forbidden('Only the activity creator can check in participants.');
     }
-    const targetUserId = source === 'participant' ? user.uid : (payload.userId || payload.user_id);
-    if (source !== 'participant' && !(await canManageActivity(payload.activityId || payload.activity_id, user))) {
-      return { code: 'FORBIDDEN', message: 'Only the activity creator can check in participants.' };
+    const codeResult = await codeCollection
+      .where({ activity_id: activityId, code, used: false })
+      .limit(1)
+      .get();
+    const codeRecord = (codeResult.data || [])[0];
+    if (!codeRecord || Number(codeRecord.expires_at || 0) < now()) {
+      return invalid('Check-in code is expired or invalid.');
     }
-    if (source !== 'participant' && !(await canParticipantCheckIn(payload.activityId || payload.activity_id, targetUserId))) {
-      return { code: 'FORBIDDEN', message: 'This participant is not eligible for check-in.' };
+    const targetUserId = cleanId(codeRecord.user_id);
+    const requestedUserId = cleanId(payload.userId || payload.user_id);
+    if (requestedUserId && requestedUserId !== targetUserId) {
+      return invalid('Check-in code does not belong to the selected participant.');
     }
-    if (source === 'participant' && !(await canParticipantCheckIn(payload.activityId || payload.activity_id, user.uid))) {
-      return { code: 'FORBIDDEN', message: 'This participant is not eligible for check-in.' };
+    if (!(await canParticipantCheckIn(activityId, targetUserId))) {
+      return forbidden('This participant is not eligible for check-in.');
     }
-    const expectedCode = buildParticipantCheckinCode(payload.activityId || payload.activity_id, targetUserId);
-    if (normalizeCheckinCode(payload.code) !== expectedCode) {
-      return { code: 'INVALID_CHECKIN_CODE', message: 'Check-in code does not match this participant.' };
-    }
+    const existing = await findExistingCheckin(activityId, targetUserId);
+    if (existing) return ok(normalizeCheckin(existing));
     const record = buildRecord({
-      ...payload,
+      activityId,
       userId: targetUserId,
-      user_id: targetUserId,
+      code,
+      source,
       checkedBy: user.uid,
-      checked_by: user.uid
+      remark: payload.remark
     });
-    const existing = await findExistingCheckin(record.activity_id, record.user_id);
-    if (existing) {
-      return {
-        code: 0,
-        data: normalizeCheckin(existing)
-      };
-    }
     const result = await collection.add(record);
-    return {
-      code: 0,
-      data: normalizeCheckin({
-        ...record,
-        _id: result.id || result._id
-      })
-    };
+    await codeCollection.doc(codeRecord._id || codeRecord.id).update({
+      used: true,
+      used_at: now(),
+      used_by: user.uid
+    });
+    return ok(normalizeCheckin({ ...record, _id: result.id || result._id }));
   }
 
   if (action === 'getForUser') {
-    const activityId = payload.activityId || payload.activity_id;
-    const userId = payload.userId || payload.user_id || user.uid;
+    const activityId = cleanId(payload.activityId || payload.activity_id);
+    const userId = cleanId(payload.userId || payload.user_id || user.uid);
     if (userId !== user.uid && !(await canManageActivity(activityId, user))) {
-      return { code: 'FORBIDDEN', message: 'You cannot read this check-in record.' };
+      return forbidden('You cannot read this check-in record.');
     }
     const found = await findExistingCheckin(activityId, userId);
-    return {
-      code: 0,
-      data: found ? normalizeCheckin(found) : null
-    };
+    return ok(found ? normalizeCheckin(found) : null);
   }
 
   if (action === 'listByActivity') {
-    const activityId = payload.activityId || payload.activity_id;
+    const activityId = cleanId(payload.activityId || payload.activity_id);
     if (!(await canManageActivity(activityId, user))) {
-      return { code: 'FORBIDDEN', message: 'Only the activity creator can list check-ins.' };
+      return forbidden('Only the activity creator can list check-ins.');
     }
-    return {
-      code: 0,
-      data: await getActivityCheckins(activityId)
-    };
+    return ok(await getActivityCheckins(activityId));
   }
 
   if (action === 'summary') {
-    const activityId = payload.activityId || payload.activity_id;
+    const activityId = cleanId(payload.activityId || payload.activity_id);
     if (!(await canManageActivity(activityId, user))) {
-      return { code: 'FORBIDDEN', message: 'Only the activity creator can read check-in summary.' };
+      return forbidden('Only the activity creator can read check-in summary.');
     }
     const totalCount = Number(payload.totalCount || payload.total_count || 0);
     const items = await getActivityCheckins(activityId);
-    return {
-      code: 0,
-      data: {
-        activityId: String(activityId || ''),
-        checkedCount: items.length,
-        totalCount,
-        pendingCount: Math.max(0, totalCount - items.length),
-        items
-      }
-    };
+    return ok({
+      activityId,
+      checkedCount: items.length,
+      totalCount,
+      pendingCount: Math.max(0, totalCount - items.length),
+      items
+    });
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

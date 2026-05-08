@@ -7,65 +7,26 @@ const auditLogs = db.collection('surego-audit-logs');
 const applications = db.collection('surego-applications');
 const orders = db.collection('surego-orders');
 const checkins = db.collection('surego-checkins');
-const uniIdUsers = db.collection('uni-id-users');
+const {
+  authRequired,
+  cleanEnum,
+  cleanId,
+  cleanString,
+  forbidden,
+  invalid,
+  now,
+  ok,
+  requireAuth,
+  requireOps,
+  unknownAction
+} = require('surego-security');
 
 const reportStatuses = ['pending', 'resolved', 'rejected'];
 const activityStatuses = ['pending', 'visible', 'approved', 'rejected', 'hidden'];
-
-function now() {
-  return Date.now();
-}
-
-function normalizeRoles(roles) {
-  if (!roles) return [];
-  return Array.isArray(roles) ? roles.map(String) : [String(roles)];
-}
-
-async function findUniIdUser(userId) {
-  if (!userId || userId === 'mock_user') return null;
-  try {
-    const result = await uniIdUsers.doc(String(userId)).get();
-    return (result.data || [])[0] || null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
-  const token = String(uniIdToken || '');
-  if (!userRecord || !token) return false;
-  const tokens = Array.isArray(userRecord.token) ? userRecord.token : [userRecord.token];
-  return tokens.some((item) => {
-    if (!item) return false;
-    return String(typeof item === 'string' ? item : item.token || item.value || '') === token;
-  });
-}
-
-async function resolveUserContext(event = {}, payload = {}) {
-  const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || payload.reporterId || payload.reporter_id || '');
-  const userRecord = await findUniIdUser(uid);
-  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
-  const roles = tokenValid ? normalizeRoles(userRecord?.role) : [];
-  return {
-    uid,
-    roles,
-    exists: Boolean(userRecord && tokenValid),
-    isOps: roles.includes('admin') || roles.includes('operator')
-  };
-}
-
-function authRequired() {
-  return {
-    code: 'AUTH_REQUIRED',
-    message: 'Please login before operating SureGo data.'
-  };
-}
+const reportReasons = ['content', 'fraud', 'spam', 'privacy', 'other'];
 
 function opsRequired() {
-  return {
-    code: 'FORBIDDEN',
-    message: 'Operator permission is required.'
-  };
+  return forbidden('Operator permission is required.');
 }
 
 function normalizeReportStatus(status = 'pending') {
@@ -112,7 +73,7 @@ async function writeAuditLog(payload = {}) {
     action: payload.action,
     target_type: payload.targetType || payload.target_type,
     target_id: payload.targetId || payload.target_id || '',
-    note: payload.note || '',
+    note: cleanString(payload.note, { max: 300 }),
     created_at: now()
   });
 }
@@ -128,94 +89,101 @@ function normalizeActivityList(result = {}) {
 exports.main = async (event) => {
   const action = event.action;
   const payload = event.payload || {};
-  const user = await resolveUserContext(event, payload);
+  const user = await requireAuth(event);
 
-  if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+  if (!user) return authRequired();
 
   if (action === 'createReport') {
-    const record = {
-      activity_id: payload.activityId || payload.activity_id || '',
-      activity_title: payload.activityTitle || payload.activity_title || '',
+    const activityId = cleanId(payload.activityId || payload.activity_id);
+    const activityResult = await activities.doc(activityId).get();
+    const activity = (activityResult.data || [])[0];
+    if (!activity) return { code: 'ACTIVITY_NOT_FOUND', message: 'Activity does not exist.' };
+    if (String(activity.creator_id || activity.creatorId || '') === user.uid) {
+      return forbidden('Creator cannot report own activity.');
+    }
+    const reason = cleanEnum(payload.reason, reportReasons, 'content');
+    const existing = await reports.where({
+      activity_id: activityId,
       reporter_id: user.uid,
-      reason: payload.reason || 'content',
-      note: payload.note || '',
+      reason,
+      status: 'pending'
+    }).limit(1).get();
+    const found = (existing.data || [])[0];
+    if (found) return ok(normalizeReport(found));
+    const record = {
+      activity_id: activityId,
+      activity_title: cleanString(activity.title || payload.activityTitle || payload.activity_title, { max: 80 }),
+      reporter_id: user.uid,
+      reason,
+      note: cleanString(payload.note, { max: 300 }),
       status: 'pending',
       created_at: now(),
       updated_at: now()
     };
     const result = await reports.add(record);
     await writeAuditLog({ operatorId: record.reporter_id, action: 'report.create', targetType: 'report', targetId: result.id, note: record.reason });
-    return {
-      code: 0,
-      data: normalizeReport({
-        ...record,
-        _id: result.id || result._id
-      })
-    };
+    return ok(normalizeReport({ ...record, _id: result.id || result._id }));
   }
 
   if (action === 'listReports') {
-    if (!user.isOps) return opsRequired();
+    if (!requireOps(user)) return opsRequired();
     const status = payload.status;
     const query = status && status !== 'all' ? reports.where({ status: normalizeReportStatus(status) }) : reports;
     const result = await query.orderBy('created_at', 'desc').limit(payload.limit || 100).get();
-    return {
-      code: 0,
-      data: normalizeReportList(result)
-    };
+    return ok(normalizeReportList(result));
   }
 
   if (action === 'updateReportStatus') {
-    if (!user.isOps) return opsRequired();
+    if (!requireOps(user)) return opsRequired();
+    const id = cleanId(payload.id);
     const status = normalizeReportStatus(payload.status);
+    const existing = await reports.doc(id).get();
+    if (!(existing.data || [])[0]) return { code: 'REPORT_NOT_FOUND', message: 'Report does not exist.' };
     const updatePayload = {
       status,
-      review_note: payload.reviewNote || payload.review_note || '',
+      review_note: cleanString(payload.reviewNote || payload.review_note, { max: 300 }),
       handled_by: user.uid,
       handled_at: now(),
       updated_at: now()
     };
-    await reports.doc(payload.id).update(updatePayload);
-    await writeAuditLog({ operatorId: updatePayload.handled_by, action: `report.${status}`, targetType: 'report', targetId: payload.id, note: updatePayload.review_note });
-    const result = await reports.doc(payload.id).get();
-    return {
-      code: 0,
-      data: normalizeReport((result.data || [])[0] || { _id: payload.id, ...updatePayload })
-    };
+    await reports.doc(id).update(updatePayload);
+    await writeAuditLog({ operatorId: updatePayload.handled_by, action: `report.${status}`, targetType: 'report', targetId: id, note: updatePayload.review_note });
+    const result = await reports.doc(id).get();
+    return ok(normalizeReport((result.data || [])[0] || { _id: id, ...updatePayload }));
   }
 
   if (action === 'listOpsActivities') {
-    if (!user.isOps) return opsRequired();
+    if (!requireOps(user)) return opsRequired();
     const result = await activities.orderBy('created_at', 'desc').limit(payload.limit || 100).get();
-    return {
-      code: 0,
-      data: normalizeActivityList(result)
-    };
+    return ok(normalizeActivityList(result));
   }
 
   if (action === 'moderateActivity') {
-    if (!user.isOps) return opsRequired();
-    const activityId = payload.activityId || payload.activity_id || payload.id;
+    if (!requireOps(user)) return opsRequired();
+    const activityId = cleanId(payload.activityId || payload.activity_id || payload.id);
+    const activityResult = await activities.doc(activityId).get();
+    if (!(activityResult.data || [])[0]) return { code: 'ACTIVITY_NOT_FOUND', message: 'Activity does not exist.' };
     const moderationStatus = normalizeActivityStatus(payload.moderationStatus || payload.moderation_status, { forWrite: true });
+    if (!activityStatuses.includes(moderationStatus)) return invalid('Invalid moderation status.');
     const updatePayload = {
       moderation_status: moderationStatus,
       ...(moderationStatus === 'approved' ? { status: 'recruiting' } : {}),
-      moderation_note: payload.moderationNote || payload.moderation_note || '',
+      moderation_note: cleanString(payload.moderationNote || payload.moderation_note, { max: 300 }),
       moderated_by: user.uid,
       moderated_at: now(),
       updated_at: now()
     };
+    if (['rejected', 'hidden'].includes(moderationStatus) && !updatePayload.moderation_note) {
+      return invalid('Moderation note is required for rejected or hidden activities.');
+    }
     await activities.doc(activityId).update(updatePayload);
     await writeAuditLog({ operatorId: updatePayload.moderated_by, action: `activity.${moderationStatus}`, targetType: 'activity', targetId: activityId, note: updatePayload.moderation_note });
     const result = await activities.doc(activityId).get();
-    return {
-      code: 0,
-      data: normalizeActivity((result.data || [])[0] || { _id: activityId, ...updatePayload })
-    };
+    return ok(normalizeActivity((result.data || [])[0] || { _id: activityId, ...updatePayload }));
   }
 
   if (action === 'getOpsStats') {
-    if (!user.isOps) return opsRequired();
+    if (!requireOps(user)) return opsRequired();
     const [activityResult, reportResult, applicationResult, orderResult, checkinResult] = await Promise.all([
       activities.limit(1000).get(),
       reports.limit(1000).get(),
@@ -228,25 +196,19 @@ exports.main = async (event) => {
     const orderItems = orderResult.data || [];
     const checkinItems = checkinResult.data || [];
     const totalParticipants = activityItems.reduce((sum, item) => sum + Number(item.participantCount || item.participant_count || 0), 0);
-    return {
-      code: 0,
-      data: {
-        activityCount: activityItems.length,
-        pendingReports: reportItems.filter((item) => item.status === 'pending').length,
-        pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'pending').length,
-        hiddenActivities: activityItems.filter((item) => item.moderation_status === 'hidden').length,
-        applicationCount: (applicationResult.data || []).length,
-        orderCount: orderItems.length,
-        paidOrderCount: orderItems.filter((item) => item.status === 'paid').length,
-        pendingOrderCount: orderItems.filter((item) => item.status === 'pending').length,
-        refundedOrderCount: orderItems.filter((item) => item.status === 'refunded').length,
-        checkinRate: totalParticipants ? Math.round((checkinItems.length / totalParticipants) * 100) : 0
-      }
-    };
+    return ok({
+      activityCount: activityItems.length,
+      pendingReports: reportItems.filter((item) => item.status === 'pending').length,
+      pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'pending').length,
+      hiddenActivities: activityItems.filter((item) => item.moderation_status === 'hidden').length,
+      applicationCount: (applicationResult.data || []).length,
+      orderCount: orderItems.length,
+      paidOrderCount: orderItems.filter((item) => item.status === 'paid').length,
+      pendingOrderCount: orderItems.filter((item) => item.status === 'pending').length,
+      refundedOrderCount: orderItems.filter((item) => item.status === 'refunded').length,
+      checkinRate: totalParticipants ? Math.round((checkinItems.length / totalParticipants) * 100) : 0
+    });
   }
 
-  return {
-    code: 'UNKNOWN_ACTION',
-    message: `Unsupported action: ${action}`
-  };
+  return unknownAction();
 };

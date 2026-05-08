@@ -2,15 +2,15 @@
   <view class="login" :style="contentTopStyle">
     <view class="login__nav" :style="navStyle">
       <view class="login__nav-row" :style="navRowStyle">
-      <view class="login__back" @tap="goBack">‹</view>
+        <view class="login__back" @tap="goBack">Back</view>
       </view>
     </view>
 
     <view class="login__hero">
-      <view class="login__logo">成</view>
-      <text class="login__eyebrow">SureGo 成行</text>
-      <text class="login__title">先认识一下，再一起出发</text>
-      <text class="login__desc">授权后可以发起活动、报名入局、查看票券和现场签到。</text>
+      <view class="login__logo">SG</view>
+      <text class="login__eyebrow">SureGo</text>
+      <text class="login__title">Sign in to continue</text>
+      <text class="login__desc">After signing in, you can create activities, apply, view tickets and check in.</text>
     </view>
 
     <view class="login__panel">
@@ -18,7 +18,7 @@
         <image class="login__avatar" :src="profile.avatar" mode="aspectFill" />
         <view class="login__profile-copy">
           <text class="login__name">{{ profile.nickname }}</text>
-          <text class="login__meta">{{ profile.mbti }} · 信用分 {{ profile.credit }}</text>
+          <text class="login__meta">{{ profile.mbti }} · Credit {{ profile.credit }}</text>
         </view>
       </view>
 
@@ -28,9 +28,9 @@
         :disabled="isLoggingIn"
         @tap="handleLogin"
       >
-        {{ isLoggingIn ? '授权中...' : '授权并继续' }}
+        {{ isLoggingIn ? 'Signing in...' : 'Sign in and continue' }}
       </button>
-      <view class="login__secondary" @tap="goBack">先逛逛</view>
+      <view class="login__secondary" @tap="goBack">Skip for now</view>
     </view>
 
     <SuWechatProfileSheet
@@ -48,7 +48,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, isSuregoProfileComplete, loginWithWeixin } from '@/common/api/auth.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, normalizeInternalUrl } from '@/common/utils/route.js'
 
 const redirect = ref('')
 const profile = ref(getCurrentUserProfile())
@@ -59,14 +59,13 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 32, minRightPadd
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 28 })
 
 onLoad((query = {}) => {
-  redirect.value = decodeURIComponent(query.redirect || '')
+  const rawRedirect = decodeURIComponent(query.redirect || '')
+  redirect.value = rawRedirect ? normalizeInternalUrl(rawRedirect, '') : ''
   profile.value = getCurrentUserProfile()
 })
 
 async function handleLogin() {
-  if (isLoggingIn.value) {
-    return
-  }
+  if (isLoggingIn.value) return
 
   isLoggingIn.value = true
   try {
@@ -80,14 +79,14 @@ async function handleLogin() {
     isLoggingIn.value = false
     if (!isSuregoProfileComplete(profile.value)) {
       profileSheetVisible.value = true
-      uni.showToast({ title: '登录成功，请完善资料', icon: 'none' })
+      uni.showToast({ title: 'Signed in. Complete your profile.', icon: 'none' })
       return
     }
 
-    finishLogin('授权成功')
+    finishLogin('Signed in')
   } catch (error) {
     isLoggingIn.value = false
-    uni.showToast({ title: '授权失败，请稍后再试', icon: 'none' })
+    uni.showToast({ title: 'Sign in failed. Try again later.', icon: 'none' })
   }
 }
 
@@ -97,12 +96,12 @@ function handleProfileSaved(user) {
     ...(user || {})
   }
   profileSheetVisible.value = false
-  finishLogin('资料已保存')
+  finishLogin('Profile saved')
 }
 
 function handleProfileSkipped() {
   profileSheetVisible.value = false
-  finishLogin('已登录，可稍后完善资料')
+  finishLogin('Signed in')
 }
 
 function finishLogin(title) {
@@ -166,78 +165,81 @@ function goBack() {
 }
 
 .login__back {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.86);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 54rpx;
+  min-width: 96rpx;
+  height: 64rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.86);
   color: #353b55;
+  font-size: 24rpx;
+  font-weight: 800;
 }
 
 .login__hero {
   display: flex;
   flex-direction: column;
   gap: 18rpx;
+  padding-top: 32rpx;
 }
 
 .login__logo {
-  width: 112rpx;
-  height: 112rpx;
-  border-radius: 36rpx;
-  background: #ff6b6b;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 32rpx;
+  background: #0f172a;
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 56rpx;
-  font-weight: 800;
-  box-shadow: 0 18rpx 44rpx rgba(255, 107, 107, 0.32);
+  font-size: 36rpx;
+  font-weight: 900;
+  box-shadow: 0 22rpx 48rpx rgba(15, 23, 42, 0.18);
 }
 
 .login__eyebrow {
-  font-size: 24rpx;
   color: #ff6b6b;
-  font-weight: 700;
+  font-size: 24rpx;
+  font-weight: 900;
+  letter-spacing: 6rpx;
+  text-transform: uppercase;
 }
 
 .login__title {
-  max-width: 560rpx;
-  font-size: 56rpx;
-  line-height: 1.12;
-  color: #353b55;
-  font-weight: 800;
+  color: #151826;
+  font-size: 58rpx;
+  font-weight: 900;
+  line-height: 1.08;
 }
 
 .login__desc {
-  max-width: 560rpx;
+  color: #697083;
   font-size: 28rpx;
   line-height: 1.7;
-  color: rgba(53, 59, 85, 0.66);
 }
 
 .login__panel {
-  margin-top: 96rpx;
-  padding: 28rpx;
-  border-radius: 40rpx;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 22rpx 70rpx rgba(53, 59, 85, 0.12);
+  margin-top: 56rpx;
+  padding: 34rpx;
+  border-radius: 44rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 28rpx 70rpx rgba(15, 23, 42, 0.1);
 }
 
 .login__profile {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  padding: 12rpx 8rpx 28rpx;
+  gap: 22rpx;
+  margin-bottom: 34rpx;
 }
 
 .login__avatar {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  background: #f1f2f4;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 36rpx;
+  background: #eef2f7;
 }
 
 .login__profile-copy {
@@ -247,28 +249,25 @@ function goBack() {
 }
 
 .login__name {
-  font-size: 32rpx;
-  color: #353b55;
-  font-weight: 800;
+  color: #151826;
+  font-size: 34rpx;
+  font-weight: 900;
 }
 
 .login__meta {
+  color: #7b8194;
   font-size: 24rpx;
-  color: rgba(53, 59, 85, 0.55);
 }
 
 .login__primary {
-  width: 100%;
   height: 96rpx;
+  border: 0;
   border-radius: 30rpx;
-  background: #ff6b6b;
+  background: #151826;
   color: #fff;
   font-size: 30rpx;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 18rpx 40rpx rgba(255, 107, 107, 0.28);
+  font-weight: 900;
+  line-height: 96rpx;
 }
 
 .login__primary--loading {
@@ -276,11 +275,10 @@ function goBack() {
 }
 
 .login__secondary {
-  height: 84rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(53, 59, 85, 0.58);
+  margin-top: 26rpx;
+  color: #7b8194;
   font-size: 26rpx;
+  font-weight: 800;
+  text-align: center;
 }
 </style>

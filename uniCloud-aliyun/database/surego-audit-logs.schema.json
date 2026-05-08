@@ -2,7 +2,7 @@
   "bsonType": "object",
   "required": ["operator_id", "action", "target_type", "target_id"],
   "permission": {
-    "read": "auth.role.indexOf('admin') > -1 || auth.role.indexOf('operator') > -1",
+    "read": "'admin' in auth.role || 'operator' in auth.role",
     "create": false,
     "update": false,
     "delete": false

@@ -204,7 +204,7 @@ export function getCurrentUserProfile() {
     ? (uniIdUser.avatar || localUser.avatar)
     : (uniIdUser.avatar || mockLogin.avatar || localUser.avatar)
   const roles = isStrictCloudAuthMode()
-    ? getUserRoles(cloudUser, uniIdUser, localUser)
+    ? getUserRoles(cloudUser, uniIdUser)
     : getUserRoles(cloudUser, uniIdUser, mockLogin, localUser)
 
   return {
@@ -268,13 +268,23 @@ export function persistUniIdSession(payload = {}, fallbackProfile = {}) {
   if (tokenExpired) {
     uni.setStorageSync(UNI_ID_TOKEN_EXPIRED_KEY, tokenExpired)
   }
-  uni.setStorageSync(UNI_ID_USER_KEY, userInfo)
+  uni.setStorageSync(UNI_ID_USER_KEY, {
+    uid: userInfo.uid,
+    _id: userInfo._id,
+    userId: userInfo.userId,
+    nickname: userInfo.nickname,
+    avatar: userInfo.avatar,
+    avatarFileId: userInfo.avatarFileId,
+    profileCompletedAt: userInfo.profileCompletedAt
+  })
   const currentLocal = readStorage(LOCAL_USER_KEY)
   uni.setStorageSync(LOCAL_USER_KEY, {
-    ...currentLocal,
-    ...userInfo,
+    uid: userInfo.uid,
+    userId: userInfo.userId,
     nickname: sanitizeNickname(userInfo.nickname || currentLocal.nickname),
-    avatar: sanitizeAvatar(userInfo.avatar || currentLocal.avatar)
+    avatar: sanitizeAvatar(userInfo.avatar || currentLocal.avatar),
+    avatarFileId: userInfo.avatarFileId || currentLocal.avatarFileId || '',
+    profileCompletedAt: userInfo.profileCompletedAt || currentLocal.profileCompletedAt || 0
   })
   return userInfo
 }
@@ -353,18 +363,30 @@ export async function loginWithWeixin(profile = {}) {
 export function saveCurrentUserProfile(profile = {}) {
   const current = getCurrentUserProfile()
   const next = {
-    ...current,
-    ...profile,
     uid: profile.uid || profile.userId || current.uid,
     userId: profile.userId || profile.uid || current.userId,
     nickname: sanitizeNickname(profile.nickname || current.nickname),
-    avatar: sanitizeAvatar(profile.avatar || current.avatar)
+    avatar: sanitizeAvatar(profile.avatar || current.avatar),
+    avatarFileId: profile.avatarFileId || profile.avatar_file_id || current.avatarFileId || '',
+    profileCompletedAt: profile.profileCompletedAt || profile.profile_completed_at || current.profileCompletedAt || 0,
+    credit: Number(profile.credit) || Number(current.credit) || 100,
+    mbti: profile.mbti || current.mbti || '',
+    bio: profile.bio || current.bio || '',
+    quote: profile.quote || current.quote || ''
   }
   uni.setStorageSync(LOCAL_USER_KEY, next)
   if (isLoggedIn()) {
+    const savedUniIdUser = readStorage(UNI_ID_USER_KEY)
     uni.setStorageSync(UNI_ID_USER_KEY, {
-      ...readStorage(UNI_ID_USER_KEY),
-      ...next
+      uid: next.uid,
+      _id: next.uid,
+      userId: next.userId,
+      nickname: next.nickname,
+      avatar: next.avatar,
+      avatarFileId: next.avatarFileId,
+      profileCompletedAt: next.profileCompletedAt,
+      role: savedUniIdUser.role,
+      roles: savedUniIdUser.roles
     })
   }
   if (shouldUseCloudFallback() && isLoggedIn()) {

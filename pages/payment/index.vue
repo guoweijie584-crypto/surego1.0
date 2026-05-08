@@ -62,7 +62,7 @@
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
-import { ensureOrderForActivity, getOrderStatusText, markOrderPaid } from '@/common/api/order.js'
+import { ensureOrderForActivity, getOrderStatusText } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
@@ -114,6 +114,8 @@ async function loadData(id = activity.value.id || '102') {
       activityTitle: activity.value.title,
       activityCover: activity.value.image
     })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '订单加载失败', icon: 'none' })
   } finally {
     hasLoadedOnce.value = true
     isPageLoading.value = false
@@ -130,16 +132,11 @@ async function handlePay() {
   }
 
   isPaying.value = true
-  const paid = await markOrderPaid(order.value.id, {
-    order: order.value,
-    activityTitle: activity.value.title,
-    activityCover: activity.value.image
-  })
-  order.value = { ...order.value, ...paid }
-  uni.showToast({ title: '支付成功', icon: 'none' })
-  setTimeout(() => {
-    goParticipantDashboard(activity.value.id, { replace: true })
-  }, 260)
+  try {
+    uni.showToast({ title: '试运营暂未接入支付渠道', icon: 'none' })
+  } finally {
+    isPaying.value = false
+  }
 }
 </script>
 

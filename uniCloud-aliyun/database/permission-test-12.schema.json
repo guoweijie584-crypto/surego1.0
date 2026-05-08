@@ -3,10 +3,10 @@
 	"bsonType": "object",
 	"required": [],
 	"permission": {
-		"read": true,
-		"create":true,
-		"update":true,
-		"delete":true
+		"read": false,
+		"create": false,
+		"update": false,
+		"delete": false
 	},
 	"properties": {
 		"_id": {
@@ -31,8 +31,8 @@
 				"$env":"clientIP"
 			},
 			"permission":{
-				"read":"'AUDITOR' in auth.role",
-				"write":"'AUDITOR' in auth.role"
+				"read":false,
+				"write":false
 			}
 		}
 	}

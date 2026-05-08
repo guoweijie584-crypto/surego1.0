@@ -1,4 +1,34 @@
-﻿import { isLoggedIn } from '@/common/api/auth.js'
+import { isLoggedIn } from '@/common/api/auth.js'
+
+export const ROUTE_ALLOWLIST = new Set([
+  '/pages/home/index',
+  '/pages/discover/index',
+  '/pages/discover/search',
+  '/pages/discover/city',
+  '/pages/calendar/index',
+  '/pages/activity/detail',
+  '/pages/activity/members',
+  '/pages/activity/register',
+  '/pages/activity/create',
+  '/pages/activity/edit',
+  '/pages/manage/dashboard',
+  '/pages/manage/checkin',
+  '/pages/participant/dashboard',
+  '/pages/order/detail',
+  '/pages/share/poster',
+  '/pages/my/activities',
+  '/pages/messages/index',
+  '/pages/auth/login',
+  '/pages/user/profile',
+  '/pages/user/detail',
+  '/pages/user/edit',
+  '/pages/ops/dashboard',
+  '/pages/ops/reports',
+  '/pages/ops/users',
+  '/pages/payment/index',
+  '/pages/status/success',
+  '/uni_modules/unicloud-city-select/pages/uni-city-list/uni-city-list'
+])
 
 function buildQuery(params = {}) {
   return Object.entries(params)
@@ -7,18 +37,35 @@ function buildQuery(params = {}) {
     .join('&')
 }
 
+export function normalizeInternalUrl(url, fallback = '/pages/home/index') {
+  const safeFallback = typeof fallback === 'string' ? fallback : '/pages/home/index'
+  const raw = String(url || '').trim()
+  if (!raw || raw.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(raw)) {
+    return safeFallback
+  }
+  const withoutHash = raw.split('#')[0]
+  const questionIndex = withoutHash.indexOf('?')
+  const path = questionIndex >= 0 ? withoutHash.slice(0, questionIndex) : withoutHash
+  const query = questionIndex >= 0 ? withoutHash.slice(questionIndex + 1) : ''
+  if (!path.startsWith('/') || !ROUTE_ALLOWLIST.has(path)) {
+    return safeFallback
+  }
+  return query ? `${path}?${query}` : path
+}
+
 function goToUrl(url, options = {}) {
+  const safeUrl = normalizeInternalUrl(url)
   if (options.root) {
-    uni.reLaunch({ url })
+    uni.reLaunch({ url: safeUrl })
     return
   }
 
   if (options.replace) {
-    uni.redirectTo({ url })
+    uni.redirectTo({ url: safeUrl })
     return
   }
 
-  uni.navigateTo({ url })
+  uni.navigateTo({ url: safeUrl })
 }
 
 const DEFAULT_WINDOW_WIDTH = 375
@@ -150,7 +197,10 @@ export function getCapsuleSafeAreaStyle(options = {}) {
 }
 
 export function goAuthLogin(params = {}) {
-  const query = buildQuery(params)
+  const query = buildQuery({
+    ...params,
+    redirect: params.redirect ? normalizeInternalUrl(params.redirect, '') : ''
+  })
   uni.navigateTo({
     url: `/pages/auth/login${query ? `?${query}` : ''}`
   })
@@ -188,36 +238,25 @@ export function goDiscover() {
 
 export function goSearch(keyword = '') {
   const query = buildQuery({ keyword })
-  uni.navigateTo({
-    url: `/pages/discover/search${query ? `?${query}` : ''}`
-  })
+  goToUrl(`/pages/discover/search${query ? `?${query}` : ''}`)
 }
 
 export function goCityPicker() {
-  uni.navigateTo({
-    url: '/pages/discover/city'
-  })
+  goToUrl('/pages/discover/city')
 }
 
 export function goCalendar(date = '') {
   const query = buildQuery({ date })
-  uni.navigateTo({
-    url: `/pages/calendar/index${query ? `?${query}` : ''}`
-  })
+  goToUrl(`/pages/calendar/index${query ? `?${query}` : ''}`)
 }
 
 export function goMessages() {
-  uni.navigateTo({
-    url: '/pages/messages/index'
-  })
+  goToUrl('/pages/messages/index')
 }
 
 export function goUserProfile() {
-  uni.navigateTo({
-    url: '/pages/user/profile'
-  })
+  goToUrl('/pages/user/profile')
 }
-
 
 export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
@@ -237,9 +276,7 @@ export function goOpsUsers(options = {}) {
 }
 
 export function goActivityEdit(id) {
-  uni.navigateTo({
-    url: `/pages/activity/edit?id=${encodeURIComponent(id)}`
-  })
+  goToUrl(`/pages/activity/edit?id=${encodeURIComponent(id)}`)
 }
 
 export function goManageDashboard(id, options = {}) {
@@ -257,7 +294,7 @@ export function goParticipantDashboard(id, options = {}) {
 export function goUserDetail(userId, options = {}) {
   const id = String(userId || '').trim()
   if (!id) {
-    uni.showToast({ title: '鏆傛棤鐢ㄦ埛淇℃伅', icon: 'none' })
+    uni.showToast({ title: 'No user profile', icon: 'none' })
     return
   }
   const activityId = options.activityId || options.activity_id || ''
@@ -278,15 +315,11 @@ export function goOrderDetail(id, options = {}) {
 }
 
 export function goSharePoster(id) {
-  uni.navigateTo({
-    url: `/pages/share/poster?id=${encodeURIComponent(id)}`
-  })
+  goToUrl(`/pages/share/poster?id=${encodeURIComponent(id)}`)
 }
 
 export function goMyActivities() {
-  uni.navigateTo({
-    url: '/pages/my/activities'
-  })
+  goToUrl('/pages/my/activities')
 }
 
 export function goPayment(params = {}, options = {}) {
@@ -297,7 +330,7 @@ export function goPayment(params = {}, options = {}) {
 export function goSuccess(params = {}) {
   const query = buildQuery(params)
   uni.redirectTo({
-    url: `/pages/status/success${query ? `?${query}` : ''}`
+    url: normalizeInternalUrl(`/pages/status/success${query ? `?${query}` : ''}`)
   })
 }
 
@@ -314,7 +347,7 @@ export function goDiscoverRoot() {
 }
 
 export function goBackOrFallback(fallbackUrl = '/pages/home/index') {
-  const safeFallbackUrl = typeof fallbackUrl === 'string' ? fallbackUrl : '/pages/home/index'
+  const safeFallbackUrl = normalizeInternalUrl(fallbackUrl)
   const pages = getCurrentPages()
   if (pages.length > 1) {
     uni.navigateBack()
@@ -338,7 +371,7 @@ export function goBackHome() {
   goBackOrFallback('/pages/home/index')
 }
 
-export function showComingSoon(title = '鍔熻兘寮€鍙戜腑') {
+export function showComingSoon(title = 'Coming soon') {
   uni.showToast({
     title,
     icon: 'none'
