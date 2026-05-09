@@ -18,7 +18,8 @@ const {
   ok,
   requireAuth,
   requireOps,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const reportStatuses = ['pending', 'resolved', 'rejected'];
@@ -86,7 +87,25 @@ function normalizeActivityList(result = {}) {
   return (result.data || []).map(normalizeActivity);
 }
 
-exports.main = async (event) => {
+async function sumTotalParticipants() {
+  const pageSize = 500;
+  let skip = 0;
+  let total = 0;
+  while (true) {
+    const result = await activities
+      .field({ participantCount: true, participant_count: true })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+    const items = result.data || [];
+    total += items.reduce((sum, item) => sum + Number(item.participantCount || item.participant_count || 0), 0);
+    if (items.length < pageSize) break;
+    skip += pageSize;
+  }
+  return total;
+}
+
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await requireAuth(event);
@@ -184,31 +203,53 @@ exports.main = async (event) => {
 
   if (action === 'getOpsStats') {
     if (!requireOps(user)) return opsRequired();
-    const [activityResult, reportResult, applicationResult, orderResult, checkinResult] = await Promise.all([
-      activities.limit(1000).get(),
-      reports.limit(1000).get(),
-      applications.limit(1000).get(),
-      orders.limit(1000).get(),
-      checkins.limit(1000).get()
+    const [
+      activityCountResult,
+      pendingReportResult,
+      reviewingActivityResult,
+      pendingModerationActivityResult,
+      hiddenActivityResult,
+      applicationCountResult,
+      orderCountResult,
+      paidOrderCountResult,
+      pendingOrderCountResult,
+      refundedOrderCountResult,
+      checkinCountResult,
+      totalParticipants
+    ] = await Promise.all([
+      activities.count(),
+      reports.where({ status: 'pending' }).count(),
+      activities.where({ status: 'reviewing' }).count(),
+      activities.where({ moderation_status: 'pending' }).count(),
+      activities.where({ moderation_status: 'hidden' }).count(),
+      applications.count(),
+      orders.count(),
+      orders.where({ status: 'paid' }).count(),
+      orders.where({ status: 'pending' }).count(),
+      orders.where({ status: 'refunded' }).count(),
+      checkins.count(),
+      sumTotalParticipants()
     ]);
-    const activityItems = activityResult.data || [];
-    const reportItems = reportResult.data || [];
-    const orderItems = orderResult.data || [];
-    const checkinItems = checkinResult.data || [];
-    const totalParticipants = activityItems.reduce((sum, item) => sum + Number(item.participantCount || item.participant_count || 0), 0);
+    const pendingActivities = Math.max(
+      Number(reviewingActivityResult.total || 0),
+      Number(pendingModerationActivityResult.total || 0)
+    );
+    const checkinCount = Number(checkinCountResult.total || 0);
     return ok({
-      activityCount: activityItems.length,
-      pendingReports: reportItems.filter((item) => item.status === 'pending').length,
-      pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'pending').length,
-      hiddenActivities: activityItems.filter((item) => item.moderation_status === 'hidden').length,
-      applicationCount: (applicationResult.data || []).length,
-      orderCount: orderItems.length,
-      paidOrderCount: orderItems.filter((item) => item.status === 'paid').length,
-      pendingOrderCount: orderItems.filter((item) => item.status === 'pending').length,
-      refundedOrderCount: orderItems.filter((item) => item.status === 'refunded').length,
-      checkinRate: totalParticipants ? Math.round((checkinItems.length / totalParticipants) * 100) : 0
+      activityCount: Number(activityCountResult.total || 0),
+      pendingReports: Number(pendingReportResult.total || 0),
+      pendingActivities,
+      hiddenActivities: Number(hiddenActivityResult.total || 0),
+      applicationCount: Number(applicationCountResult.total || 0),
+      orderCount: Number(orderCountResult.total || 0),
+      paidOrderCount: Number(paidOrderCountResult.total || 0),
+      pendingOrderCount: Number(pendingOrderCountResult.total || 0),
+      refundedOrderCount: Number(refundedOrderCountResult.total || 0),
+      checkinRate: totalParticipants ? Math.round((checkinCount / totalParticipants) * 100) : 0
     });
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

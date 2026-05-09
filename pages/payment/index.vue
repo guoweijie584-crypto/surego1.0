@@ -14,7 +14,12 @@
     </view>
 
     <view class="payment__content" :style="contentTopStyle">
-      <view class="pay-card">
+      <view v-if="loadError" class="pay-card payment__error">
+        <text class="payment__error-title">订单加载失败</text>
+        <text class="payment__error-text">{{ loadError }}</text>
+        <button class="pay-button" @tap="loadData(currentActivityId)">重新加载</button>
+      </view>
+      <view v-else class="pay-card">
         <view class="pay-card__top">
           <view class="pay-card__icon" :class="`pay-card__icon--${activity.partyMode}`">
             <uni-icons :type="activity.partyMode === 'ticket' ? 'paperplane-filled' : 'wallet-filled'" size="34" color="#fff" />
@@ -68,11 +73,13 @@ import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goOrderDetail, goParticipantDashboard } from '@/common/utils/route.js'
 
-const activity = ref(createEmptyActivity('102'))
+const activity = ref(createEmptyActivity(''))
 const order = ref(null)
 const isPaying = ref(false)
 const isPageLoading = ref(true)
 const hasLoadedOnce = ref(false)
+const loadError = ref('')
+const currentActivityId = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -97,16 +104,20 @@ const payButtonText = computed(() => {
 })
 
 onLoad(async (query) => {
-  const id = (query && query.activityId) || '102'
+  const id = String((query && query.activityId) || '').trim()
   await loadData(id)
 })
 
-async function loadData(id = activity.value.id || '102') {
+async function loadData(id = activity.value.id) {
+  currentActivityId.value = String(id || currentActivityId.value || '').trim()
   if (!hasLoadedOnce.value) {
     isPageLoading.value = true
   }
   try {
-    activity.value = await getActivityDetail(id)
+    loadError.value = ''
+    if (!currentActivityId.value) throw new Error('缺少活动 ID，请从报名页重新进入订单确认。')
+    activity.value = await getActivityDetail(currentActivityId.value)
+    if (!activity.value?.id) throw new Error('活动不存在或已下架。')
     order.value = await ensureOrderForActivity({
       activityId: activity.value.id,
       type: activity.value.partyMode,
@@ -115,17 +126,23 @@ async function loadData(id = activity.value.id || '102') {
       activityCover: activity.value.image
     })
   } catch (error) {
-    uni.showToast({ title: error?.message || '订单加载失败', icon: 'none' })
+    order.value = null
+    loadError.value = error?.message || '订单加载失败，请稍后重试。'
+    uni.showToast({ title: loadError.value, icon: 'none' })
   } finally {
     hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }
 
-onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '102')))
+onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id)))
 
 async function handlePay() {
   if (isPaying.value) return
+  if (loadError.value || !order.value) {
+    uni.showToast({ title: '订单尚未加载成功', icon: 'none' })
+    return
+  }
   if (orderStatus.value === 'paid') {
     goParticipantDashboard(activity.value.id, { replace: true })
     return
@@ -184,6 +201,25 @@ async function handlePay() {
   border-radius: 46rpx;
   background: #fff;
   box-shadow: 0 24rpx 70rpx rgba(15, 23, 42, 0.08);
+}
+
+.payment__error {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.payment__error-title {
+  color: #0f172a;
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.payment__error-text {
+  color: #64748b;
+  font-size: 26rpx;
+  font-weight: 700;
+  line-height: 1.55;
 }
 
 .pay-card__top {

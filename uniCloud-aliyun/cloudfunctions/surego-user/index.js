@@ -15,7 +15,8 @@ const {
   invalid,
   ok,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const ROLE_VALUES = ['user', 'operator', 'admin'];
@@ -288,8 +289,11 @@ function buildProfile(payload = {}, user) {
 }
 
 async function countAdminUsers() {
-  const result = await uniIdUsers.where({ role: db.command.in(['admin']) }).count();
-  return Number(result.total || 0);
+  const [arrayResult, stringResult] = await Promise.all([
+    uniIdUsers.where({ role: db.command.in(['admin']) }).count(),
+    uniIdUsers.where({ role: 'admin' }).count()
+  ]);
+  return Math.max(Number(arrayResult.total || 0), Number(stringResult.total || 0));
 }
 
 async function syncProfileRoles(userId, roles, operatorId) {
@@ -330,7 +334,7 @@ async function listUsers() {
   return users.map((item) => normalizeUser(item, profileMap[String(item._id)] || {}));
 }
 
-exports.main = async (event) => {
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await resolveUserContext(event, payload);
@@ -406,7 +410,7 @@ exports.main = async (event) => {
       return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
     }
     const previousRoles = normalizeRoles(currentTarget?.role);
-    if (targetUserId === user.uid && previousRoles.includes('admin') && !roles.includes('admin')) {
+    if (previousRoles.includes('admin') && !roles.includes('admin')) {
       const adminCount = await countAdminUsers();
       if (adminCount <= 1) return lastAdminRequired();
     }
@@ -416,4 +420,6 @@ exports.main = async (event) => {
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

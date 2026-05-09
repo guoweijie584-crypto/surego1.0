@@ -3,6 +3,7 @@ import { ALLOW_MOCK_FALLBACK } from '../config/runtime.js'
 export const USER_CANCEL_IMAGE_PICKER = 'USER_CANCEL_IMAGE_PICKER'
 const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+const UPLOAD_TIMEOUT_MS = 20000
 
 function buildCloudPath(prefix = 'surego', filePath = '') {
   const extMatch = String(filePath).match(/\.[a-zA-Z0-9]+$/)
@@ -80,10 +81,29 @@ export async function uploadImageFile(filePath, options = {}) {
   }
 
   const cloudPath = options.cloudPath || buildCloudPath(options.prefix || 'surego/images', filePath)
-  const result = await uniCloud.uploadFile({
-    filePath,
-    cloudPath,
-    cloudPathAsRealPath: true
+  const result = await new Promise((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      reject(new Error('图片上传超时，请检查网络后重试'))
+    }, options.timeout || UPLOAD_TIMEOUT_MS)
+
+    uniCloud.uploadFile({
+      filePath,
+      cloudPath,
+      cloudPathAsRealPath: true
+    }).then((value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(value)
+    }).catch((error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(error)
+    })
   })
   const url = result.fileID || result.fileUrl || result.url || ''
   return {

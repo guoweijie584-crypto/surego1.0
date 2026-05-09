@@ -4,13 +4,14 @@ import { getCurrentUserId } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_checkins'
+const MAX_CACHE_ITEMS = 300
 
 function readCheckins() {
   return uni.getStorageSync(STORAGE_KEY) || []
 }
 
 function writeCheckins(items) {
-  uni.setStorageSync(STORAGE_KEY, items)
+  uni.setStorageSync(STORAGE_KEY, items.slice(0, MAX_CACHE_ITEMS))
 }
 
 export function isValidCheckinCode(code = '') {

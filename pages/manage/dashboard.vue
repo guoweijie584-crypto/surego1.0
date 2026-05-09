@@ -13,13 +13,19 @@
     </view>
 
     <scroll-view scroll-y class="manage__scroll" :scroll-top="scrollTop" scroll-with-animation :style="contentTopStyle">
-      <view class="manage__hero">
+      <view v-if="loadError" class="manage-error">
+        <text class="manage-error__title">管理台加载失败</text>
+        <text class="manage-error__text">{{ loadError }}</text>
+        <view class="manage-error__button" @tap="loadData">重新加载</view>
+      </view>
+
+      <view v-if="!loadError" class="manage__hero">
         <text class="manage__kicker">COMMAND CENTER</text>
         <text class="manage__title">{{ activity.title }}</text>
         <text class="manage__meta">{{ activity.date }} {{ activity.time }} · {{ activity.location }}</text>
       </view>
 
-      <view class="stats">
+      <view v-if="!loadError" class="stats">
         <view class="stat">
           <text>参与人数</text>
           <text>{{ activity.participantCount }}/{{ activity.maxParticipants }}</text>
@@ -34,7 +40,7 @@
         </view>
       </view>
 
-      <view class="panel state-panel">
+      <view v-if="!loadError" class="panel state-panel">
         <view class="panel__head">
           <view>
             <text>活动状态</text>
@@ -70,7 +76,7 @@
         </view>
       </view>
 
-      <view class="panel">
+      <view v-if="!loadError" class="panel">
         <view class="panel__head">
           <text>快捷操作</text>
           <text>OPERATIONS</text>
@@ -86,7 +92,7 @@
         </view>
       </view>
 
-      <view id="manage-applications" class="panel">
+      <view v-if="!loadError" id="manage-applications" class="panel">
         <view class="panel__head">
           <text>申请队列</text>
           <text>{{ applications.length }} REQUESTS</text>
@@ -173,7 +179,7 @@ import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 
 const activityId = ref('103')
-const activity = ref(createEmptyActivity('103'))
+const activity = ref(createEmptyActivity(''))
 const applications = ref([])
 const ticketOrders = ref([])
 const scrollTop = ref(0)
@@ -182,6 +188,8 @@ const showTicketSheet = ref(false)
 const reviewTarget = ref(null)
 const reviewMode = ref('approved')
 const reviewForm = ref({ note: '' })
+const loadError = ref('')
+const accessDenied = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -270,21 +278,46 @@ const ticketStats = computed(() => {
 })
 
 onLoad(async (query) => {
-  activityId.value = (query && query.id) || '103'
+  activityId.value = String((query && query.id) || '').trim()
   await loadData()
 })
 
 async function loadData() {
-  activity.value = await getActivityDetail(activityId.value)
-  if (!ensureOwnerAccess()) return
-  applications.value = await listApplications(activityId.value)
-  ticketOrders.value = await listOrdersByActivity(activityId.value)
+  try {
+    loadError.value = ''
+    accessDenied.value = false
+    if (!activityId.value) throw new Error('缺少活动 ID，请从活动详情页重新进入。')
+    activity.value = await getActivityDetail(activityId.value)
+    if (!activity.value?.id) throw new Error('活动不存在或已下架。')
+    if (!ensureOwnerAccess()) return
+    const [applicationResult, orderResult] = await Promise.allSettled([
+      listApplications(activityId.value),
+      listOrdersByActivity(activityId.value)
+    ])
+    if (applicationResult.status === 'fulfilled') {
+      applications.value = applicationResult.value
+    } else {
+      applications.value = []
+      uni.showToast({ title: applicationResult.reason?.message || '申请列表加载失败', icon: 'none' })
+    }
+    if (orderResult.status === 'fulfilled') {
+      ticketOrders.value = orderResult.value
+    } else {
+      ticketOrders.value = []
+      uni.showToast({ title: orderResult.reason?.message || '订单列表加载失败', icon: 'none' })
+    }
+  } catch (error) {
+    loadError.value = error?.message || '管理台加载失败，请稍后重试。'
+    uni.showToast({ title: loadError.value, icon: 'none' })
+  }
 }
 
 onPullDownRefresh(makeRefreshHandler(loadData))
 
 function ensureOwnerAccess() {
   if (activity.value?.isCreator) return true
+  accessDenied.value = true
+  loadError.value = '只有局长可以管理活动。'
   uni.showToast({ title: '只有局长可以管理活动', icon: 'none' })
   setTimeout(() => {
     goActivityDetail(activity.value?.id || activityId.value, { replace: true })
@@ -312,16 +345,20 @@ async function handleLifecycleAction(item) {
       await setActivityLifecycle(item.key)
       if (item.key === 'cancelled') {
         const targets = applications.value.filter((application) => ['approved', 'pending'].includes(application.status))
-        await Promise.all(targets.map((application) => createMessage({
+        const results = await Promise.allSettled(targets.map((application) => createMessage({
           userId: application.userId || application.user_id,
           eventKey: `activity:cancelled:${activity.value.id}:${application.userId || application.user_id}` ,
           type: 'activity',
-          title: '?????',
-          content: `?????${activity.value.title}?????????????????`,
+          title: '活动已取消',
+          content: `你参与的「${activity.value.title}」已取消，请留意后续通知。`,
           sender: activity.value.organizer || 'SureGo',
           activityId: activity.value.id,
           read: false
-        }).catch(() => null)))
+        })))
+        const failedCount = results.filter((result) => result.status === 'rejected').length
+        if (failedCount) {
+          uni.showToast({ title: `${failedCount} 条取消通知发送失败`, icon: 'none' })
+        }
       }
     } catch (error) {
       uni.showToast({ title: error?.message || '状态暂不可切换', icon: 'none' })
@@ -379,8 +416,12 @@ async function handleAction(item) {
       uni.showToast({ title: '本局免费，无需票券', icon: 'none' })
       return
     }
-    ticketOrders.value = await listOrdersByActivity(activity.value.id)
-    showTicketSheet.value = true
+    try {
+      ticketOrders.value = await listOrdersByActivity(activity.value.id)
+      showTicketSheet.value = true
+    } catch (error) {
+      uni.showToast({ title: error?.message || '订单列表加载失败', icon: 'none' })
+    }
     return
   }
 
@@ -414,25 +455,29 @@ async function submitReview() {
   const options = status === 'approved'
     ? { reviewNote: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
     : { rejectReason: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
-  const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
-  const previousStatus = reviewTarget.value.status
-  applications.value = applications.value.map((app) => (app.id === reviewTarget.value.id ? { ...app, ...reviewed } : app))
-  if (previousStatus !== 'approved' && status === 'approved') {
-    activity.value = {
-      ...activity.value,
-      participantCount: Number(activity.value.participantCount || 0) + 1
+  try {
+    const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
+    const previousStatus = reviewTarget.value.status
+    applications.value = applications.value.map((app) => (app.id === reviewTarget.value.id ? { ...app, ...reviewed } : app))
+    if (previousStatus !== 'approved' && status === 'approved') {
+      activity.value = {
+        ...activity.value,
+        participantCount: Number(activity.value.participantCount || 0) + 1
+      }
+    } else if (previousStatus === 'approved' && status !== 'approved') {
+      activity.value = {
+        ...activity.value,
+        participantCount: Math.max(0, Number(activity.value.participantCount || 0) - 1)
+      }
     }
-  } else if (previousStatus === 'approved' && status !== 'approved') {
-    activity.value = {
-      ...activity.value,
-      participantCount: Math.max(0, Number(activity.value.participantCount || 0) - 1)
-    }
+    showReviewSheet.value = false
+    uni.showToast({
+      title: status === 'approved' ? '已通过' : '已拒绝',
+      icon: 'none'
+    })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '审核提交失败', icon: 'none' })
   }
-  showReviewSheet.value = false
-  uni.showToast({
-    title: status === 'approved' ? '已通过' : '已拒绝',
-    icon: 'none'
-  })
 }
 </script>
 
@@ -473,6 +518,42 @@ async function submitReview() {
 .manage__scroll {
   height: 100vh;
   box-sizing: border-box;
+}
+
+.manage-error {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin: 0 34rpx 24rpx;
+  padding: 32rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 34rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.manage-error__title {
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.manage-error__text {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.manage-error__button {
+  width: 220rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #0f172a;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 72rpx;
+  text-align: center;
 }
 
 .manage__hero {

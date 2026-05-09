@@ -11,12 +11,21 @@
     </view>
 
     <scroll-view scroll-y class="edit-activity__scroll" :style="contentTopStyle">
-      <view v-if="!isEditable" class="readonly">
+      <view v-if="loadError" class="load-error">
+        <text class="load-error__title">活动加载失败</text>
+        <text class="load-error__text">{{ loadError }}</text>
+        <view class="load-error__actions">
+          <view class="load-error__button" @tap="reloadActivity">重新加载</view>
+          <view class="load-error__button load-error__button--ghost" @tap="goBackOrFallback">返回</view>
+        </view>
+      </view>
+
+      <view v-if="!loadError && !isEditable" class="readonly">
         <uni-icons type="info-filled" size="20" color="#d97706" />
         <text>这是参考示例活动，当前保持只读。你创建的新活动可以在这里保存修改。</text>
       </view>
 
-      <view class="form-card">
+      <view v-if="!loadError" class="form-card">
         <view class="cover" @tap="openCoverPicker">
           <image class="cover__image" :src="form.image" mode="aspectFill" @error="handleCoverImageError" />
           <view class="cover__mask">
@@ -216,6 +225,8 @@ const citySelectRef = ref(null)
 const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
 const isSaving = ref(false)
+const loadError = ref('')
+const accessDenied = ref(false)
 const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
 const initialCity = findCityOption(uni.getStorageSync(CITY_KEY), uni.getStorageSync(CITY_CODE_KEY)) || { name: DEFAULT_CITY, code: DEFAULT_CITY_CODE }
 const navStyle = getMiniProgramNavStyle()
@@ -254,36 +265,53 @@ const saveButtonText = computed(() => {
 })
 
 onLoad(async (query = {}) => {
-  activityId.value = query.id || ''
-  const activity = await getActivityDetail(activityId.value)
-  sourceActivity.value = activity
-  ensureOwnerAccess()
-  Object.assign(form, {
-    title: activity.title || '',
-    category: activity.category || categories[0],
-    dateValue: activity.dateValue || '2026-05-01',
-    date: activity.date || '5月1日',
-    time: activity.time || '14:00',
-    endTime: activity.endTime || '18:00',
-    location: activity.location || '',
-    address: activity.address || activity.location || '',
-    latitude: activity.latitude || '',
-    longitude: activity.longitude || '',
-    city: normalizeCityName(activity.city || uni.getStorageSync(CITY_KEY) || initialCity.name),
-    cityCode: normalizeCityCode(activity.cityCode || activity.city_code || uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
-    district: activity.district || '',
-    maxParticipants: String(activity.maxParticipants || 10),
-    hasParticipantLimit: Boolean(activity.hasParticipantLimit),
-    requireApproval: Boolean(activity.requireApproval),
-    partyMode: activity.partyMode || 'free',
-    amount: String(activity.amount || ''),
-    description: activity.description || '',
-    questions: [...(activity.questions || [])],
-    image: activity.image || getDefaultCoverPreset(activity.category || categories[0]).image
-  })
-  categoryIndex.value = Math.max(0, categories.indexOf(form.category))
-  coverCategory.value = form.category
+  activityId.value = String(query.id || '').trim()
+  await loadActivity()
 })
+
+async function loadActivity() {
+  if (!activityId.value) {
+    loadError.value = '缺少活动 ID，请从活动详情页重新进入。'
+    return
+  }
+  try {
+    loadError.value = ''
+    accessDenied.value = false
+    const activity = await getActivityDetail(activityId.value)
+    if (!activity?.id) throw new Error('活动不存在或已下架。')
+    sourceActivity.value = activity
+    if (!ensureOwnerAccess()) return
+    Object.assign(form, {
+      title: activity.title || '',
+      category: activity.category || categories[0],
+      dateValue: activity.dateValue || '2026-05-01',
+      date: activity.date || '5月1日',
+      time: activity.time || '14:00',
+      endTime: activity.endTime || '18:00',
+      location: activity.location || '',
+      address: activity.address || activity.location || '',
+      latitude: activity.latitude || '',
+      longitude: activity.longitude || '',
+      city: normalizeCityName(activity.city || uni.getStorageSync(CITY_KEY) || initialCity.name),
+      cityCode: normalizeCityCode(activity.cityCode || activity.city_code || uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
+      district: activity.district || '',
+      maxParticipants: String(activity.maxParticipants || 10),
+      hasParticipantLimit: Boolean(activity.hasParticipantLimit),
+      requireApproval: Boolean(activity.requireApproval),
+      partyMode: activity.partyMode || 'free',
+      amount: String(activity.amount || ''),
+      description: activity.description || '',
+      questions: [...(activity.questions || [])],
+      image: activity.image || getDefaultCoverPreset(activity.category || categories[0]).image
+    })
+    categoryIndex.value = Math.max(0, categories.indexOf(form.category))
+    coverCategory.value = form.category
+  } catch (error) {
+    sourceActivity.value = null
+    loadError.value = error?.message || '活动加载失败，请稍后重试。'
+    uni.showToast({ title: loadError.value, icon: 'none' })
+  }
+}
 
 function handleCategoryChange(event) {
   const previousImage = form.image
@@ -355,11 +383,17 @@ function handleCoverImageError() {
 
 function ensureOwnerAccess() {
   if (sourceActivity.value?.isCreator) return true
+  accessDenied.value = true
+  loadError.value = '只有局长可以编辑活动。'
   uni.showToast({ title: '只有局长可以编辑活动', icon: 'none' })
   setTimeout(() => {
     goActivityDetail(activityId.value, { replace: true })
   }, 500)
   return false
+}
+
+function reloadActivity() {
+  loadActivity()
 }
 
 function chooseLocation() {
@@ -404,24 +438,57 @@ function removeQuestion(index) {
   form.questions.splice(index, 1)
 }
 
+function parsePositiveInt(value, { min = 1, max = 500 } = {}) {
+  const next = Number(value)
+  if (!Number.isInteger(next) || next < min || next > max) return null
+  return next
+}
+
+function parseAmount(value) {
+  if (form.partyMode === 'free') return 0
+  const next = Number(value)
+  if (!Number.isFinite(next) || next <= 0 || next > 99999) return null
+  return Math.round(next * 100) / 100
+}
+
+function validateBeforeSave() {
+  if (form.hasParticipantLimit && parsePositiveInt(form.maxParticipants) === null) {
+    uni.showToast({ title: '人数上限需为 1-500 的整数', icon: 'none' })
+    return false
+  }
+  if (parseAmount(form.amount) === null) {
+    uni.showToast({ title: form.partyMode === 'ticket' ? '请填写有效门票金额' : '请填写有效诚意金金额', icon: 'none' })
+    return false
+  }
+  return true
+}
+
 async function handleSave() {
   if (!canSave.value || isSaving.value) return
+  if (!validateBeforeSave()) return
   isSaving.value = true
-  const updated = await updateActivity(activityId.value, {
-    ...form,
-    amount: Number(form.amount) || 0,
-    questions: form.questions.filter((item) => item.trim())
-  })
-  if (!updated) {
-    isSaving.value = false
-    uni.showToast({ title: '示例活动不可保存', icon: 'none' })
-    return
-  }
+  try {
+    const updated = await updateActivity(activityId.value, {
+      ...form,
+      amount: parseAmount(form.amount),
+      maxParticipants: form.hasParticipantLimit ? parsePositiveInt(form.maxParticipants) : 0,
+      version: sourceActivity.value?.updatedAt || sourceActivity.value?.updated_at || '',
+      questions: form.questions.filter((item) => item.trim())
+    })
+    if (!updated) {
+      uni.showToast({ title: '示例活动不可保存', icon: 'none' })
+      return
+    }
 
-  uni.showToast({ title: '活动已更新', icon: 'none' })
-  setTimeout(() => {
-    goManageDashboard(activityId.value, { replace: true })
-  }, 260)
+    uni.showToast({ title: '活动已更新', icon: 'none' })
+    setTimeout(() => {
+      goManageDashboard(activityId.value, { replace: true })
+    }, 260)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '保存失败，请稍后重试', icon: 'none' })
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
 
@@ -461,6 +528,53 @@ async function handleSave() {
 .edit-activity__scroll {
   height: 100vh;
   box-sizing: border-box;
+}
+
+.load-error {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin: 0 28rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 24rpx 70rpx rgba(15, 23, 42, 0.08);
+}
+
+.load-error__title {
+  color: #0f172a;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.load-error__text {
+  color: #64748b;
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.load-error__actions {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 10rpx;
+}
+
+.load-error__button {
+  flex: 1;
+  height: 76rpx;
+  border-radius: 999rpx;
+  background: #0f172a;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 76rpx;
+  text-align: center;
+}
+
+.load-error__button--ghost {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 
 .readonly {

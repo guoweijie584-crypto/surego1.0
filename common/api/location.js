@@ -3,6 +3,7 @@ import { getCurrentUserId } from '@/common/api/auth.js'
 const LOCATION_KEY = 'surego_current_location'
 const CITY_KEY = 'surego_selected_city'
 const EARTH_RADIUS_KM = 6371
+const LOCATION_TIMEOUT_MS = 8000
 
 function toNumber(value) {
   const numberValue = Number(value)
@@ -45,10 +46,24 @@ export function refreshCurrentLocation(options = {}) {
       return
     }
 
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      const error = new Error('定位超时，可手动选择城市')
+      if (!options.silent) {
+        uni.showToast({ title: error.message, icon: 'none' })
+      }
+      reject(error)
+    }, options.timeout || LOCATION_TIMEOUT_MS)
+
     uni.getLocation({
       type: 'gcj02',
       isHighAccuracy: true,
       success(result = {}) {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
         resolve(saveLocation({
           latitude: result.latitude,
           longitude: result.longitude,
@@ -58,6 +73,9 @@ export function refreshCurrentLocation(options = {}) {
         }))
       },
       fail(error) {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
         if (!options.silent) {
           uni.showToast({
             title: '定位失败，可手动选择城市',

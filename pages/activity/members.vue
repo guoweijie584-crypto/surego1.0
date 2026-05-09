@@ -1,6 +1,27 @@
 ﻿<template>
   <view v-if="isPageLoading" class="members-page">
-    <SuPageLoading :style="contentTopStyle" text="???????..." />
+    <SuPageLoading :style="contentTopStyle" text="成员加载中..." />
+  </view>
+  <view v-else-if="loadError" class="members-page">
+    <view class="topbar" :style="navStyle">
+      <view class="topbar__row" :style="navRowStyle">
+        <view class="topbar__button" @tap="goBackOrFallback">
+          <uni-icons type="left" size="20" color="#0f172a" />
+        </view>
+        <view class="topbar__title">
+          <text>成员列表</text>
+          <text>LOAD FAILED</text>
+        </view>
+        <view class="topbar__button" @tap="refreshMembers">
+          <uni-icons type="refresh" size="18" color="#0f172a" />
+        </view>
+      </view>
+    </view>
+    <view class="members-error" :style="contentTopStyle">
+      <text class="members-error__title">成员加载失败</text>
+      <text class="members-error__text">{{ loadError }}</text>
+      <view class="members-error__button" @tap="refreshMembers">重新加载</view>
+    </view>
   </view>
   <view v-else class="members-page">
     <view class="topbar" :style="navStyle">
@@ -118,6 +139,8 @@ const applications = ref([])
 const memberProfiles = ref([])
 const selectedMember = ref(null)
 const isPageLoading = ref(true)
+const loadError = ref('')
+const activityId = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -173,21 +196,39 @@ const seatsLeft = computed(() => {
 })
 
 onLoad(async (query) => {
-  const id = (query && query.id) || '101'
+  activityId.value = String((query && query.id) || '').trim()
+  await loadMembers()
+})
+
+async function loadMembers() {
   isPageLoading.value = true
   try {
-    activity.value = await getActivityDetail(id)
-    applications.value = await listApplications(id)
-    memberProfiles.value = await listActivityMembers(id)
+    loadError.value = ''
+    if (!activityId.value) throw new Error('缺少活动 ID，请从活动详情页重新进入。')
+    activity.value = await getActivityDetail(activityId.value)
+    if (!activity.value?.id) throw new Error('活动不存在或已下架。')
+    const [applicationResult, memberResult] = await Promise.allSettled([
+      listApplications(activityId.value),
+      listActivityMembers(activityId.value)
+    ])
+    applications.value = applicationResult.status === 'fulfilled' ? applicationResult.value : []
+    memberProfiles.value = memberResult.status === 'fulfilled' ? memberResult.value : []
+    if (applicationResult.status === 'rejected' || memberResult.status === 'rejected') {
+      uni.showToast({ title: '部分成员数据加载失败', icon: 'none' })
+    }
+  } catch (error) {
+    loadError.value = error?.message || '成员加载失败，请稍后重试。'
+    uni.showToast({ title: loadError.value, icon: 'none' })
   } finally {
     isPageLoading.value = false
   }
-})
+}
 
 async function refreshMembers() {
-  applications.value = await listApplications(activity.value.id)
-  memberProfiles.value = await listActivityMembers(activity.value.id)
-  uni.showToast({ title: '成员已刷新', icon: 'none' })
+  await loadMembers()
+  if (!loadError.value) {
+    uni.showToast({ title: '成员已刷新', icon: 'none' })
+  }
 }
 
 function openMemberProfile(member) {
@@ -257,6 +298,42 @@ function openMemberProfile(member) {
   padding-right: 28rpx;
   padding-bottom: 48rpx;
   padding-left: 28rpx;
+}
+
+.members-error {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin: 0 28rpx;
+  padding: 34rpx;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 22rpx 48rpx rgba(15, 23, 42, 0.12);
+}
+
+.members-error__title {
+  color: #0f172a;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.members-error__text {
+  color: #64748b;
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.members-error__button {
+  width: 220rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: #0f172a;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 72rpx;
+  text-align: center;
 }
 
 .hero {

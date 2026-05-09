@@ -1,14 +1,14 @@
 [
   {
-    "IndexName": "user_event_key",
+    "IndexName": "activity_user_unique",
     "MgoKeySchema": {
       "MgoIndexKeys": [
         {
-          "Name": "user_id",
+          "Name": "activity_id",
           "Direction": "1"
         },
         {
-          "Name": "event_key",
+          "Name": "user_id",
           "Direction": "1"
         }
       ],
@@ -16,15 +16,15 @@
     }
   },
   {
-    "IndexName": "user_created_at",
+    "IndexName": "activity_checked_at",
     "MgoKeySchema": {
       "MgoIndexKeys": [
         {
-          "Name": "user_id",
+          "Name": "activity_id",
           "Direction": "1"
         },
         {
-          "Name": "created_at",
+          "Name": "checked_at",
           "Direction": "-1"
         }
       ],

@@ -20,7 +20,8 @@ const {
   ok,
   optionalAuth,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'];
@@ -113,13 +114,37 @@ function normalizeQuestionList(value) {
     .filter(Boolean);
 }
 
+function normalizeLimit(value, fallback = 20, max = 100) {
+  const next = Number(value);
+  if (!Number.isInteger(next) || next <= 0) return fallback;
+  return Math.min(next, max);
+}
+
+function normalizeSkip(value) {
+  const next = Number(value);
+  if (!Number.isInteger(next) || next < 0) return 0;
+  return next;
+}
+
+function parseFiniteNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const next = Number(value);
+  return Number.isFinite(next) ? next : null;
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
 function sanitizeActivityPayload(payload = {}, options = {}) {
-  const partyMode = cleanEnum(payload.partyMode || payload.party_mode, ['free', 'sincerity', 'ticket'], 'free');
-  const amount = partyMode === 'free' ? 0 : cleanNumber(payload.amount, { min: 0, max: 99999, fallback: 0 });
-  const hasLimit = cleanBool(payload.hasParticipantLimit || payload.has_participant_limit, true);
-  const maxParticipants = hasLimit
-    ? cleanInt(payload.maxParticipants || payload.max_participants, { min: 1, max: 500, fallback: 10 })
-    : 0;
+  const partyMode = cleanEnum(firstDefined(payload.partyMode, payload.party_mode), ['free', 'sincerity', 'ticket'], 'free');
+  const rawAmount = parseFiniteNumber(payload.amount);
+  if (partyMode !== 'free' && (rawAmount === null || rawAmount <= 0 || rawAmount > 99999)) return null;
+  const amount = partyMode === 'free' ? 0 : Math.round(rawAmount * 100) / 100;
+  const hasLimit = cleanBool(firstDefined(payload.hasParticipantLimit, payload.has_participant_limit), true);
+  const rawMaxParticipants = parseFiniteNumber(firstDefined(payload.maxParticipants, payload.max_participants));
+  if (hasLimit && (!Number.isInteger(rawMaxParticipants) || rawMaxParticipants < 1 || rawMaxParticipants > 500)) return null;
+  const maxParticipants = hasLimit ? rawMaxParticipants : 0;
   const next = {
     title: cleanString(payload.title, { min: 1, max: 40 }),
     category: cleanString(payload.category, { max: 32, fallback: 'other' }) || 'other',
@@ -140,8 +165,8 @@ function sanitizeActivityPayload(payload = {}, options = {}) {
     maxParticipants,
     has_participant_limit: hasLimit,
     hasParticipantLimit: hasLimit,
-    require_approval: cleanBool(payload.requireApproval || payload.require_approval, true),
-    requireApproval: cleanBool(payload.requireApproval || payload.require_approval, true),
+    require_approval: cleanBool(firstDefined(payload.requireApproval, payload.require_approval), true),
+    requireApproval: cleanBool(firstDefined(payload.requireApproval, payload.require_approval), true),
     party_mode: partyMode,
     partyMode,
     amount,
@@ -163,15 +188,24 @@ function sanitizeActivityPayload(payload = {}, options = {}) {
   return next;
 }
 
-exports.main = async (event) => {
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await optionalAuth(event);
 
   if (action === 'list') {
-    const requestedLimit = Number(payload.limit) > 0 ? Number(payload.limit) : 20;
-    const result = await collection.orderBy('created_at', 'desc').limit(Math.min(requestedLimit * 5, 100)).get();
-    return ok(normalizeList(result).filter(isPubliclyVisibleActivity).slice(0, requestedLimit));
+    const requestedLimit = normalizeLimit(payload.limit, 20, 50);
+    const skip = normalizeSkip(payload.skip || payload.offset);
+    const result = await collection.orderBy('created_at', 'desc').skip(skip).limit(Math.min(requestedLimit * 5, 100)).get();
+    const items = normalizeList(result).filter(isPubliclyVisibleActivity).slice(0, requestedLimit);
+    return ok({
+      items,
+      page: {
+        limit: requestedLimit,
+        skip,
+        nextSkip: items.length === requestedLimit ? skip + requestedLimit : null
+      }
+    });
   }
 
   if (action === 'detail') {
@@ -191,10 +225,11 @@ exports.main = async (event) => {
   if (action === 'listMine') {
     const currentUser = await requireAuth(event);
     if (!currentUser) return authRequired();
-    const [createdResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
-      collection.where({ creator_id: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      applications.where({ user_id: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      applications.where({ userId: currentUser.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
+    const [createdSnakeResult, createdCamelResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
+      collection.where({ creator_id: currentUser.uid }).orderBy('created_at', 'desc').limit(normalizeLimit(payload.limit, 100, 100)).get(),
+      collection.where({ creatorId: currentUser.uid }).orderBy('created_at', 'desc').limit(normalizeLimit(payload.limit, 100, 100)).get(),
+      applications.where({ user_id: currentUser.uid }).orderBy('created_at', 'desc').limit(normalizeLimit(payload.limit, 100, 100)).get(),
+      applications.where({ userId: currentUser.uid }).orderBy('created_at', 'desc').limit(normalizeLimit(payload.limit, 100, 100)).get()
     ]);
     const seenApplications = new Set();
     const applicationItems = [...(snakeApplicationResult.data || []), ...(camelApplicationResult.data || [])]
@@ -217,9 +252,16 @@ exports.main = async (event) => {
       ...normalizeActivity(item),
       applicationStatus: applicationStatusByActivity[String(item._id || item.id)] || 'not_applied'
     });
+    const seenCreated = new Set();
+    const createdItems = [...(createdSnakeResult.data || []), ...(createdCamelResult.data || [])].filter((item) => {
+      const key = String(item._id || item.id || '');
+      if (!key || seenCreated.has(key)) return false;
+      seenCreated.add(key);
+      return true;
+    });
     const joined = (joinedResult.data || []).map(withApplicationStatus);
     return ok({
-        hosting: normalizeList(createdResult),
+        hosting: createdItems.map(normalizeActivity),
         joined: joined.filter((item) => item.applicationStatus === 'approved'),
         pending: joined.filter((item) => item.applicationStatus === 'pending'),
         rejected: joined.filter((item) => item.applicationStatus === 'rejected')
@@ -246,6 +288,12 @@ exports.main = async (event) => {
     const id = cleanId(payload.id);
     if (!id || !(await canEditActivity(id, currentUser))) {
       return forbidden('Only the creator can edit this activity.');
+    }
+    const existingResult = await collection.doc(id).get();
+    const existing = (existingResult.data || [])[0];
+    const clientVersion = payload.version || payload.updatedAt || payload.updated_at;
+    if (clientVersion && existing?.updated_at && String(clientVersion) !== String(existing.updated_at)) {
+      return { code: 'VERSION_CONFLICT', message: 'Activity has been updated. Please reload before saving.' };
     }
     const updatePayload = sanitizeActivityPayload(payload);
     if (!updatePayload) return invalid('Activity title, date, time, location and description are required.');
@@ -281,4 +329,6 @@ exports.main = async (event) => {
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

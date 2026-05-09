@@ -2,6 +2,25 @@
   <view v-if="isPageLoading" class="register su-page">
     <SuPageLoading :style="contentTopStyle" text="报名信息加载中..." />
   </view>
+  <view v-else-if="loadError" class="register su-page">
+    <view class="register__glow register__glow--green" />
+    <view class="register__glow register__glow--blue" />
+
+    <view class="register__nav" :style="navStyle">
+      <view class="register__nav-row" :style="navRowStyle">
+        <view class="register__nav-spacer" />
+        <view class="register__close" @tap="goBackOrFallback">
+          <uni-icons type="closeempty" size="28" color="rgba(255,255,255,.58)" />
+        </view>
+      </view>
+    </view>
+
+    <view class="register__error" :style="contentTopStyle">
+      <text class="register__error-title">报名信息加载失败</text>
+      <text class="register__error-text">{{ loadError }}</text>
+      <button class="submit" @tap="goBackOrFallback">返回上一页</button>
+    </view>
+  </view>
   <view v-else class="register su-page">
     <view class="register__glow register__glow--green" />
     <view class="register__glow register__glow--blue" />
@@ -129,7 +148,7 @@ import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPayment, goSuccess } from '@/common/utils/route.js'
 
-const activity = ref(createEmptyActivity('101'))
+const activity = ref(createEmptyActivity(''))
 const gender = ref('')
 const mbtiIndex = ref(0)
 const message = ref('')
@@ -137,6 +156,7 @@ const answers = ref([])
 const isSubmitting = ref(false)
 const isPageLoading = ref(true)
 const hasLoadedOnce = ref(false)
+const loadError = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -206,15 +226,21 @@ const canSubmit = computed(() => {
 })
 
 onLoad(async (query) => {
-  const id = (query && query.id) || '101'
+  const id = String((query && query.id) || '').trim()
   if (!hasLoadedOnce.value) {
     isPageLoading.value = true
   }
   try {
+    loadError.value = ''
+    if (!id) throw new Error('缺少活动 ID，请从活动详情页重新进入报名。')
     activity.value = await getActivityDetail(id)
+    if (!activity.value?.id) throw new Error('活动不存在或已下架。')
     await syncApplicationStatus(id)
     answers.value = (activity.value.questions || []).map(() => '')
     validateJoinEligibility(true)
+  } catch (error) {
+    loadError.value = error?.message || '报名信息加载失败，请稍后重试。'
+    uni.showToast({ title: loadError.value, icon: 'none' })
   } finally {
     hasLoadedOnce.value = true
     isPageLoading.value = false
@@ -248,39 +274,49 @@ async function handleSubmit() {
   if (!validateJoinEligibility()) return
 
   isSubmitting.value = true
-  const application = {
-    activityId: activity.value.id,
-    activityCreatorId: activity.value.creatorId || activity.value.creator_id,
-    activityTitle: activity.value.title,
-    gender: gender.value,
-    mbti: selectedMbti.value,
-    message: message.value,
-    answers: (activity.value.questions || []).map((question, index) => ({
-      question,
-      answer: answers.value[index] || ''
-    })),
-    requireApproval: activity.value.requireApproval
-  }
+  let navigating = false
+  try {
+    const application = {
+      activityId: activity.value.id,
+      activityCreatorId: activity.value.creatorId || activity.value.creator_id,
+      activityTitle: activity.value.title,
+      gender: gender.value,
+      mbti: selectedMbti.value,
+      message: message.value,
+      answers: (activity.value.questions || []).map((question, index) => ({
+        question,
+        answer: answers.value[index] || ''
+      })),
+      requireApproval: activity.value.requireApproval
+    }
 
-  await submitApplication(application)
-  await syncApplicationStatus(activity.value.id)
+    await submitApplication(application)
+    await syncApplicationStatus(activity.value.id)
 
-  setTimeout(() => {
-    if (activity.value.partyMode !== 'free') {
-      goPayment({
+    navigating = true
+    setTimeout(() => {
+      if (activity.value.partyMode !== 'free') {
+        goPayment({
+          activityId: activity.value.id,
+          type: activity.value.partyMode,
+          amount: activity.value.amount,
+          requireApproval: activity.value.requireApproval ? '1' : '0'
+        })
+        return
+      }
+      goSuccess({
+        type: 'JOIN',
         activityId: activity.value.id,
-        type: activity.value.partyMode,
-        amount: activity.value.amount,
         requireApproval: activity.value.requireApproval ? '1' : '0'
       })
-      return
+    }, 650)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '提交失败，请稍后重试', icon: 'none' })
+  } finally {
+    if (!navigating) {
+      isSubmitting.value = false
     }
-    goSuccess({
-      type: 'JOIN',
-      activityId: activity.value.id,
-      requireApproval: activity.value.requireApproval ? '1' : '0'
-    })
-  }, 650)
+  }
 }
 
 function validateJoinEligibility(silent = false) {
@@ -326,6 +362,31 @@ function validateJoinEligibility(silent = false) {
   z-index: 2;
   height: 100vh;
   box-sizing: border-box;
+}
+
+.register__error {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+  margin-top: 120rpx;
+  padding: 42rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  border-radius: 36rpx;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.register__error-title {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.register__error-text {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 26rpx;
+  line-height: 1.55;
 }
 
 .register__glow {

@@ -4,13 +4,14 @@ import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_applications'
+const MAX_CACHE_ITEMS = 200
 
 function readApplications() {
   return uni.getStorageSync(STORAGE_KEY) || []
 }
 
 function writeApplications(items) {
-  uni.setStorageSync(STORAGE_KEY, items)
+  uni.setStorageSync(STORAGE_KEY, items.slice(0, MAX_CACHE_ITEMS))
 }
 
 function writeApplicationCache(application) {

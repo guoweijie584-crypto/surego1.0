@@ -16,7 +16,8 @@ const {
   now,
   ok,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 function normalizeCheckin(record = {}) {
@@ -126,7 +127,11 @@ function generateCheckinCode() {
   return `SG${crypto.randomBytes(16).toString('hex').toUpperCase()}`;
 }
 
-exports.main = async (event) => {
+function buildCheckinId(activityId, userId) {
+  return `checkin_${String(activityId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}_${String(userId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await requireAuth(event);
@@ -199,13 +204,21 @@ exports.main = async (event) => {
       checkedBy: user.uid,
       remark: payload.remark
     });
-    const result = await collection.add(record);
-    await codeCollection.doc(codeRecord._id || codeRecord.id).update({
+    record._id = buildCheckinId(activityId, targetUserId);
+    let result;
+    try {
+      result = await collection.add(record);
+    } catch (error) {
+      const concurrentExisting = await findExistingCheckin(activityId, targetUserId);
+      if (concurrentExisting) return ok(normalizeCheckin(concurrentExisting));
+      throw error;
+    }
+    await codeCollection.where({ _id: codeRecord._id || codeRecord.id, used: false }).update({
       used: true,
       used_at: now(),
       used_by: user.uid
     });
-    return ok(normalizeCheckin({ ...record, _id: result.id || result._id }));
+    return ok(normalizeCheckin({ ...record, _id: result.id || result._id || record._id }));
   }
 
   if (action === 'getForUser') {
@@ -243,4 +256,6 @@ exports.main = async (event) => {
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

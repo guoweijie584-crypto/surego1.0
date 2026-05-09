@@ -5,17 +5,24 @@ import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_orders'
 const ORDER_STATUSES = ['pending', 'paid', 'refund_requested', 'refunded', 'closed']
+const MAX_CACHE_ITEMS = 200
 
 function readOrders() {
   return uni.getStorageSync(STORAGE_KEY) || []
 }
 
 function writeOrders(items) {
-  uni.setStorageSync(STORAGE_KEY, items)
+  uni.setStorageSync(STORAGE_KEY, items.slice(0, MAX_CACHE_ITEMS))
 }
 
 function normalizeOrderStatus(status = 'pending') {
   return ORDER_STATUSES.includes(status) ? status : 'pending'
+}
+
+function normalizeAmount(value, fallback = 0) {
+  const next = Number(value)
+  if (!Number.isFinite(next) || next < 0 || next > 99999) return fallback
+  return Math.round(next * 100) / 100
 }
 
 export function getOrderStatusText(status) {
@@ -37,7 +44,7 @@ function normalizeOrder(item = {}) {
     activityId: String(item.activityId || item.activity_id || ''),
     userId: item.userId || item.user_id || getCurrentUserId(),
     type: item.type || 'sincerity',
-    amount: Number(item.amount) || 0,
+    amount: normalizeAmount(item.amount),
     status,
     statusText: getOrderStatusText(status),
     activityTitle: item.activityTitle || item.activity_title || '',
@@ -63,7 +70,7 @@ function createLocalOrder(payload) {
     activityId: String(payload.activityId || ''),
     userId: payload.userId || getCurrentUserId(),
     type: payload.type || 'sincerity',
-    amount: Number(payload.amount) || 0,
+    amount: normalizeAmount(payload.amount),
     status: 'pending',
     activityTitle: payload.activityTitle || payload.title || '',
     activityCover: payload.activityCover || payload.image || '',
@@ -213,7 +220,7 @@ export async function createOrder(payload) {
     activityId: payload.activityId,
     userId: payload.userId || getCurrentUserId(),
     type: payload.type || 'sincerity',
-    amount: Number(payload.amount) || 0,
+    amount: normalizeAmount(payload.amount),
     activityTitle: payload.activityTitle || payload.title || '',
     activityCover: payload.activityCover || payload.image || ''
   }

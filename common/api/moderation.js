@@ -13,6 +13,7 @@ const AUDIT_LOG_KEY = 'surego_moderation_audit_logs'
 
 const REPORT_STATUSES = ['pending', 'resolved', 'rejected']
 const ACTIVITY_MODERATION_STATUSES = ['pending', 'visible', 'approved', 'rejected', 'hidden']
+const MAX_CACHE_ITEMS = 200
 
 function now() {
   return new Date().toISOString()
@@ -73,7 +74,7 @@ function readReports() {
 }
 
 function writeReports(items) {
-  writeStorage(REPORTS_KEY, items.map(normalizeReport))
+  writeStorage(REPORTS_KEY, items.map(normalizeReport).slice(0, MAX_CACHE_ITEMS))
 }
 
 function readActivityStatuses() {

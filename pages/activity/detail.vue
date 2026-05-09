@@ -2,6 +2,25 @@
   <view v-if="isPageLoading" class="detail su-page">
     <SuPageLoading :style="contentTopStyle" text="活动详情加载中..." />
   </view>
+  <view v-else-if="loadError" class="detail su-page">
+    <view class="detail__nav" :style="navStyle">
+      <view class="detail__nav-row" :style="navRowStyle">
+        <view class="detail__nav-btn" @tap="goBackOrFallback">
+          <uni-icons type="left" size="24" color="#0f172a" />
+        </view>
+        <text class="detail__nav-title">活动详情</text>
+        <view class="detail__nav-actions" :style="navActionsStyle" />
+      </view>
+    </view>
+
+    <view class="detail__main" :style="contentTopStyle">
+      <view class="detail-error">
+        <text class="detail-error__title">活动加载失败</text>
+        <text class="detail-error__text">{{ loadError }}</text>
+        <button class="detail-error__button" @tap="loadData(currentActivityId)">重新加载</button>
+      </view>
+    </view>
+  </view>
   <view v-else class="detail su-page">
     <view class="detail__nav" :style="navStyle">
       <view class="detail__nav-row" :style="navRowStyle">
@@ -250,7 +269,7 @@ import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
-const activity = ref(createEmptyActivity('101'))
+const activity = ref(createEmptyActivity(''))
 const visibleMembers = ref([])
 const showShare = ref(false)
 const showMore = ref(false)
@@ -258,6 +277,8 @@ const selectedMember = ref(null)
 const reportReason = ref('')
 const isPageLoading = ref(true)
 const hasLoadedOnce = ref(false)
+const loadError = ref('')
+const currentActivityId = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 240 })
@@ -342,19 +363,23 @@ const primaryButtonClass = computed(() => ({
 }))
 
 onLoad(async (query) => {
-  const id = (query && query.id) || '101'
+  const id = String((query && query.id) || '').trim()
   await loadData(id)
 })
 
-async function loadData(id = activity.value.id || '101') {
+async function loadData(id = activity.value.id) {
+  currentActivityId.value = String(id || currentActivityId.value || '').trim()
   if (!hasLoadedOnce.value) {
     isPageLoading.value = true
   }
   try {
-    const detail = await getActivityDetail(id)
+    loadError.value = ''
+    if (!currentActivityId.value) throw new Error('缺少活动 ID，请从活动列表重新进入。')
+    const detail = await getActivityDetail(currentActivityId.value)
+    if (!detail?.id) throw new Error('活动不存在或已下架。')
     const [application, members] = await Promise.all([
-      getApplicationForActivity(detail.id || id),
-      listActivityMembers(detail.id || id)
+      getApplicationForActivity(detail.id || currentActivityId.value),
+      listActivityMembers(detail.id || currentActivityId.value)
     ])
     const memberCount = members.length
     activity.value = {
@@ -368,13 +393,17 @@ async function loadData(id = activity.value.id || '101') {
       participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
     }
     visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
+  } catch (error) {
+    loadError.value = error?.message || '活动详情加载失败，请稍后重试。'
+    visibleMembers.value = []
+    uni.showToast({ title: loadError.value, icon: 'none' })
   } finally {
     hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }
 
-onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '101')))
+onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id)))
 
 onShareAppMessage(() => buildActivitySharePayload(activity.value))
 onShareTimeline(() => buildActivitySharePayload(activity.value))
@@ -415,6 +444,10 @@ function openOrganizerProfile() {
 }
 
 function handlePrimaryAction() {
+  if (loadError.value || !activity.value.id) {
+    uni.showToast({ title: '活动尚未加载成功', icon: 'none' })
+    return
+  }
   if ((isTerminalActivity.value || registrationClosed.value) && !isLeader.value) {
     uni.showToast({ title: registrationClosedReason.value || `${activityStatusMeta.value.label}，暂不可报名`, icon: 'none' })
     return
@@ -446,20 +479,28 @@ function openPoster() {
 }
 
 async function submitActivityReport() {
+  if (!activity.value.id) {
+    uni.showToast({ title: '活动尚未加载成功', icon: 'none' })
+    return
+  }
   const note = reportReason.value.trim()
   if (!note) {
     uni.showToast({ title: '请填写举报理由', icon: 'none' })
     return
   }
-  await createReport({
-    activityId: activity.value.id,
-    activityTitle: activity.value.title,
-    reason: 'content',
-    note
-  })
-  reportReason.value = ''
-  showMore.value = false
-  uni.showToast({ title: '举报已提交', icon: 'none' })
+  try {
+    await createReport({
+      activityId: activity.value.id,
+      activityTitle: activity.value.title,
+      reason: 'content',
+      note
+    })
+    reportReason.value = ''
+    showMore.value = false
+    uni.showToast({ title: '举报已提交', icon: 'none' })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '举报提交失败', icon: 'none' })
+  }
 }
 
 function toastAndClose(title) {
@@ -520,6 +561,39 @@ function toastAndClose(title) {
   gap: 28rpx;
   padding-right: 34rpx;
   padding-left: 34rpx;
+}
+
+.detail-error {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 44rpx;
+  border-radius: 38rpx;
+  background: #fff;
+  box-shadow: 0 24rpx 70rpx rgba(15, 23, 42, 0.08);
+}
+
+.detail-error__title {
+  color: #0f172a;
+  font-size: 36rpx;
+  font-weight: 900;
+}
+
+.detail-error__text {
+  color: #64748b;
+  font-size: 26rpx;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.detail-error__button {
+  height: 86rpx;
+  border-radius: 999rpx;
+  background: #0f172a;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 900;
+  line-height: 86rpx;
 }
 
 .hero-card,

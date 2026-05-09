@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const db = uniCloud.database();
 const collection = db.collection('surego-messages');
 const activityCollection = db.collection('surego-activities');
@@ -15,10 +16,17 @@ const {
   now,
   ok,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const ALLOWED_TYPES = ['system', 'activity', 'application', 'order', 'checkin', 'report'];
+
+function buildMessageId(userId, eventKey) {
+  if (!eventKey) return '';
+  const digest = crypto.createHash('sha1').update(`${userId}:${eventKey}`).digest('hex');
+  return `msg_${digest}`;
+}
 
 function normalizeMessage(record = {}) {
   return {
@@ -42,10 +50,13 @@ function normalizeList(result = {}) {
 
 function buildRecord(payload = {}) {
   const type = ALLOWED_TYPES.includes(payload.type) ? payload.type : 'system';
-  return {
-    user_id: cleanId(payload.userId || payload.user_id),
+  const userId = cleanId(payload.userId || payload.user_id);
+  const eventKey = cleanString(payload.eventKey || payload.event_key, { max: 160 });
+  const record = {
+    _id: payload._id || payload.id || buildMessageId(userId, eventKey),
+    user_id: userId,
     activity_id: cleanId(payload.activityId || payload.activity_id),
-    event_key: cleanString(payload.eventKey || payload.event_key, { max: 160 }),
+    event_key: eventKey,
     type,
     title: cleanString(payload.title, { max: 40 }),
     content: cleanString(payload.content, { max: 300 }),
@@ -54,6 +65,8 @@ function buildRecord(payload = {}) {
     created_at: payload.createdAt || payload.created_at || now(),
     updated_at: payload.updatedAt || payload.updated_at || ''
   };
+  if (!record._id) delete record._id;
+  return record;
 }
 
 async function canCreateMessage(record, user) {
@@ -99,7 +112,7 @@ async function canCreateMessage(record, user) {
   return false;
 }
 
-exports.main = async (event) => {
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await requireAuth(event);
@@ -119,8 +132,21 @@ exports.main = async (event) => {
       const found = (existing.data || [])[0];
       if (found) return ok(normalizeMessage(found));
     }
-    const result = await collection.add(record);
-    return ok(normalizeMessage({ ...record, _id: result.id || result._id }));
+    let result;
+    try {
+      result = await collection.add(record);
+    } catch (error) {
+      if (record.event_key) {
+        const existing = await collection
+          .where({ user_id: record.user_id, event_key: record.event_key })
+          .limit(1)
+          .get();
+        const found = (existing.data || [])[0];
+        if (found) return ok(normalizeMessage(found));
+      }
+      throw error;
+    }
+    return ok(normalizeMessage({ ...record, _id: result.id || result._id || record._id }));
   }
 
   if (action === 'list') {
@@ -147,4 +173,6 @@ exports.main = async (event) => {
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

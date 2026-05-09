@@ -385,6 +385,19 @@ function removeQuestion(index) {
   form.questions.splice(index, 1)
 }
 
+function parsePositiveInt(value, { min = 1, max = 500 } = {}) {
+  const next = Number(value)
+  if (!Number.isInteger(next) || next < min || next > max) return null
+  return next
+}
+
+function parseAmount(value) {
+  if (form.partyMode === 'free') return 0
+  const next = Number(value)
+  if (!Number.isFinite(next) || next <= 0 || next > 99999) return null
+  return Math.round(next * 100) / 100
+}
+
 function validateForm() {
   const missingFields = collectMissingFields([
     { label: '活动标题', required: true, value: form.title },
@@ -404,7 +417,12 @@ function validateForm() {
       uni.showToast({ title: fieldErrorText.value, icon: 'none' })
       return false
     }
-    if (form.partyMode !== 'free' && Number(form.amount || 0) <= 0) {
+    if (form.hasParticipantLimit && parsePositiveInt(form.maxParticipants) === null) {
+      fieldErrorText.value = '人数上限需为 1-500 的整数'
+      uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+      return false
+    }
+    if (parseAmount(form.amount) === null) {
       fieldErrorText.value = form.partyMode === 'ticket' ? '请填写有效门票金额' : '请填写有效诚意金金额'
       uni.showToast({ title: fieldErrorText.value, icon: 'none' })
       return false
@@ -422,16 +440,24 @@ async function handleSubmit() {
   if (isSubmitting.value) return
   if (!validateForm()) return
   isSubmitting.value = true
-  const created = await createActivity({
-    ...form,
-    amount: Number(form.amount) || 0,
-    questions: form.questions.filter((item) => item.trim())
-  })
-  goSuccess({
-    type: 'CREATE',
-    activityId: created.id,
-    coverImage: created.image
-  })
+  try {
+    const created = await createActivity({
+      ...form,
+      amount: parseAmount(form.amount),
+      maxParticipants: form.hasParticipantLimit ? parsePositiveInt(form.maxParticipants) : 0,
+      questions: form.questions.filter((item) => item.trim())
+    })
+    goSuccess({
+      type: 'CREATE',
+      activityId: created.id,
+      coverImage: created.image
+    })
+  } catch (error) {
+    fieldErrorText.value = error?.message || '发布失败，请稍后重试'
+    uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 

@@ -3,13 +3,14 @@ import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.j
 import { getCurrentUserId } from '@/common/api/auth.js'
 
 const STORAGE_KEY = 'surego_messages'
+const MAX_CACHE_ITEMS = 300
 
 function readMessages() {
   return uni.getStorageSync(STORAGE_KEY) || []
 }
 
 function writeMessages(items) {
-  uni.setStorageSync(STORAGE_KEY, items)
+  uni.setStorageSync(STORAGE_KEY, items.slice(0, MAX_CACHE_ITEMS))
 }
 
 function isCurrentUserMessage(item, userId = getCurrentUserId()) {

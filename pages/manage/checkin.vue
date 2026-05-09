@@ -13,13 +13,19 @@
     </view>
 
     <scroll-view scroll-y class="checkin__scroll" :style="contentTopStyle">
-      <view class="hero">
+      <view v-if="loadError" class="checkin-error">
+        <text class="checkin-error__title">签到台加载失败</text>
+        <text class="checkin-error__text">{{ loadError }}</text>
+        <view class="checkin-error__button" @tap="loadState">重新加载</view>
+      </view>
+
+      <view v-if="!loadError" class="hero">
         <text class="hero__kicker">CHECK-IN DESK</text>
         <text class="hero__title">{{ activity.title }}</text>
         <text class="hero__meta">{{ activity.date }} {{ activity.time }} - {{ activity.location }}</text>
       </view>
 
-      <view class="stats">
+      <view v-if="!loadError" class="stats">
         <view class="stat">
           <text>已签到</text>
           <text>{{ checkedCount }}</text>
@@ -34,7 +40,7 @@
         </view>
       </view>
 
-      <view class="panel panel--code">
+      <view v-if="!loadError" class="panel panel--code">
         <view class="panel__head">
           <view>
             <text class="panel__title">成员凭证核销</text>
@@ -64,7 +70,7 @@
         </view>
       </view>
 
-      <view class="panel">
+      <view v-if="!loadError" class="panel">
         <view class="panel__head">
           <view>
             <text class="panel__title">参与者列表</text>
@@ -105,13 +111,15 @@ import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goUserDetail } from '@/common/utils/route.js'
 import SuQrCode from '@/components/surego/SuQrCode.vue'
 
-const activityId = ref('103')
-const activity = ref(createEmptyActivity('103'))
+const activityId = ref('')
+const activity = ref(createEmptyActivity(''))
 const applications = ref([])
 const memberProfiles = ref([])
 const checkins = ref([])
 const codeInput = ref('')
 const entryCodes = ref({})
+const loadError = ref('')
+const accessDenied = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -170,7 +178,7 @@ const pendingCount = computed(() => Math.max(0, participantList.value.length - c
 const nextCheckablePerson = computed(() => participantList.value.find((item) => !item.checked && item.status !== 'pending') || null)
 
 onLoad(async (query) => {
-  activityId.value = (query && query.id) || '103'
+  activityId.value = String((query && query.id) || '').trim()
   await loadState()
 })
 
@@ -182,19 +190,33 @@ onPullDownRefresh(makeRefreshHandler(loadState))
 
 async function loadState() {
   try {
+    loadError.value = ''
+    accessDenied.value = false
+    if (!activityId.value) throw new Error('缺少活动 ID，请从管理台重新进入签到核销。')
     activity.value = await getActivityDetail(activityId.value)
+    if (!activity.value?.id) throw new Error('活动不存在或已下架。')
     if (!ensureOwnerAccess()) return
-    applications.value = await listApplications(activityId.value)
-    memberProfiles.value = await listActivityMembers(activityId.value)
-    const summary = await getCheckinSummary(activityId.value, activity.value.participantCount)
-    checkins.value = summary.items || []
+    const [applicationResult, memberResult, summaryResult] = await Promise.allSettled([
+      listApplications(activityId.value),
+      listActivityMembers(activityId.value),
+      getCheckinSummary(activityId.value, activity.value.participantCount)
+    ])
+    applications.value = applicationResult.status === 'fulfilled' ? applicationResult.value : []
+    memberProfiles.value = memberResult.status === 'fulfilled' ? memberResult.value : []
+    checkins.value = summaryResult.status === 'fulfilled' ? (summaryResult.value.items || []) : []
+    if (applicationResult.status === 'rejected' || memberResult.status === 'rejected' || summaryResult.status === 'rejected') {
+      uni.showToast({ title: '部分签到数据加载失败', icon: 'none' })
+    }
   } catch (error) {
-    uni.showToast({ title: error?.message || '核销数据加载失败', icon: 'none' })
+    loadError.value = error?.message || '核销数据加载失败'
+    uni.showToast({ title: loadError.value, icon: 'none' })
   }
 }
 
 function ensureOwnerAccess() {
   if (activity.value?.isCreator) return true
+  accessDenied.value = true
+  loadError.value = '只有局长可以核销签到。'
   uni.showToast({ title: '只有局长可以核销签到', icon: 'none' })
   setTimeout(() => {
     goActivityDetail(activity.value?.id || activityId.value, { replace: true })
@@ -382,6 +404,43 @@ async function confirmPerson(person, code, source = 'manual') {
   height: 100vh;
   box-sizing: border-box;
 }
+
+.checkin-error {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+  margin: 0 34rpx 24rpx;
+  padding: 32rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 34rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.checkin-error__title {
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.checkin-error__text {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.checkin-error__button {
+  width: 220rpx;
+  height: 72rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: #0f172a;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 72rpx;
+  text-align: center;
+}
+
 .hero {
   padding: 0 40rpx 38rpx;
 }

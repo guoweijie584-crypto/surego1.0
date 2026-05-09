@@ -48,6 +48,28 @@ function unknownAction() {
   return response('UNKNOWN_ACTION', 'Unsupported action.');
 }
 
+function createTraceId(prefix = 'sg') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function internalError(traceId) {
+  return response('INTERNAL_ERROR', 'Internal service error.', { traceId });
+}
+
+async function withSafeHandler(event = {}, handler) {
+  const traceId = cleanString(event.traceId, { max: 80 }) || createTraceId();
+  try {
+    return await handler({ traceId });
+  } catch (error) {
+    console.error('[surego-cloud-error]', {
+      traceId,
+      message: error && error.message,
+      stack: error && error.stack
+    });
+    return internalError(traceId);
+  }
+}
+
 async function checkToken(uniIdToken) {
   if (!uniIdToken) return null;
   const result = await uniID.checkToken(uniIdToken, {
@@ -172,6 +194,7 @@ module.exports = {
   cleanUrl,
   forbidden,
   hasRole,
+  internalError,
   invalid,
   isOps,
   limitObjectKeys,
@@ -183,5 +206,6 @@ module.exports = {
   requireAdmin,
   requireAuth,
   requireOps,
+  withSafeHandler,
   unknownAction
 };

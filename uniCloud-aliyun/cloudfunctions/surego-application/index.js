@@ -16,12 +16,23 @@ const {
   now,
   ok,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const PUBLIC_STATUSES = ['published', 'recruiting', 'formed'];
 const PUBLIC_MODERATION_STATUSES = ['approved', 'visible'];
 const REVIEW_STATUSES = ['approved', 'rejected'];
+
+function buildApplicationId(activityId, userId) {
+  return `app_${String(activityId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}_${String(userId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+function normalizeLimit(value, fallback = 100, max = 100) {
+  const next = Number(value);
+  if (!Number.isInteger(next) || next <= 0) return fallback;
+  return Math.min(next, max);
+}
 
 async function getActivity(activityId) {
   const result = await activityCollection.doc(String(activityId || '')).get();
@@ -83,6 +94,7 @@ function normalizeList(result) {
 function buildRecord(payload) {
   const userId = payload.userId || payload.user_id;
   const record = {
+    _id: payload._id || payload.id,
     activityId: String(payload.activityId || payload.activity_id),
     activity_id: String(payload.activityId || payload.activity_id),
     userId,
@@ -102,7 +114,7 @@ function buildRecord(payload) {
     created_at: payload.createdAt || payload.created_at || now(),
     reviewed_at: payload.reviewedAt || payload.reviewed_at || ''
   };
-  if (!record.id) delete record.id;
+  if (!record._id) delete record._id;
   return record;
 }
 
@@ -123,7 +135,7 @@ function deriveApplicationStatus(activity = {}) {
   return activity.require_approval === false || activity.requireApproval === false ? 'approved' : 'pending';
 }
 
-exports.main = async (event) => {
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await requireAuth(event);
@@ -148,6 +160,7 @@ exports.main = async (event) => {
     const profile = await getSuregoUserProfile(user.uid);
     const application = buildRecord({
       ...payload,
+      _id: buildApplicationId(activityId, user.uid),
       activityId,
       activity_id: activityId,
       userId: user.uid,
@@ -163,10 +176,17 @@ exports.main = async (event) => {
       status: deriveApplicationStatus(activity),
       created_at: now()
     });
-    const result = await collection.add(application);
+    let result;
+    try {
+      result = await collection.add(application);
+    } catch (error) {
+      const concurrentExisting = await getExistingApplication(activityId, user.uid);
+      if (concurrentExisting) return ok(normalizeApplication(concurrentExisting));
+      throw error;
+    }
     return ok(normalizeApplication({
         ...application,
-        id: result.id
+        id: result.id || application._id
     }));
   }
 
@@ -176,7 +196,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'listMine') {
-    const requestedLimit = Math.min(Number(payload.limit) || 100, 100);
+    const requestedLimit = normalizeLimit(payload.limit, 100, 100);
     const [snakeResult, camelResult] = await Promise.all([
       collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get(),
       collection.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get()
@@ -197,9 +217,10 @@ exports.main = async (event) => {
   if (action === 'listByActivity') {
     const activityId = String(payload.activityId || payload.activity_id);
     const canManage = await canManageActivity(activityId, user);
+    const requestedLimit = normalizeLimit(payload.limit, 100, 100);
     const [snakeResult, camelResult] = await Promise.all([
-      collection.where(canManage ? { activity_id: activityId } : { activity_id: activityId, user_id: user.uid }).orderBy('created_at', 'desc').get(),
-      collection.where(canManage ? { activityId } : { activityId, userId: user.uid }).orderBy('created_at', 'desc').get()
+      collection.where(canManage ? { activity_id: activityId } : { activity_id: activityId, user_id: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get(),
+      collection.where(canManage ? { activityId } : { activityId, userId: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get()
     ]);
     const seen = new Set();
     const items = [...(snakeResult.data || []), ...(camelResult.data || [])].filter((item) => {
@@ -230,13 +251,28 @@ exports.main = async (event) => {
     }
     const reviewedAt = now();
     const beforeStatus = target.status;
-    await collection.doc(id).update({
+    if (beforeStatus === nextStatus) {
+      return ok(normalizeApplication({
+        ...target,
+        id,
+        status: nextStatus,
+        reviewNote: payload.reviewNote || payload.review_note || target.review_note || '',
+        rejectReason: payload.rejectReason || payload.reject_reason || target.reject_reason || '',
+        reviewerId: target.reviewer_id || target.reviewerId || user.uid,
+        reviewed_at: target.reviewed_at || reviewedAt
+      }));
+    }
+    const updateResult = await collection.where({ _id: id, status: beforeStatus }).update({
       status: nextStatus,
       review_note: payload.reviewNote || payload.review_note || '',
       reject_reason: payload.rejectReason || payload.reject_reason || '',
       reviewer_id: user.uid,
       reviewed_at: reviewedAt
     });
+    if (!Number(updateResult.updated || updateResult.modifiedCount || 0)) {
+      const latest = await collection.doc(id).get();
+      return ok(normalizeApplication((latest.data || [])[0] || { id }));
+    }
     if (beforeStatus !== 'approved' && nextStatus === 'approved') {
       await activityCollection.doc(target.activity_id || target.activityId).update({
         participantCount: dbCmd.inc(1),
@@ -265,4 +301,6 @@ exports.main = async (event) => {
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));

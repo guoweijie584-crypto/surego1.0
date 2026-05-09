@@ -455,7 +455,25 @@ function applyModerationOverlay(item = {}) {
 }
 
 function writeCreatedActivities(items) {
-  uni.setStorageSync(STORAGE_KEY, items)
+  uni.setStorageSync(STORAGE_KEY, items.slice(0, 100))
+}
+
+function parseBoundedInteger(value, options = {}) {
+  const fallback = Number.isInteger(options.fallback) ? options.fallback : 0
+  const min = Number.isInteger(options.min) ? options.min : Number.MIN_SAFE_INTEGER
+  const max = Number.isInteger(options.max) ? options.max : Number.MAX_SAFE_INTEGER
+  const next = Number(value)
+  if (!Number.isInteger(next)) return fallback
+  return Math.min(max, Math.max(min, next))
+}
+
+function parseBoundedAmount(value, options = {}) {
+  const fallback = Number.isFinite(options.fallback) ? options.fallback : 0
+  const min = Number.isFinite(options.min) ? options.min : 0
+  const max = Number.isFinite(options.max) ? options.max : 99999
+  const next = Number(value)
+  if (!Number.isFinite(next)) return fallback
+  return Math.round(Math.min(max, Math.max(min, next)) * 100) / 100
 }
 
 function buildActivityFromForm(form, id = `local_${Date.now()}`) {
@@ -463,6 +481,13 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
   const creatorId = form.creatorId || form.creator_id || currentUser.userId
   const city = normalizeCityName(form.city || DEFAULT_CITY)
   const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city))
+  const hasParticipantLimit = Boolean(form.hasParticipantLimit)
+  const maxParticipants = hasParticipantLimit
+    ? parseBoundedInteger(form.maxParticipants, { min: 1, max: 500, fallback: 10 })
+    : 0
+  const amount = form.partyMode === 'free'
+    ? 0
+    : parseBoundedAmount(form.amount, { min: 0.01, max: 99999, fallback: 0 })
   return {
     id,
     title: form.title,
@@ -486,12 +511,12 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     city_code: cityCode,
     district: form.district || '',
     distance: form.distance || '0.6',
-    participantCount: Number(form.participantCount) || 1,
-    maxParticipants: Number(form.maxParticipants) || 10,
-    hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    participantCount: parseBoundedInteger(form.participantCount, { min: 0, max: 500, fallback: 1 }),
+    maxParticipants,
+    hasParticipantLimit,
     partyMode: form.partyMode,
-    price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
-    amount: Number(form.amount) || 0,
+    price: form.partyMode === 'free' ? '免费' : String(amount),
+    amount,
     requireApproval: Boolean(form.requireApproval),
     status: normalizeActivityStatus(form.status || 'reviewing'),
     lifecycleStatus: normalizeActivityStatus(form.status || 'reviewing'),
@@ -530,7 +555,8 @@ export async function listActivities() {
   if (USE_UNICLOUD) {
     try {
       const result = await callSuregoFunction('surego-activity', 'list', { limit: 50 })
-      return result.map(normalizeActivityRecord).filter(isPubliclyVisibleActivity)
+      const items = Array.isArray(result) ? result : (result.items || [])
+      return items.map(normalizeActivityRecord).filter(isPubliclyVisibleActivity)
     } catch (error) {
       return handleSuregoCloudError(error, listPublicLocalActivities)
     }
@@ -691,6 +717,13 @@ function updateLocalActivity(id, form) {
     found.city_code ||
     (nextCity === DEFAULT_CITY ? DEFAULT_CITY_CODE : '')
   )
+  const hasParticipantLimit = Boolean(form.hasParticipantLimit)
+  const maxParticipants = hasParticipantLimit
+    ? parseBoundedInteger(form.maxParticipants, { min: 1, max: 500, fallback: found.maxParticipants || 10 })
+    : 0
+  const amount = form.partyMode === 'free'
+    ? 0
+    : parseBoundedAmount(form.amount, { min: 0.01, max: 99999, fallback: found.amount || 0 })
 
   const nextActivity = {
     ...found,
@@ -708,12 +741,12 @@ function updateLocalActivity(id, form) {
     cityCode: nextCityCode,
     city_code: nextCityCode,
     district: form.district || found.district || '',
-    maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
-    hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    maxParticipants,
+    hasParticipantLimit,
     requireApproval: Boolean(form.requireApproval),
     partyMode: form.partyMode,
-    amount: Number(form.amount) || 0,
-    price: form.partyMode === 'free' ? '免费' : String(Number(form.amount) || 0),
+    amount,
+    price: form.partyMode === 'free' ? '免费' : String(amount),
     description: form.description,
     questions: form.questions || [],
     image: form.image || found.image,
@@ -733,7 +766,8 @@ export async function updateActivity(id, form) {
     ...form,
     city,
     cityCode,
-    city_code: cityCode
+    city_code: cityCode,
+    version: form.version || form.updatedAt || form.updated_at
   }
   if (USE_UNICLOUD && !String(id).startsWith('local_')) {
     try {

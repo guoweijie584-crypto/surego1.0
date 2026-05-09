@@ -13,11 +13,28 @@ const {
   now,
   ok,
   requireAuth,
-  unknownAction
+  unknownAction,
+  withSafeHandler
 } = require('surego-security');
 
 const ORDER_STATUSES = ['pending', 'paid', 'refund_requested', 'refunded', 'closed'];
 const PAYABLE_ACTIVITY_TYPES = ['sincerity', 'ticket'];
+
+function normalizeAmount(value, fallback = 0) {
+  const next = Number(value);
+  if (!Number.isFinite(next) || next < 0 || next > 99999) return fallback;
+  return Math.round(next * 100) / 100;
+}
+
+function buildOrderId(activityId, userId) {
+  return `order_${String(activityId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}_${String(userId || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+}
+
+function normalizeLimit(value, fallback = 20, max = 100) {
+  const next = Number(value);
+  if (!Number.isInteger(next) || next <= 0) return fallback;
+  return Math.min(next, max);
+}
 
 async function getActivity(activityId) {
   const result = await activityCollection.doc(String(activityId || '')).get();
@@ -80,12 +97,13 @@ function buildRecord(payload = {}) {
   const activityId = cleanId(payload.activityId || payload.activity_id);
   const userId = cleanId(payload.userId || payload.user_id);
   const record = {
+    _id: payload._id || payload.id,
     activityId,
     activity_id: activityId,
     userId,
     user_id: userId,
     type: cleanString(payload.type, { max: 20 }),
-    amount: Number(payload.amount) || 0,
+    amount: normalizeAmount(payload.amount),
     status: normalizeStatus(payload.status || 'pending'),
     activity_title: cleanString(payload.activityTitle || payload.activity_title || payload.title, { max: 80 }),
     activity_cover: cleanString(payload.activityCover || payload.activity_cover || payload.image, { max: 500 }),
@@ -93,7 +111,7 @@ function buildRecord(payload = {}) {
     close_reason: cleanString(payload.closeReason || payload.close_reason, { max: 200 }),
     updated_at: now()
   };
-  if (payload.id) record.id = payload.id;
+  if (!record._id) delete record._id;
   if (payload.created_at || payload.createdAt) {
     record.created_at = payload.created_at || payload.createdAt;
   } else {
@@ -140,7 +158,7 @@ async function buildOrderForActivity(activityId, user) {
       userId: user.uid,
       user_id: user.uid,
       type,
-      amount: Number(activity.amount) || 0,
+      amount: normalizeAmount(activity.amount),
       status: 'pending',
       activityTitle: activity.title || '',
       activityCover: activity.cover || activity.image || ''
@@ -148,7 +166,7 @@ async function buildOrderForActivity(activityId, user) {
   };
 }
 
-exports.main = async (event) => {
+async function main(event) {
   const action = event.action;
   const payload = event.payload || {};
   const user = await requireAuth(event);
@@ -162,8 +180,16 @@ exports.main = async (event) => {
 
     const built = await buildOrderForActivity(activityId, user);
     if (built.error) return built.error;
-    const result = await collection.add(built.order);
-    return ok(normalizeOrder({ ...built.order, id: result.id }));
+    built.order._id = buildOrderId(activityId, user.uid);
+    let result;
+    try {
+      result = await collection.add(built.order);
+    } catch (error) {
+      const concurrentExisting = await findOrderByActivity({ activityId, userId: user.uid, user_id: user.uid });
+      if (concurrentExisting) return ok(normalizeOrder(concurrentExisting));
+      throw error;
+    }
+    return ok(normalizeOrder({ ...built.order, id: result.id || built.order._id }));
   }
 
   if (action === 'getForActivity') {
@@ -245,9 +271,10 @@ exports.main = async (event) => {
   }
 
   if (action === 'list') {
+    const requestedLimit = normalizeLimit(payload.limit, 20, 100);
     const [snakeResult, camelResult] = await Promise.all([
-      collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 20).get(),
-      collection.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 20).get()
+      collection.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get(),
+      collection.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(requestedLimit).get()
     ]);
     return ok(normalizeList({ data: [...(snakeResult.data || []), ...(camelResult.data || [])] }));
   }
@@ -257,12 +284,15 @@ exports.main = async (event) => {
     if (!(await canManageActivity(activityId, user))) {
       return forbidden('Only the activity creator can list activity orders.');
     }
+    const requestedLimit = normalizeLimit(payload.limit, 100, 100);
     const [snakeResult, camelResult] = await Promise.all([
-      collection.where({ activity_id: activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
-      collection.where({ activityId }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
+      collection.where({ activity_id: activityId }).orderBy('created_at', 'desc').limit(requestedLimit).get(),
+      collection.where({ activityId }).orderBy('created_at', 'desc').limit(requestedLimit).get()
     ]);
     return ok(normalizeList({ data: [...(snakeResult.data || []), ...(camelResult.data || [])] }));
   }
 
   return unknownAction();
-};
+}
+
+exports.main = (event) => withSafeHandler(event, () => main(event));
