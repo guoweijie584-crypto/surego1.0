@@ -1,0 +1,17 @@
+{
+  "bsonType": "object",
+  "required": ["target_type", "target_id", "user_id"],
+  "permission": {
+    "read": "doc.user_id == auth.uid",
+    "create": "auth.uid != null",
+    "update": false,
+    "delete": "doc.user_id == auth.uid"
+  },
+  "properties": {
+    "_id": { "description": "Follow id" },
+    "target_type": { "enum": ["partner_post", "activity", "user"], "title": "Target type" },
+    "target_id": { "bsonType": "string", "title": "Target id" },
+    "user_id": { "bsonType": "string", "title": "Follower user id" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "bsonType": "object",
+  "required": ["title", "type", "creator_id", "status"],
+  "permission": {
+    "read": true,
+    "create": "auth.uid != null",
+    "update": "doc.creator_id == auth.uid",
+    "delete": "doc.creator_id == auth.uid"
+  },
+  "properties": {
+    "_id": { "description": "Partner post id" },
+    "title": { "bsonType": "string", "title": "Title" },
+    "type": { "enum": ["time_box", "long_term", "project"], "title": "Partner post type" },
+    "creator_id": { "bsonType": "string", "title": "Creator user id" },
+    "creator": { "bsonType": "string", "title": "Creator name" },
+    "avatar": { "bsonType": "string", "title": "Creator avatar" },
+    "city": { "bsonType": "string", "title": "City" },
+    "location": { "bsonType": "string", "title": "Location" },
+    "schedule": { "bsonType": "string", "title": "Schedule" },
+    "connection_mode": { "bsonType": "string", "title": "Connection mode" },
+    "description": { "bsonType": "string", "title": "Description" },
+    "expectation": { "bsonType": "string", "title": "Expectation" },
+    "fit_tags": { "bsonType": "array", "title": "Fit tags" },
+    "status": { "enum": ["open", "matched", "paused", "closed"], "title": "Status" },
+    "intent_count": { "bsonType": "int", "title": "Intent count" },
+    "follow_count": { "bsonType": "int", "title": "Follow count" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
+  }
+}

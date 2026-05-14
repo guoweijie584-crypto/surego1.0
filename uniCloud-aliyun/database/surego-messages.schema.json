@@ -11,6 +11,8 @@
     "_id": { "description": "Message id" },
     "user_id": { "bsonType": "string", "title": "Recipient user id" },
     "activity_id": { "bsonType": "string", "title": "Activity id" },
+    "partner_post_id": { "bsonType": "string", "title": "Partner post id" },
+    "conversation_id": { "bsonType": "string", "title": "Conversation id" },
     "event_key": { "bsonType": "string", "title": "Idempotent business event key" },
     "type": { "bsonType": "string", "title": "Message type" },
     "title": { "bsonType": "string", "title": "Title" },
