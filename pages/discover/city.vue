@@ -59,7 +59,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
-const selectedCity = ref('杭州')
+const selectedCity = ref('天津')
 const selectedCityCode = ref('330100')
 const cities = ref([])
 const citySelectRef = ref(null)
@@ -67,14 +67,14 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const hotCities = [
-  { code: '330100', name: '杭州市' },
+  { code: '120100', name: '天津市' },
   { code: '310100', name: '上海市' },
   { code: '320100', name: '南京市' },
   { code: '110100', name: '北京市' }
 ]
 
 onShow(async () => {
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   cities.value = await getCityActivityStats()
 })

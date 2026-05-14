@@ -111,7 +111,7 @@ const topics = [
 ]
 
 const activeCategory = ref('全部')
-const selectedCity = ref('杭州')
+const selectedCity = ref('天津')
 const selectedCityCode = ref('330100')
 const currentAvatar = ref(DEFAULT_AVATAR)
 const unreadCount = ref(0)
@@ -126,7 +126,7 @@ const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unre
 
 async function loadData() {
   refreshCurrentAvatar()
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   const [items, unread] = await Promise.all([
     listActivitiesByCity(selectedCity.value, selectedCityCode.value),

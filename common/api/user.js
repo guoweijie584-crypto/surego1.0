@@ -1,4 +1,4 @@
-import { USE_UNICLOUD, shouldUseCloudFallback } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserId, getCurrentUserProfile, isLoggedIn, saveCurrentUserProfile, setMockLogin } from '@/common/api/auth.js'
 import { isPubliclyVisibleActivity, listAllActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
@@ -100,7 +100,7 @@ export async function syncCurrentUserProfile(payload = {}) {
     ...payload,
     profileCompletedAt: payload.profileCompletedAt || payload.profile_completed_at || Date.now()
   })
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const user = await callSuregoFunction('surego-user', 'updateProfile', next)
       return writeLocalUser(user || next)
@@ -116,6 +116,9 @@ export async function syncCurrentUserProfile(payload = {}) {
 }
 
 export async function getCurrentUser() {
+  if (shouldUseReferenceMockPreview()) {
+    return readLocalUser()
+  }
   if (USE_UNICLOUD && !isLoggedIn()) {
     return getCurrentUserProfile()
   }

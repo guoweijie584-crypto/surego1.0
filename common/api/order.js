@@ -1,4 +1,4 @@
-import { USE_UNICLOUD } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
@@ -139,6 +139,9 @@ function createLocalOrder(payload) {
 }
 
 export async function createOrder(payload) {
+  if (shouldUseReferenceMockPreview()) {
+    return createLocalOrder(payload)
+  }
   if (USE_UNICLOUD) {
     try {
       return normalizeOrder(await callSuregoFunction('surego-order', 'create', buildOrder(payload)))
@@ -155,6 +158,9 @@ function getLocalOrderForActivity(activityId, userId = getCurrentUserId()) {
 }
 
 export async function getOrderForActivity(activityId, userId = getCurrentUserId()) {
+  if (shouldUseReferenceMockPreview()) {
+    return getLocalOrderForActivity(activityId, userId)
+  }
   if (USE_UNICLOUD) {
     try {
       const order = await callSuregoFunction('surego-order', 'getForActivity', { activityId, userId })
@@ -186,6 +192,9 @@ function ensureLocalOrderForActivity(payload) {
 }
 
 export async function ensureOrderForActivity(payload) {
+  if (shouldUseReferenceMockPreview()) {
+    return ensureLocalOrderForActivity(payload)
+  }
   if (USE_UNICLOUD) {
     try {
       return normalizeOrder(await callSuregoFunction('surego-order', 'ensureForActivity', buildOrder(payload)))
@@ -220,7 +229,7 @@ function updateLocalOrderStatus(id, status, options = {}) {
 
 export async function updateOrderStatus(id, status, options = {}) {
   let order
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       order = normalizeOrder(await callSuregoFunction('surego-order', 'updateStatus', { id, status, ...options }))
     } catch (error) {
@@ -239,7 +248,7 @@ export function markOrderPaid(id, options = {}) {
 
 export async function refundOrder(id, refundNote = '退款状态已登记', options = {}) {
   let order
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       order = normalizeOrder(await callSuregoFunction('surego-order', 'refund', { id, refundNote }))
     } catch (error) {
@@ -254,7 +263,7 @@ export async function refundOrder(id, refundNote = '退款状态已登记', opti
 
 export async function closeOrder(id, closeReason = '订单已关闭', options = {}) {
   let order
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       order = normalizeOrder(await callSuregoFunction('surego-order', 'close', { id, closeReason }))
     } catch (error) {
@@ -273,6 +282,9 @@ function getLocalOrderDetail(id) {
 }
 
 export async function getOrderDetail(id) {
+  if (shouldUseReferenceMockPreview()) {
+    return getLocalOrderDetail(id)
+  }
   if (USE_UNICLOUD) {
     try {
       const order = await callSuregoFunction('surego-order', 'getDetail', { id })
@@ -289,6 +301,9 @@ function listLocalOrders(userId = getCurrentUserId()) {
 }
 
 export async function listOrders(userId = getCurrentUserId()) {
+  if (shouldUseReferenceMockPreview()) {
+    return listLocalOrders(userId)
+  }
   if (USE_UNICLOUD) {
     try {
       const orders = await callSuregoFunction('surego-order', 'list', { userId, limit: 50 })
@@ -311,6 +326,9 @@ function listLocalOrdersByActivity(activityId) {
 }
 
 export async function listOrdersByActivity(activityId) {
+  if (shouldUseReferenceMockPreview()) {
+    return listLocalOrdersByActivity(activityId)
+  }
   if (USE_UNICLOUD) {
     try {
       const orders = await callSuregoFunction('surego-order', 'listByActivity', { activityId, limit: 100 })

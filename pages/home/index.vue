@@ -119,12 +119,11 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 const sceneFilters = [
   { key: 'all', label: '全部', icon: 'star-filled' },
-  { key: '美食', label: '饭搭子', icon: 'shop' },
+  { key: '剧本杀/桌游', label: '剧本杀/桌游', icon: 'calendar' },
+  { key: '饭搭子/探店', label: '饭搭子/探店', icon: 'shop' },
   { key: '运动', label: '运动', icon: 'staff' },
-  { key: '学习', label: '自习', icon: 'compose' },
-  { key: '展览', label: '看展', icon: 'image' },
-  { key: '户外', label: '户外', icon: 'map-pin-ellipse' },
-  { key: '夜生活', label: '夜晚', icon: 'fire' }
+  { key: '学习/自习', label: '学习/自习', icon: 'compose' },
+  { key: '约拍/展览/微醺', label: '约拍/展览/微醺', icon: 'image' }
 ]
 
 const sortOptions = [

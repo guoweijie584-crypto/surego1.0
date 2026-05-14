@@ -1,5 +1,5 @@
 import { partnerPosts, findPartnerPostById } from '@/common/mock/partners.js'
-import { USE_UNICLOUD } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
@@ -9,6 +9,30 @@ const INTENTS_KEY = 'surego_partner_intents'
 const FOLLOWS_KEY = 'surego_partner_follows'
 const CONVERSATIONS_KEY = 'surego_partner_conversations'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
+const REFERENCE_CONVERSATIONS = [
+  {
+    id: 'conv_canteen_rice',
+    partnerPostId: 'canteen-rice-buddy',
+    partner_post_id: 'canteen-rice-buddy',
+    participantIds: ['mock_user', 'seed_food'],
+    participant_ids: ['mock_user', 'seed_food'],
+    status: 'open',
+    lastMessage: '南门饭搭子已通过你的意向，可以先确认今晚 18:10 的集合时间。',
+    createdAt: '2026-05-12T21:30:00.000Z',
+    updatedAt: '2026-05-12T21:30:00.000Z'
+  },
+  {
+    id: 'conv_switch_party',
+    partnerPostId: 'switch-party',
+    partner_post_id: 'switch-party',
+    participantIds: ['mock_user', 'seed_switch', 'seed_xiaozhou'],
+    participant_ids: ['mock_user', 'seed_switch', 'seed_xiaozhou'],
+    status: 'group',
+    lastMessage: 'Switch 派对当前 5 人，发起人正在确认最后 1 个名额。',
+    createdAt: '2026-05-12T19:30:00.000Z',
+    updatedAt: '2026-05-12T19:30:00.000Z'
+  }
+]
 
 export const PARTNER_POST_TYPES = [
   { key: 'time_box', label: '约个时间', description: '为一次明确时间的见面、体验或同去计划找搭子' },
@@ -102,7 +126,7 @@ function normalizePartnerPost(item = {}) {
     creator_id: creatorId,
     creator: item.creator || item.creator_name || 'SureGo 用户',
     avatar: normalizeAvatar(item.avatar || item.creator_avatar),
-    city: item.city || '杭州',
+    city: item.city || '天津',
     location: item.location || item.city || '待定',
     schedule: item.schedule || item.time || '时间待定',
     connectionMode: item.connectionMode || item.connection_mode || '发出意向后互相确认',
@@ -164,7 +188,10 @@ function listLocalPartnerPosts() {
 }
 
 export async function listPartnerPosts(options = {}) {
-  if (USE_UNICLOUD) {
+  if (shouldUseReferenceMockPreview()) {
+    return listLocalPartnerPosts()
+  }
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-partner', 'listPosts', options)
       return Array.isArray(items) ? items.map(normalizePartnerPost) : []
@@ -181,7 +208,10 @@ function getLocalPartnerPostDetail(id) {
 }
 
 export async function getPartnerPostDetail(id) {
-  if (USE_UNICLOUD && !String(id).startsWith('local_partner_')) {
+  if (shouldUseReferenceMockPreview()) {
+    return getLocalPartnerPostDetail(id)
+  }
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview() && !String(id).startsWith('local_partner_')) {
     try {
       const detail = await callSuregoFunction('surego-partner', 'detailPost', { id })
       return detail ? normalizePartnerPost(detail) : null
@@ -203,7 +233,7 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
     creator_id: creatorId,
     creator: form.creator || currentUser.nickname,
     avatar: form.avatar || currentUser.avatar,
-    city: form.city || '杭州',
+    city: form.city || '天津',
     location: form.location || form.city || '待定',
     schedule: form.schedule || '',
     connectionMode: form.connectionMode || form.connection_mode || '',
@@ -226,7 +256,7 @@ function createLocalPartnerPost(form = {}) {
 
 export async function createPartnerPost(form = {}) {
   const post = buildPartnerPostFromForm(form, '')
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       return normalizePartnerPost(await callSuregoFunction('surego-partner', 'createPost', post))
     } catch (error) {
@@ -237,7 +267,11 @@ export async function createPartnerPost(form = {}) {
 }
 
 export async function listMyPartnerPosts() {
-  if (USE_UNICLOUD) {
+  if (shouldUseReferenceMockPreview()) {
+    const all = await listLocalPartnerPosts()
+    return all.filter((item) => item.isCreator)
+  }
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-partner', 'listMine', {})
       return Array.isArray(items) ? items.map(normalizePartnerPost) : []
@@ -290,7 +324,7 @@ async function createLocalPartnerIntent(payload = {}) {
 }
 
 export async function createPartnerIntent(payload = {}) {
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       return normalizeIntent(await callSuregoFunction('surego-partner', 'createIntent', payload))
     } catch (error) {
@@ -301,7 +335,7 @@ export async function createPartnerIntent(payload = {}) {
 }
 
 export async function listPartnerIntents(partnerPostId) {
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-partner', 'listIntents', { partnerPostId })
       return Array.isArray(items) ? items.map(normalizeIntent) : []
@@ -314,7 +348,7 @@ export async function listPartnerIntents(partnerPostId) {
 
 export async function updatePartnerIntentStatus(id, status) {
   const nextStatus = PARTNER_INTENT_STATUS_META[status] ? status : 'pending'
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       return normalizeIntent(await callSuregoFunction('surego-partner', 'updateIntentStatus', { id, status: nextStatus }))
     } catch (error) {
@@ -370,7 +404,7 @@ function ensureLocalConversationForIntent(intent = {}) {
 
 export async function followPartnerPost(partnerPostId) {
   const userId = getCurrentUserId()
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       return await callSuregoFunction('surego-partner', 'followPost', { partnerPostId })
     } catch (error) {
@@ -406,7 +440,7 @@ function followLocalPartnerPost(partnerPostId, userId = getCurrentUserId()) {
 }
 
 export async function getPartnerConversation(id) {
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const conversation = await callSuregoFunction('surego-partner', 'getConversation', { id })
       return conversation ? normalizeConversation(conversation) : null
@@ -418,12 +452,15 @@ export async function getPartnerConversation(id) {
 }
 
 function getLocalPartnerConversation(id) {
-  const found = readConversations().find((item) => String(item.id || item._id) === String(id))
+  const source = shouldUseReferenceMockPreview()
+    ? [...readConversations(), ...REFERENCE_CONVERSATIONS]
+    : readConversations()
+  const found = source.find((item) => String(item.id || item._id) === String(id))
   return Promise.resolve(found ? normalizeConversation(found) : null)
 }
 
 export async function listPartnerConversations() {
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-partner', 'listConversations', {})
       return Array.isArray(items) ? items.map(normalizeConversation) : []
@@ -431,5 +468,8 @@ export async function listPartnerConversations() {
       return handleSuregoCloudError(error, () => Promise.resolve(readConversations().map(normalizeConversation)))
     }
   }
-  return Promise.resolve(readConversations().map(normalizeConversation))
+  const source = shouldUseReferenceMockPreview()
+    ? [...readConversations(), ...REFERENCE_CONVERSATIONS]
+    : readConversations()
+  return Promise.resolve(source.map(normalizeConversation))
 }

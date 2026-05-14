@@ -245,7 +245,7 @@ const typeOptions = PARTNER_POST_TYPES.map((item) => ({
 
 const form = reactive({
   type: 'time_box',
-  city: '杭州',
+  city: '天津',
   title: templates.time_box.title,
   schedule: templates.time_box.schedule,
   location: templates.time_box.location,

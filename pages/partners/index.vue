@@ -145,11 +145,13 @@ onShow(loadData)
 onPullDownRefresh(makeRefreshHandler(loadData))
 
 function matchesScene(item = {}, scene = 'all') {
+  if (item.scene === scene) return true
   const haystack = [
     item.title,
     item.description,
     item.expectation,
     item.location,
+    item.scene,
     item.type,
     item.typeLabel,
     ...(Array.isArray(item.fitTags) ? item.fitTags : [])

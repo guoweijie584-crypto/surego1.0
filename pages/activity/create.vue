@@ -142,7 +142,7 @@
 
         <view class="field">
           <text class="label">地点 *</text>
-          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" placeholder="例如：西湖风景区 路 太子湾公园" placeholder-class="placeholder" />
+          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" placeholder="例如：北洋园图书馆 3F / 鞍山西道沉浸剧场" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
             <uni-icons type="location" size="16" color="#3b82f6" />
             <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>

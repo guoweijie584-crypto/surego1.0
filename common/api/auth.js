@@ -1,4 +1,4 @@
-import { USE_UNICLOUD, isTrialMode, shouldUseCloudFallback } from '../config/runtime.js'
+import { USE_UNICLOUD, isTrialMode, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
 
 export const MOCK_USER_ID = 'mock_user'
 
@@ -23,6 +23,20 @@ const ANONYMOUS_USER = {
   quote: '授权微信登录后即可发起活动、报名入局和查看入场凭证。',
   role: [],
   isAnonymous: true
+}
+const REFERENCE_PREVIEW_USER = {
+  uid: MOCK_USER_ID,
+  _id: MOCK_USER_ID,
+  userId: MOCK_USER_ID,
+  nickname: '天大学生',
+  avatar: DEFAULT_USER_AVATAR,
+  credit: 98,
+  mbti: 'ENFP',
+  bio: '天津大学学生，饭搭子雷达，也会参加约拍和自习局',
+  quote: '希望在毕业季前多认识几个靠谱同学，一起把想做的事认真成行。',
+  profileCompletedAt: 1,
+  role: ['user'],
+  roles: ['user']
 }
 
 function sanitizeNickname(value, fallback = DEFAULT_USER_NICKNAME) {
@@ -90,7 +104,7 @@ function readUniIdToken() {
 }
 
 function isStrictCloudAuthMode() {
-  return USE_UNICLOUD && isTrialMode()
+  return USE_UNICLOUD && isTrialMode() && !shouldUseReferenceMockPreview()
 }
 
 function pickToken(payload = {}) {
@@ -156,6 +170,7 @@ export function getCurrentUserId() {
 }
 
 export function isLoggedIn() {
+  if (shouldUseReferenceMockPreview()) return true
   const cloudUser = readCloudUserInfo()
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const mockLogin = readStorage(MOCK_LOGIN_KEY)
@@ -185,11 +200,28 @@ export function isOpsUser() {
     return false
   }
   const uid = pickUserId(cloudUser, uniIdUser, mockLogin, localUser)
-  if (uid === MOCK_USER_ID) return shouldUseCloudFallback()
+  if (uid === MOCK_USER_ID) return shouldUseCloudFallback() && !shouldUseReferenceMockPreview()
   return getUserRoles(cloudUser, uniIdUser, mockLogin, localUser).some((role) => OPS_ROLES.includes(role))
 }
 
 export function getCurrentUserProfile() {
+  if (shouldUseReferenceMockPreview()) {
+    const localUser = readStorage(LOCAL_USER_KEY)
+    const mockLogin = readStorage(MOCK_LOGIN_KEY)
+    return {
+      ...REFERENCE_PREVIEW_USER,
+      ...mockLogin,
+      ...localUser,
+      uid: localUser.uid || mockLogin.uid || MOCK_USER_ID,
+      _id: localUser._id || localUser.uid || mockLogin.uid || MOCK_USER_ID,
+      userId: localUser.userId || localUser.uid || mockLogin.userId || mockLogin.uid || MOCK_USER_ID,
+      nickname: sanitizeNickname(localUser.nickname || mockLogin.nickname || REFERENCE_PREVIEW_USER.nickname),
+      avatar: sanitizeAvatar(localUser.avatar || mockLogin.avatar || REFERENCE_PREVIEW_USER.avatar),
+      profileCompletedAt: localUser.profileCompletedAt || mockLogin.profileCompletedAt || REFERENCE_PREVIEW_USER.profileCompletedAt,
+      role: localUser.role || localUser.roles || mockLogin.role || mockLogin.roles || REFERENCE_PREVIEW_USER.role,
+      roles: localUser.roles || localUser.role || mockLogin.roles || mockLogin.role || REFERENCE_PREVIEW_USER.roles
+    }
+  }
   const cloudUser = readCloudUserInfo()
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const localUser = readStorage(LOCAL_USER_KEY)

@@ -1,5 +1,5 @@
 import { activities, findActivityById } from '@/common/mock/activities.js'
-import { USE_UNICLOUD } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 import { listMyApplications } from '@/common/api/application.js'
@@ -317,6 +317,9 @@ async function listPublicLocalActivities() {
 }
 
 export async function listActivities() {
+  if (shouldUseReferenceMockPreview()) {
+    return listPublicLocalActivities()
+  }
   if (USE_UNICLOUD) {
     try {
       const result = await callSuregoFunction('surego-activity', 'list', { limit: 50 })
@@ -400,6 +403,9 @@ function getLocalActivityDetail(id) {
 }
 
 export async function getActivityDetail(id) {
+  if (shouldUseReferenceMockPreview()) {
+    return getLocalActivityDetail(id)
+  }
   if (USE_UNICLOUD && !String(id).startsWith('local_')) {
     try {
       const detail = await callSuregoFunction('surego-activity', 'detail', { id })
@@ -421,7 +427,7 @@ function createLocalActivity(form) {
 
 export async function createActivity(form) {
   const activity = buildActivityFromForm(form, '')
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       return await callSuregoFunction('surego-activity', 'create', activity)
     } catch (error) {
@@ -455,7 +461,7 @@ function updateLocalActivityStatus(id, status) {
 
 export async function updateActivityStatus(id, status) {
   const nextStatus = normalizeActivityStatus(status)
-  if (USE_UNICLOUD && !String(id).startsWith('local_')) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview() && !String(id).startsWith('local_')) {
     try {
       return await callSuregoFunction('surego-activity', 'updateStatus', { id, status: nextStatus })
     } catch (error) {
@@ -525,7 +531,7 @@ export async function updateActivity(id, form) {
     cityCode,
     city_code: cityCode
   }
-  if (USE_UNICLOUD && !String(id).startsWith('local_')) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview() && !String(id).startsWith('local_')) {
     try {
       return await callSuregoFunction('surego-activity', 'update', { id, ...payload })
     } catch (error) {
@@ -536,6 +542,9 @@ export async function updateActivity(id, form) {
 }
 
 export async function listMyActivities() {
+  if (shouldUseReferenceMockPreview()) {
+    return listMyLocalActivities()
+  }
   if (USE_UNICLOUD) {
     try {
       const result = await callSuregoFunction('surego-activity', 'listMine', { limit: 100 })
@@ -590,6 +599,22 @@ async function listAppliedLocalActivities(all = []) {
     if (currentUserId && isCurrentUserActivityCreator(activity)) return
     seen.add(activityId)
     applied.push(buildActivityWithApplication(activity, application))
+  })
+
+  all.forEach((activity) => {
+    const activityId = String(activity.id || activity._id || '')
+    const embeddedStatus = normalizeApplicationStatus(activity.applicationStatus || activity.application_status)
+    if (!activityId || embeddedStatus === 'not_applied' || seen.has(activityId)) return
+    if (currentUserId && isCurrentUserActivityCreator(activity)) return
+    seen.add(activityId)
+    applied.push(buildActivityWithApplication(activity, {
+      id: `reference_application_${activityId}`,
+      activityId,
+      activity_id: activityId,
+      userId: currentUserId,
+      user_id: currentUserId,
+      status: embeddedStatus
+    }))
   })
 
   return {
