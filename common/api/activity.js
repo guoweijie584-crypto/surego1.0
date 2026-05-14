@@ -14,6 +14,8 @@ export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', '
 export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
 export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
 export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
+export const ACTIVITY_VISIBILITIES = ['public', 'members_only']
+export const ACTIVITY_SOURCES = ['direct_activity', 'partner_post']
 export const ACTIVITY_STATUS_META = {
   ongoing: { key: 'ongoing', label: '进行中', tone: 'blue', group: 'active', rank: 10 },
   formed: { key: 'formed', label: '已成局', tone: 'green', group: 'active', rank: 20 },
@@ -80,6 +82,14 @@ function assertActivityStatusTransition(activity = {}, nextStatus = '') {
 
 function normalizeApplicationStatus(status = 'not_applied') {
   return APPLICATION_STATUSES.includes(status) ? status : 'not_applied'
+}
+
+function normalizeActivityVisibility(visibility = 'public') {
+  return ACTIVITY_VISIBILITIES.includes(visibility) ? visibility : 'public'
+}
+
+function normalizeActivitySource(source = 'direct_activity') {
+  return ACTIVITY_SOURCES.includes(source) ? source : 'direct_activity'
 }
 
 function normalizeModerationStatus(status = 'pending') {
@@ -150,8 +160,22 @@ export function isPubliclyVisibleActivity(item = {}) {
   const rawStatus = String(item.status || item.lifecycleStatus || '')
   const status = normalizeActivityStatus(item.status || item.lifecycleStatus)
   const moderationStatus = normalizeModerationStatus(item.moderationStatus || item.moderation_status)
+  const visibility = normalizeActivityVisibility(item.visibility)
   if (rawStatus === 'rejected' || rawStatus === 'hidden') return false
-  return PUBLIC_ACTIVITY_LIFECYCLE_STATUSES.includes(status) && PUBLIC_ACTIVITY_MODERATION_STATUSES.includes(moderationStatus)
+  return visibility === 'public'
+    && PUBLIC_ACTIVITY_LIFECYCLE_STATUSES.includes(status)
+    && PUBLIC_ACTIVITY_MODERATION_STATUSES.includes(moderationStatus)
+}
+
+function isActivityParticipant(item = {}, userId = getCurrentUserId()) {
+  const participantIds = item.participantIds || item.participant_ids || []
+  return Boolean(userId && Array.isArray(participantIds) && participantIds.map(String).includes(String(userId)))
+}
+
+function canCurrentUserViewActivity(item = {}) {
+  if (isPubliclyVisibleActivity(item)) return true
+  if (isCurrentUserActivityCreator(item)) return true
+  return isActivityParticipant(item)
 }
 
 function readLocalApplication(activityId) {
@@ -223,6 +247,12 @@ export function normalizeActivityRecord(item = {}) {
     cityCode,
     city_code: cityCode,
     district: item.district || '',
+    visibility: normalizeActivityVisibility(item.visibility),
+    source: normalizeActivitySource(item.source),
+    sourcePartnerPostId: item.sourcePartnerPostId || item.source_partner_post_id || '',
+    source_partner_post_id: item.sourcePartnerPostId || item.source_partner_post_id || '',
+    participantIds: item.participantIds || item.participant_ids || [],
+    participant_ids: item.participantIds || item.participant_ids || [],
     isCreator: isCurrentUserActivityCreator({ ...item, creatorId })
   }
 }
@@ -253,6 +283,8 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
   const creatorId = form.creatorId || form.creator_id || currentUser.userId
   const city = normalizeCityName(form.city || DEFAULT_CITY)
   const cityCode = normalizeCityCode(form.cityCode || form.city_code || inferCityCode({ city }, city))
+  const visibility = normalizeActivityVisibility(form.visibility || 'public')
+  const source = normalizeActivitySource(form.source || 'direct_activity')
   return {
     id,
     title: form.title,
@@ -288,6 +320,12 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     moderationStatus: 'pending',
     moderation_status: 'pending',
     applicationStatus: normalizeApplicationStatus(form.applicationStatus || 'not_applied'),
+    visibility,
+    source,
+    sourcePartnerPostId: form.sourcePartnerPostId || form.source_partner_post_id || '',
+    source_partner_post_id: form.sourcePartnerPostId || form.source_partner_post_id || '',
+    participantIds: form.participantIds || form.participant_ids || [],
+    participant_ids: form.participantIds || form.participant_ids || [],
     viewCount: Number(form.viewCount) || 0,
     likeCount: Number(form.likeCount) || 0,
     description: form.description,
@@ -298,6 +336,8 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
 
 function markReferenceActivityApproved(item = {}) {
   return {
+    visibility: 'public',
+    source: 'direct_activity',
     moderationStatus: 'approved',
     moderation_status: 'approved',
     ...item
@@ -399,7 +439,8 @@ function getLocalActivityDetail(id) {
   const created = readCreatedActivities()
   const found = created.find((item) => item.id === String(id))
   const source = found || markReferenceActivityApproved(findActivityById(id))
-  return Promise.resolve(applyModerationOverlay(source))
+  const activity = applyModerationOverlay(source)
+  return Promise.resolve(canCurrentUserViewActivity(activity) ? activity : null)
 }
 
 export async function getActivityDetail(id) {
@@ -602,6 +643,20 @@ async function listAppliedLocalActivities(all = []) {
   })
 
   all.forEach((activity) => {
+    if (isActivityParticipant(activity, currentUserId) && !isCurrentUserActivityCreator(activity) && !seen.has(String(activity.id || activity._id || ''))) {
+      const activityId = String(activity.id || activity._id || '')
+      if (activityId) {
+        seen.add(activityId)
+        applied.push(buildActivityWithApplication(activity, {
+          id: `participant_application_${activityId}`,
+          activityId,
+          activity_id: activityId,
+          userId: currentUserId,
+          user_id: currentUserId,
+          status: 'approved'
+        }))
+      }
+    }
     const activityId = String(activity.id || activity._id || '')
     const embeddedStatus = normalizeApplicationStatus(activity.applicationStatus || activity.application_status)
     if (!activityId || embeddedStatus === 'not_applied' || seen.has(activityId)) return

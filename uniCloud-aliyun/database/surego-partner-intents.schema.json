@@ -1,6 +1,6 @@
 {
   "bsonType": "object",
-  "required": ["partner_post_id", "user_id", "status"],
+  "required": ["partner_post_id", "user_id", "status", "conversation_id"],
   "permission": {
     "read": "doc.user_id == auth.uid",
     "create": "auth.uid != null",
@@ -15,6 +15,7 @@
     "avatar": { "bsonType": "string", "title": "User avatar" },
     "message": { "bsonType": "string", "title": "Intent message" },
     "status": { "enum": ["pending", "accepted", "rejected"], "title": "Status" },
+    "conversation_id": { "bsonType": "string", "title": "Conversation id" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
   }

@@ -13,7 +13,7 @@
     "user_id": { "bsonType": "string", "title": "User id" },
     "type": { "enum": ["sincerity", "ticket"], "title": "Order type" },
     "amount": { "bsonType": "double", "title": "Amount" },
-    "status": { "enum": ["pending", "paid", "refunded", "closed"], "title": "Payment status" },
+    "status": { "enum": ["pending", "pending_payment", "paid", "frozen", "refunding", "refunded", "settled", "disputed", "closed"], "title": "Payment status" },
     "activity_title": { "bsonType": "string", "title": "Activity title" },
     "activity_cover": { "bsonType": "string", "title": "Activity cover" },
     "refund_note": { "bsonType": "string", "title": "Refund note" },

@@ -21,9 +21,10 @@
     "description": { "bsonType": "string", "title": "Description" },
     "expectation": { "bsonType": "string", "title": "Expectation" },
     "fit_tags": { "bsonType": "array", "title": "Fit tags" },
-    "status": { "enum": ["open", "matched", "paused", "closed"], "title": "Status" },
+    "status": { "enum": ["open", "matched", "converted", "paused", "closed"], "title": "Status" },
     "intent_count": { "bsonType": "int", "title": "Intent count" },
     "follow_count": { "bsonType": "int", "title": "Follow count" },
+    "source_activity_id": { "bsonType": "string", "title": "Converted activity id" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
   }

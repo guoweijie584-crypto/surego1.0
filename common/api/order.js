@@ -4,7 +4,7 @@ import { getCurrentUserId } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
 
 const STORAGE_KEY = 'surego_orders'
-const ORDER_STATUSES = ['pending', 'paid', 'refunded', 'closed']
+const ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'frozen', 'refunding', 'refunded', 'settled', 'disputed', 'closed']
 
 function readOrders() {
   return uni.getStorageSync(STORAGE_KEY) || []
@@ -21,8 +21,13 @@ function normalizeOrderStatus(status = 'pending') {
 export function getOrderStatusText(status) {
   const labels = {
     pending: '待支付',
+    pending_payment: '待支付',
     paid: '已支付',
+    frozen: '已冻结',
+    refunding: '退款处理中',
     refunded: '已退款',
+    settled: '已结算',
+    disputed: '争议处理中',
     closed: '已关闭'
   }
   return labels[normalizeOrderStatus(status)] || labels.pending
@@ -88,17 +93,35 @@ function getOrderMessageCopy(status, order = {}) {
       title: '支付成功',
       content: `「${title}」订单支付成功，入场凭证已更新。`
     },
+    frozen: {
+      title: '占位已确认',
+      content: `「${title}」已完成占位确认，活动开始前可在我的页查看后续凭证。`
+    },
     closed: {
       title: '订单已关闭',
       content: order.closeReason
         ? `「${title}」订单已关闭：${order.closeReason}`
         : `「${title}」订单已关闭。`
     },
+    refunding: {
+      title: '退款处理中',
+      content: order.refundNote
+        ? `「${title}」退款处理中：${order.refundNote}`
+        : `「${title}」退款处理中。`
+    },
     refunded: {
       title: '退款已记录',
       content: order.refundNote
         ? `「${title}」退款已记录：${order.refundNote}`
         : `「${title}」退款已记录。`
+    },
+    settled: {
+      title: '结算已完成',
+      content: `「${title}」已完成结算，状态已同步到你的活动记录。`
+    },
+    disputed: {
+      title: '订单存在争议',
+      content: `「${title}」当前有争议待处理，请留意后续通知。`
     }
   }
   return labels[status] || null
@@ -244,6 +267,10 @@ export async function updateOrderStatus(id, status, options = {}) {
 
 export function markOrderPaid(id, options = {}) {
   return updateOrderStatus(id, 'paid', options)
+}
+
+export function markOrderFrozen(id, options = {}) {
+  return updateOrderStatus(id, 'frozen', options)
 }
 
 export async function refundOrder(id, refundNote = '退款状态已登记', options = {}) {

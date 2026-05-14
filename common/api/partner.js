@@ -8,6 +8,8 @@ const POSTS_KEY = 'surego_partner_posts'
 const INTENTS_KEY = 'surego_partner_intents'
 const FOLLOWS_KEY = 'surego_partner_follows'
 const CONVERSATIONS_KEY = 'surego_partner_conversations'
+const ACTIVITIES_KEY = 'surego_created_activities'
+const APPLICATIONS_KEY = 'surego_applications'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
 const REFERENCE_CONVERSATIONS = [
   {
@@ -42,7 +44,8 @@ export const PARTNER_POST_TYPES = [
 
 export const PARTNER_POST_STATUS_META = {
   open: { key: 'open', label: '招募中', tone: 'green', rank: 10 },
-  matched: { key: 'matched', label: '已匹配', tone: 'blue', rank: 20 },
+  matched: { key: 'matched', label: '已找到', tone: 'blue', rank: 20 },
+  converted: { key: 'converted', label: '已转活动', tone: 'purple', rank: 25 },
   paused: { key: 'paused', label: '暂停', tone: 'amber', rank: 40 },
   closed: { key: 'closed', label: '已结束', tone: 'gray', rank: 60 }
 }
@@ -85,8 +88,36 @@ function writeConversations(items) {
   uni.setStorageSync(CONVERSATIONS_KEY, items)
 }
 
+function readCreatedActivities() {
+  return uni.getStorageSync(ACTIVITIES_KEY) || []
+}
+
+function writeCreatedActivities(items) {
+  uni.setStorageSync(ACTIVITIES_KEY, items)
+}
+
+function readApplications() {
+  return uni.getStorageSync(APPLICATIONS_KEY) || []
+}
+
+function writeApplications(items) {
+  uni.setStorageSync(APPLICATIONS_KEY, items)
+}
+
 function normalizeType(type = 'time_box') {
   return PARTNER_POST_TYPES.some((item) => item.key === type) ? type : 'time_box'
+}
+
+function mapTypeToKind(type = 'time_box') {
+  if (type === 'long_term') return 'longterm'
+  if (type === 'project') return 'project'
+  return 'time'
+}
+
+function mapKindToType(kind = 'time') {
+  if (kind === 'longterm') return 'long_term'
+  if (kind === 'project') return 'project'
+  return 'time_box'
 }
 
 function getTypeLabel(type = 'time_box') {
@@ -94,6 +125,7 @@ function getTypeLabel(type = 'time_box') {
 }
 
 function normalizeStatus(status = 'open') {
+  if (status === 'matched') return 'matched'
   return PARTNER_POST_STATUS_META[status] ? status : 'open'
 }
 
@@ -115,27 +147,40 @@ function isCurrentUserCreator(item = {}) {
 
 function normalizePartnerPost(item = {}) {
   const id = item.id || item._id
-  const type = normalizeType(item.type)
+  const type = normalizeType(item.type || mapKindToType(item.kind))
   const creatorId = item.creatorId || item.creator_id || ''
+  const detail = item.detail || item.description || ''
+  const wants = normalizeTags(item.wants || item.fitTags || item.fit_tags || item.tags)
+  const status = normalizeStatus(item.status)
   return {
     ...item,
     id,
+    kind: item.kind || mapTypeToKind(type),
     type,
     typeLabel: item.typeLabel || item.type_label || getTypeLabel(type),
     creatorId,
     creator_id: creatorId,
     creator: item.creator || item.creator_name || 'SureGo 用户',
+    author: item.author || item.creator || item.creator_name || 'SureGo 用户',
     avatar: normalizeAvatar(item.avatar || item.creator_avatar),
     city: item.city || '天津',
     location: item.location || item.city || '待定',
+    locationRange: item.locationRange || item.location_range || item.location || item.city || '待定',
     schedule: item.schedule || item.time || '时间待定',
+    available: item.available || item.available_text || item.schedule || item.time || '时间待定',
     connectionMode: item.connectionMode || item.connection_mode || '发出意向后互相确认',
-    description: item.description || '',
+    connectionRule: item.connectionRule || item.connection_rule || item.connectionMode || item.connection_mode || '发出意向后互相确认',
+    description: item.description || detail,
+    detail,
     expectation: item.expectation || '',
+    wants,
     fitTags: normalizeTags(item.fitTags || item.fit_tags || item.tags),
-    status: normalizeStatus(item.status),
+    tags: normalizeTags(item.tags || item.fitTags || item.fit_tags || item.wants),
+    status,
+    interested: Number(item.interested || item.intentCount || item.intent_count) || 0,
     intentCount: Number(item.intentCount || item.intent_count) || 0,
     followCount: Number(item.followCount || item.follow_count) || 0,
+    sourceActivityId: item.sourceActivityId || item.source_activity_id || '',
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     updatedAt: item.updatedAt || item.updated_at || '',
     isCreator: isCurrentUserCreator({ ...item, creatorId })
@@ -225,21 +270,32 @@ export async function getPartnerPostDetail(id) {
 function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`) {
   const currentUser = getCurrentUserProfile()
   const creatorId = form.creatorId || form.creator_id || currentUser.userId || currentUser.uid
+  const type = normalizeType(form.type || mapKindToType(form.kind))
+  const tags = normalizeTags(form.fitTags || form.fit_tags || form.tags)
+  const wants = normalizeTags(form.wants || form.expectation)
   return normalizePartnerPost({
     id,
     title: String(form.title || '').trim(),
-    type: normalizeType(form.type),
+    kind: form.kind || mapTypeToKind(type),
+    type,
     creatorId,
     creator_id: creatorId,
     creator: form.creator || currentUser.nickname,
+    author: form.author || form.creator || currentUser.nickname,
     avatar: form.avatar || currentUser.avatar,
     city: form.city || '天津',
     location: form.location || form.city || '待定',
+    locationRange: form.locationRange || form.location_range || form.location || form.city || '待定',
     schedule: form.schedule || '',
+    available: form.available || form.available_text || form.schedule || '',
     connectionMode: form.connectionMode || form.connection_mode || '',
-    description: form.description || '',
+    connectionRule: form.connectionRule || form.connection_rule || form.connectionMode || form.connection_mode || '',
+    description: form.description || form.detail || '',
+    detail: form.detail || form.description || '',
     expectation: form.expectation || '',
-    fitTags: normalizeTags(form.fitTags || form.fit_tags || form.tags),
+    wants,
+    fitTags: tags,
+    tags,
     status: form.status || 'open',
     intentCount: form.intentCount || 0,
     followCount: form.followCount || 0,
@@ -304,7 +360,9 @@ async function createLocalPartnerIntent(payload = {}) {
     nickname: user.nickname,
     avatar: user.avatar,
     message: payload.message || '',
-    status: 'pending'
+    status: 'pending',
+    conversationId: '',
+    conversation_id: ''
   })
   writeIntents([intent, ...readIntents()])
   writePosts(readPosts().map((item) => (
@@ -402,6 +460,173 @@ function ensureLocalConversationForIntent(intent = {}) {
   return conversation
 }
 
+function getLocalPartnerPostById(partnerPostId) {
+  return readPosts().find((item) => String(item.id) === String(partnerPostId)) || findPartnerPostById(partnerPostId) || null
+}
+
+function buildParticipantIds(partnerPostId, participantIds = []) {
+  const post = getLocalPartnerPostById(partnerPostId) || {}
+  const creatorId = post.creatorId || post.creator_id || ''
+  return Array.from(new Set([creatorId, ...participantIds.map(String).filter(Boolean)].filter(Boolean)))
+}
+
+function ensureLocalGroupConversation(partnerPostId, participantIds = []) {
+  const members = buildParticipantIds(partnerPostId, participantIds)
+  if (members.length < 2) return null
+  const existing = readConversations().find((item) => {
+    const ids = (item.participantIds || item.participant_ids || []).map(String).sort()
+    return String(item.partnerPostId || item.partner_post_id || '') === String(partnerPostId)
+      && item.status === 'group'
+      && ids.join(',') === [...members].sort().join(',')
+  })
+  if (existing) return normalizeConversation(existing)
+  const conversation = normalizeConversation({
+    id: `conversation_group_${Date.now()}`,
+    partnerPostId,
+    partner_post_id: partnerPostId,
+    participantIds: members,
+    participant_ids: members,
+    status: 'group',
+    lastMessage: '已为这次搭子沟通创建临时群聊，可统一确认时间、地点和注意事项。',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  })
+  writeConversations([conversation, ...readConversations()])
+  return conversation
+}
+
+function mapPartnerSceneToActivityCategory(scene = '', type = 'time_box') {
+  if (scene === 'sport') return '运动'
+  if (scene === 'study') return '学习/自习'
+  if (scene === 'game') return '游戏/娱乐'
+  if (scene === 'project' || type === 'project') return '项目组队'
+  return '饭搭子/探店'
+}
+
+function buildConvertedActivity(post = {}, options = {}) {
+  const visibility = options.visibility === 'members_only' ? 'members_only' : 'public'
+  const participantIds = buildParticipantIds(post.id, options.participantIds || options.participant_ids || [])
+  const participantCount = participantIds.length
+  const title = String(options.title || post.title || '').trim() || '新的成行活动'
+  const available = post.available || post.schedule || '时间待定'
+  const locationRange = post.locationRange || post.location || '地点待确认'
+  const now = new Date().toISOString()
+  return {
+    id: `local_${Date.now()}`,
+    title,
+    creatorId: post.creatorId || post.creator_id || getCurrentUserId(),
+    creator_id: post.creatorId || post.creator_id || getCurrentUserId(),
+    organizer: post.author || post.creator || 'SureGo 用户',
+    organizerAvatar: post.avatar || DEFAULT_AVATAR,
+    image: '/static/logo.png',
+    category: mapPartnerSceneToActivityCategory(post.scene, post.type),
+    date: visibility === 'public' ? '本周待定' : '已与成员确认',
+    dateValue: now,
+    dayOfWeek: '',
+    time: available,
+    endTime: '',
+    location: locationRange,
+    address: locationRange,
+    latitude: '',
+    longitude: '',
+    city: post.city || '天津',
+    cityCode: post.cityCode || post.city_code || '',
+    city_code: post.cityCode || post.city_code || '',
+    district: post.district || '',
+    distance: '0.6',
+    participantCount,
+    participant_count: participantCount,
+    maxParticipants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
+    max_participants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
+    hasParticipantLimit: true,
+    has_participant_limit: true,
+    partyMode: 'free',
+    party_mode: 'free',
+    price: '免费',
+    amount: 0,
+    requireApproval: visibility === 'public',
+    require_approval: visibility === 'public',
+    status: visibility === 'public' ? 'recruiting' : 'formed',
+    lifecycleStatus: visibility === 'public' ? 'recruiting' : 'formed',
+    moderationStatus: 'approved',
+    moderation_status: 'approved',
+    applicationStatus: 'not_applied',
+    viewCount: 0,
+    likeCount: 0,
+    description: post.detail || post.description || '',
+    questions: [],
+    tags: normalizeTags(post.tags || post.fitTags || post.wants),
+    visibility,
+    source: 'partner_post',
+    sourcePartnerPostId: post.id,
+    source_partner_post_id: post.id,
+    participantIds,
+    participant_ids: participantIds,
+    createdAt: now,
+    created_at: now,
+    updatedAt: now,
+    updated_at: now
+  }
+}
+
+function writeApprovedApplications(activity = {}, participantIds = []) {
+  if (!activity?.id) return
+  const creatorId = String(activity.creatorId || activity.creator_id || '')
+  const items = readApplications()
+  const next = [...items]
+  participantIds
+    .map(String)
+    .filter((userId) => userId && userId !== creatorId)
+    .forEach((userId) => {
+      const exists = next.find((item) => String(item.activityId || item.activity_id || '') === String(activity.id) && String(item.userId || item.user_id || '') === userId)
+      if (exists) return
+      next.unshift({
+        id: `app_${activity.id}_${userId}`,
+        activityId: activity.id,
+        activity_id: activity.id,
+        userId,
+        user_id: userId,
+        status: 'approved',
+        createdAt: activity.createdAt || activity.created_at || new Date().toISOString()
+      })
+    })
+  writeApplications(next)
+}
+
+function markLocalPostConverted(partnerPostId, activity = {}) {
+  const nextCreatedPosts = readPosts().map((item) => (
+    String(item.id) === String(partnerPostId)
+      ? {
+          ...item,
+          status: 'converted',
+          sourceActivityId: activity.id || '',
+          source_activity_id: activity.id || '',
+          updatedAt: new Date().toISOString()
+        }
+      : item
+  ))
+  writePosts(nextCreatedPosts)
+}
+
+async function notifyConvertedActivity(activity = {}, participantIds = [], visibility = 'public') {
+  const title = activity.title || '新的成行活动'
+  const messageTitle = visibility === 'public' ? '已约成公开活动' : '已约成私密活动'
+  const content = visibility === 'public'
+    ? `你们已约成「${title}」，活动会进入成行列表，后续还可以继续公开招人。`
+    : `你们已约成「${title}」，活动只会对相关成员可见。`
+  await Promise.all(participantIds.map((userId) => (
+    createMessage({
+      userId,
+      type: 'activity',
+      title: messageTitle,
+      content,
+      activityId: activity.id,
+      partnerPostId: activity.sourcePartnerPostId || activity.source_partner_post_id || '',
+      eventKey: `partner:converted:${activity.id}:${userId}`
+    })
+  )))
+}
+
 export async function followPartnerPost(partnerPostId) {
   const userId = getCurrentUserId()
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
@@ -437,6 +662,47 @@ function followLocalPartnerPost(partnerPostId, userId = getCurrentUserId()) {
       : item
   )))
   return Promise.resolve(follow)
+}
+
+export async function ensurePartnerGroupConversation(partnerPostId, participantIds = []) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
+    try {
+      const conversation = await callSuregoFunction('surego-partner', 'ensureGroupConversation', {
+        partnerPostId,
+        participantIds
+      })
+      return conversation ? normalizeConversation(conversation) : null
+    } catch (error) {
+      return handleSuregoCloudError(error, () => Promise.resolve(ensureLocalGroupConversation(partnerPostId, participantIds)))
+    }
+  }
+  return Promise.resolve(ensureLocalGroupConversation(partnerPostId, participantIds))
+}
+
+function convertLocalPartnerPostToActivity(payload = {}) {
+  const post = getLocalPartnerPostById(payload.partnerPostId)
+  if (!post) return Promise.resolve(null)
+  const activity = buildConvertedActivity(post, payload)
+  writeCreatedActivities([activity, ...readCreatedActivities()])
+  writeApprovedApplications(activity, activity.participantIds || activity.participant_ids || [])
+  markLocalPostConverted(post.id, activity)
+  notifyConvertedActivity(
+    activity,
+    (activity.participantIds || activity.participant_ids || []).filter((userId) => String(userId) !== String(post.creatorId || post.creator_id || '')),
+    activity.visibility
+  )
+  return Promise.resolve(activity)
+}
+
+export async function convertPartnerPostToActivity(payload = {}) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
+    try {
+      return await callSuregoFunction('surego-partner', 'convertToActivity', payload)
+    } catch (error) {
+      return handleSuregoCloudError(error, () => convertLocalPartnerPostToActivity(payload))
+    }
+  }
+  return convertLocalPartnerPostToActivity(payload)
 }
 
 export async function getPartnerConversation(id) {

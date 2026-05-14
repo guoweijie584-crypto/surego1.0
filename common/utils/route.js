@@ -295,7 +295,7 @@ export function goParticipantDashboard(id, options = {}) {
 export function goUserDetail(userId, options = {}) {
   const id = String(userId || '').trim()
   if (!id) {
-    uni.showToast({ title: '鏆傛棤鐢ㄦ埛淇℃伅', icon: 'none' })
+    uni.showToast({ title: '暂无用户信息', icon: 'none' })
     return
   }
   const activityId = options.activityId || options.activity_id || ''

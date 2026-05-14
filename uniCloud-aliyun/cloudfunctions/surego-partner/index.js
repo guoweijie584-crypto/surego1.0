@@ -7,10 +7,12 @@ const intents = db.collection('surego-partner-intents');
 const follows = db.collection('surego-follows');
 const conversations = db.collection('surego-conversations');
 const messages = db.collection('surego-messages');
+const activities = db.collection('surego-activities');
+const activityApplications = db.collection('surego-applications');
 const uniIdUsers = db.collection('uni-id-users');
 
 const postTypes = ['time_box', 'long_term', 'project'];
-const postStatuses = ['open', 'matched', 'paused', 'closed'];
+const postStatuses = ['open', 'matched', 'converted', 'paused', 'closed'];
 const intentStatuses = ['pending', 'accepted', 'rejected'];
 
 function now() {
@@ -148,6 +150,92 @@ function buildPostRecord(payload = {}, user = {}) {
     created_at: now(),
     updated_at: now()
   };
+}
+
+function buildParticipantIds(post = {}, participantIds = []) {
+  const creatorId = String(post.creator_id || post.creatorId || '');
+  return Array.from(new Set([creatorId, ...(Array.isArray(participantIds) ? participantIds : []).map(String).filter(Boolean)].filter(Boolean)));
+}
+
+function mapPartnerSceneToActivityCategory(scene = '', type = 'time_box') {
+  if (scene === 'sport') return '运动';
+  if (scene === 'study') return '学习/自习';
+  if (scene === 'game') return '游戏/娱乐';
+  if (scene === 'project' || type === 'project') return '项目组队';
+  return '饭搭子/探店';
+}
+
+function buildConvertedActivityRecord(post = {}, payload = {}) {
+  const visibility = payload.visibility === 'members_only' ? 'members_only' : 'public';
+  const participant_ids = buildParticipantIds(post, payload.participantIds || payload.participant_ids || []);
+  const participantCount = participant_ids.length;
+  const title = String(payload.title || post.title || '').trim() || '新的成行活动';
+  const available = post.available || post.schedule || '时间待定';
+  const locationRange = post.locationRange || post.location || '地点待确认';
+  return {
+    title,
+    category: mapPartnerSceneToActivityCategory(post.scene, post.type),
+    creator_id: post.creator_id || post.creatorId || '',
+    organizer: post.author || post.creator || 'SureGo 用户',
+    organizer_avatar: post.avatar || '/static/userImg/user.png',
+    cover: '/static/logo.png',
+    date: visibility === 'public' ? '本周待定' : '已与成员确认',
+    time: available,
+    end_time: '',
+    location: locationRange,
+    address: locationRange,
+    city: post.city || '天津',
+    city_code: post.city_code || '',
+    district: post.district || '',
+    latitude: 0,
+    longitude: 0,
+    max_participants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
+    has_participant_limit: true,
+    require_approval: visibility === 'public',
+    party_mode: 'free',
+    amount: 0,
+    description: post.detail || post.description || '',
+    questions: [],
+    status: visibility === 'public' ? 'recruiting' : 'formed',
+    moderation_status: 'approved',
+    visibility,
+    source: payload.source || 'partner_post',
+    source_partner_post_id: post._id || post.id || '',
+    participant_ids,
+    created_at: now(),
+    updated_at: now()
+  };
+}
+
+function normalizeActivityPayload(id, activity = {}) {
+  return {
+    ...activity,
+    id,
+    activityId: id,
+    creatorId: activity.creator_id || '',
+    visibility: activity.visibility || 'public',
+    source: activity.source || 'partner_post',
+    sourcePartnerPostId: activity.source_partner_post_id || '',
+    participantIds: activity.participant_ids || [],
+    createdAt: activity.created_at || '',
+    updatedAt: activity.updated_at || '',
+    moderationStatus: activity.moderation_status || 'approved'
+  };
+}
+
+async function createApprovedApplicationsForActivity(activityId = '', participantIds = []) {
+  const ids = Array.from(new Set((participantIds || []).map(String).filter(Boolean)));
+  if (!activityId || !ids.length) return;
+  for (const userId of ids) {
+    const existing = await activityApplications.where({ activity_id: activityId, user_id: userId }).limit(1).get();
+    if ((existing.data || [])[0]) continue;
+    await activityApplications.add({
+      activity_id: activityId,
+      user_id: userId,
+      status: 'approved',
+      created_at: now()
+    });
+  }
 }
 
 async function getPost(id) {
@@ -291,6 +379,7 @@ exports.main = async (event) => {
       avatar: user.profile.avatar || user.profile.avatar_file?.url || '/static/userImg/user.png',
       message: payload.message || '',
       status: 'pending',
+      conversation_id: '',
       created_at: now(),
       updated_at: ''
     };
@@ -390,6 +479,89 @@ exports.main = async (event) => {
     return {
       code: 0,
       data: (result.data || []).map(normalizeConversation)
+    };
+  }
+
+  if (action === 'ensureGroupConversation') {
+    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const partnerPostId = String(payload.partnerPostId || payload.partner_post_id || '');
+    const post = await getPost(partnerPostId);
+    if (!post || (String(post.creator_id || '') !== user.uid && !user.isOps)) {
+      return { code: 'FORBIDDEN', message: 'Only the creator can create a partner group conversation.' };
+    }
+    const participant_ids = buildParticipantIds(post, payload.participantIds || payload.participant_ids || []);
+    const existingResult = await conversations.where({
+      partner_post_id: partnerPostId
+    }).limit(20).get();
+    const found = (existingResult.data || []).find((item) => {
+      const ids = (item.participant_ids || []).map(String).sort();
+      return item.status === 'group' && ids.join(',') === [...participant_ids].sort().join(',');
+    });
+    if (found) {
+      return { code: 0, data: normalizeConversation(found) };
+    }
+    const record = {
+      partner_post_id: partnerPostId,
+      participant_ids,
+      status: 'group',
+      last_message: '已为这次搭子沟通创建临时群聊，可统一确认时间、地点和注意事项。',
+      created_at: now(),
+      updated_at: now()
+    };
+    const result = await conversations.add(record);
+    return {
+      code: 0,
+      data: normalizeConversation({
+        ...record,
+        _id: result.id || result._id
+      })
+    };
+  }
+
+  if (action === 'convertToActivity') {
+    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const partnerPostId = String(payload.partnerPostId || payload.partner_post_id || '');
+    const post = await getPost(partnerPostId);
+    if (!post || (String(post.creator_id || '') !== user.uid && !user.isOps)) {
+      return { code: 'FORBIDDEN', message: 'Only the creator can convert this partner post.' };
+    }
+    const requestedParticipantPayload = {
+      participant_ids: payload.participantIds || payload.participant_ids || []
+    };
+    const activity = buildConvertedActivityRecord(post, {
+      ...payload,
+      ...requestedParticipantPayload
+    });
+    const addResult = await activities.add(activity);
+    const activityId = addResult.id || addResult._id;
+    await createApprovedApplicationsForActivity(
+      activityId,
+      (activity.participant_ids || []).filter((userId) => String(userId) !== String(post.creator_id || ''))
+    );
+    await posts.doc(partnerPostId).update({
+      status: 'converted',
+      source_activity_id: activityId,
+      updated_at: now()
+    });
+    await Promise.all((activity.participant_ids || [])
+      .filter((userId) => String(userId) !== String(post.creator_id || ''))
+      .map((userId) => createMessage({
+        user_id: userId,
+        partner_post_id: partnerPostId,
+        activity_id: activityId,
+        type: 'activity',
+        title: activity.visibility === 'public' ? '已约成公开活动' : '已约成私密活动',
+        content: activity.visibility === 'public'
+          ? '你们已约成新的活动，后续还可以继续公开招人。'
+          : '你们已约成新的私密活动，只有相关成员可以看到。',
+        event_key: `partner:converted:${activityId}:${userId}`
+      })));
+    return {
+      code: 0,
+      data: {
+        ...normalizeActivityPayload(activityId, activity),
+        source_partner_post_id: partnerPostId
+      }
     };
   }
 

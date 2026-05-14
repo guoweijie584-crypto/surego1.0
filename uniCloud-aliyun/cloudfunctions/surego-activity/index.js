@@ -10,6 +10,8 @@ const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'for
 const publicLifecycleStatuses = ['published', 'recruiting', 'formed', 'ongoing'];
 const publicModerationStatuses = ['approved', 'visible'];
 const moderationStatuses = ['pending', 'approved', 'rejected', 'hidden', 'visible'];
+const activityVisibilities = ['public', 'members_only'];
+const activitySources = ['direct_activity', 'partner_post'];
 const creatorStatusTransitions = {
   draft: ['reviewing'],
   reviewing: ['draft'],
@@ -94,6 +96,14 @@ function normalizeModerationStatus(status = 'pending') {
   return moderationStatuses.includes(nextStatus) ? nextStatus : 'pending';
 }
 
+function normalizeVisibility(visibility = 'public') {
+  return activityVisibilities.includes(visibility) ? visibility : 'public';
+}
+
+function normalizeSource(source = 'direct_activity') {
+  return activitySources.includes(source) ? source : 'direct_activity';
+}
+
 function getAllowedStatusTransitions(activity = {}) {
   const status = normalizeStatus(activity.status || activity.lifecycleStatus);
   const moderationStatus = normalizeModerationStatus(activity.moderation_status || activity.moderationStatus);
@@ -112,8 +122,9 @@ function isPubliclyVisibleActivity(item = {}) {
   const rawStatus = String(item.status || item.lifecycleStatus || '');
   const status = normalizeStatus(item.status || item.lifecycleStatus);
   const moderationStatus = normalizeModerationStatus(item.moderation_status || item.moderationStatus);
+  const visibility = normalizeVisibility(item.visibility);
   if (rawStatus === 'rejected' || rawStatus === 'hidden') return false;
-  return publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
+  return visibility === 'public' && publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
 }
 
 function normalizeActivity(item = {}) {
@@ -126,6 +137,10 @@ function normalizeActivity(item = {}) {
     moderationNote: item.moderation_note || item.moderationNote || '',
     moderatedAt: item.moderated_at || item.moderatedAt || '',
     moderatedBy: item.moderated_by || item.moderatedBy || '',
+    visibility: normalizeVisibility(item.visibility),
+    source: normalizeSource(item.source),
+    sourcePartnerPostId: item.source_partner_post_id || item.sourcePartnerPostId || '',
+    participantIds: item.participant_ids || item.participantIds || [],
     createdAt: item.createdAt || item.created_at,
     updatedAt: item.updatedAt || item.updated_at
   };
@@ -171,7 +186,11 @@ exports.main = async (event) => {
       return { code: 0, data: null };
     }
     const canView = isPubliclyVisibleActivity(activity)
-      || (user.exists && (user.isOps || String(activity.creator_id || activity.creatorId || '') === user.uid));
+      || (user.exists && (
+        user.isOps
+        || String(activity.creator_id || activity.creatorId || '') === user.uid
+        || (activity.participantIds || []).map(String).includes(String(user.uid))
+      ));
     if (!canView) {
       return { code: 'FORBIDDEN', message: 'This activity is still under review.' };
     }
@@ -227,6 +246,10 @@ exports.main = async (event) => {
       ...payload,
       creatorId: user.uid,
       creator_id: user.uid,
+      visibility: payload.visibility || 'public',
+      source: payload.source || 'direct_activity',
+      source_partner_post_id: payload.sourcePartnerPostId || payload.source_partner_post_id || '',
+      participant_ids: payload.participantIds || payload.participant_ids || [],
       status: 'reviewing',
       created_at: Date.now(),
       updated_at: Date.now()
@@ -252,6 +275,10 @@ exports.main = async (event) => {
       ...payload,
       creatorId: user.uid,
       creator_id: user.uid,
+      visibility: payload.visibility || 'public',
+      source: payload.source || 'direct_activity',
+      source_partner_post_id: payload.sourcePartnerPostId || payload.source_partner_post_id || '',
+      participant_ids: payload.participantIds || payload.participant_ids || [],
       updated_at: Date.now()
     });
     delete updatePayload._id;
