@@ -410,7 +410,8 @@ button::after {
   backdrop-filter: blur(18px);
 }
 
-.ref-bottom-cta > * {
+.ref-bottom-cta > view,
+.ref-bottom-cta > button {
   flex: 1;
 }
 

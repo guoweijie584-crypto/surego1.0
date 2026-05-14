@@ -126,7 +126,7 @@ function requestWeixinLoginCode() {
       reject(new Error('uni.login is unavailable'))
       return
     }
-    uni.login({
+    const loginTask = uni.login({
       provider: 'weixin',
       success(res = {}) {
         if (res.code) {
@@ -139,6 +139,9 @@ function requestWeixinLoginCode() {
         reject(error)
       }
     })
+    if (loginTask && typeof loginTask.catch === 'function') {
+      loginTask.catch(() => {})
+    }
   })
 }
 
