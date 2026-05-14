@@ -9,6 +9,16 @@ const businessPages = [
   'pages/discover/search',
   'pages/discover/city',
   'pages/calendar/index',
+  'pages/graduation/index',
+  'pages/hackathon/index',
+  'pages/hackathon/team',
+  'pages/verify/index',
+  'pages/partners/index',
+  'pages/partner/detail',
+  'pages/partner/create',
+  'pages/partner/workbench',
+  'pages/partner/conversation',
+  'pages/publish/index',
   'pages/activity/detail',
   'pages/activity/members',
   'pages/activity/register',
@@ -47,6 +57,7 @@ const staleDemoRoutes = [
 
 const requiredApiFiles = [
   'common/api/activity.js',
+  'common/api/partner.js',
   'common/api/application.js',
   'common/api/order.js',
   'common/api/message.js',
@@ -72,6 +83,7 @@ const requiredComponents = [
 
 const requiredCloudFunctions = [
   'surego-activity',
+  'surego-partner',
   'surego-application',
   'surego-order',
   'surego-message',
@@ -246,16 +258,21 @@ for (const helper of ['goActivityCreate', 'goActivityRegister', 'goManageDashboa
     errors.push(`common/utils/route.js is missing release helper: ${helper}`)
   }
 }
-for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot']) {
+for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot', 'goPartnersRoot', 'goPublishCenter', 'goPartnerDetail', 'goPartnerCreate', 'goPartnerWorkbench', 'goPartnerConversation']) {
   if (!routeSource.includes(helper)) {
     errors.push(`common/utils/route.js is missing stack navigation helper: ${helper}`)
   }
 }
 
 const dockSource = read('components/surego/SuBottomDock.vue')
-for (const helper of ['goHomeRoot', 'goDiscoverRoot']) {
+for (const helper of ['goHomeRoot', 'goPartnersRoot', 'goPublishCenter', 'goMessages', 'goUserProfile']) {
   if (!dockSource.includes(helper)) {
     errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`)
+  }
+}
+for (const navKey of ["key: 'home'", "key: 'partners'", "key: 'publish'", "key: 'messages'", "key: 'profile'"]) {
+  if (!dockSource.includes(navKey)) {
+    errors.push(`SuBottomDock.vue must render dual-entry nav item ${navKey}`)
   }
 }
 for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
@@ -482,6 +499,11 @@ if (activitySource.includes('isCreator: form.isCreator') || activitySource.inclu
 }
 
 const profileActivitySource = read('pages/user/profile.vue')
+for (const token of ['listMyPartnerPosts', 'partnerPostList', "activeTab === 'partners'", 'goPartnerWorkbench']) {
+  if (!profileActivitySource.includes(token)) {
+    errors.push(`pages/user/profile.vue must manage my partner posts with ${token}`)
+  }
+}
 for (const token of ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status']) {
   if (!profileActivitySource.includes(token)) {
     errors.push(`pages/user/profile.vue must render release activity categories/status badge: ${token}`)
@@ -517,6 +539,15 @@ for (const token of ['scrollTop', ':scroll-top="scrollTop"', 'scroll-with-animat
 }
 
 const messageSource = read('common/api/message.js')
+for (const token of ['partnerPostId', 'partner_post_id', 'conversationId', 'conversation_id']) {
+  if (!messageSource.includes(token)) {
+    errors.push(`common/api/message.js must carry partner message links with ${token}`)
+  }
+}
+const messagesPageSource = read('pages/messages/index.vue')
+if (!messagesPageSource.includes('goPartnerConversation') || !messagesPageSource.includes('item.conversationId')) {
+  errors.push('pages/messages/index.vue must route partner conversation messages to goPartnerConversation')
+}
 for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) {
   if (messageSource.includes(staleToken)) {
     errors.push(`common/api/message.js must not ship seeded mock messages: ${staleToken}`)
@@ -524,6 +555,71 @@ for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) 
 }
 if (!messageSource.includes('filter((item) => isCurrentUserMessage(item, userId))')) {
   errors.push('common/api/message.js must scope local messages to the current user')
+}
+
+const partnerApiSource = read('common/api/partner.js')
+for (const token of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'listPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js is missing release partner token: ${token}`)
+  }
+}
+for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js', 'createMessage']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must use release facade/message dependency ${token}`)
+  }
+}
+for (const token of ['getPartnerConversation', 'listPartnerConversations', 'CONVERSATIONS_KEY']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must align conversation flow with ${token}`)
+  }
+}
+const followHelperStart = partnerApiSource.indexOf('export async function followPartnerPost')
+const followHelperEnd = partnerApiSource.indexOf('\nfunction ', followHelperStart + 1)
+const followHelperSource = partnerApiSource.slice(followHelperStart, followHelperEnd === -1 ? partnerApiSource.length : followHelperEnd)
+if (followHelperSource.indexOf('if (USE_UNICLOUD)') > followHelperSource.indexOf('readFollows()')) {
+  errors.push('common/api/partner.js followPartnerPost must call cloud before local follow cache in USE_UNICLOUD mode')
+}
+
+const partnerPageSource = read('pages/partners/index.vue')
+for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'getUnreadMessageCount', 'activeType']) {
+  if (!partnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
+  }
+}
+
+const partnerDetailSource = read('pages/partner/detail.vue')
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'followPartnerPost', 'goPartnerWorkbench', 'guardLoginAction']) {
+  if (!partnerDetailSource.includes(token)) {
+    errors.push(`pages/partner/detail.vue is missing release partner detail token: ${token}`)
+  }
+}
+
+const partnerCreateSource = read('pages/partner/create.vue')
+for (const token of ['createPartnerPost', 'PARTNER_POST_TYPES', 'adjust-position="false"', 'cursor-spacing="80"']) {
+  if (!partnerCreateSource.includes(token)) {
+    errors.push(`pages/partner/create.vue is missing release partner create token: ${token}`)
+  }
+}
+
+const partnerConversationSource = read('pages/partner/conversation.vue')
+for (const token of ['getPartnerConversation', 'conversation.partnerPostId', 'participantIds', 'goPartnerDetail']) {
+  if (!partnerConversationSource.includes(token)) {
+    errors.push(`pages/partner/conversation.vue is missing release conversation token: ${token}`)
+  }
+}
+
+const partnerWorkbenchSource = read('pages/partner/workbench.vue')
+for (const token of ['listPartnerIntents', 'updatePartnerIntentStatus', 'goPartnerDetail']) {
+  if (!partnerWorkbenchSource.includes(token)) {
+    errors.push(`pages/partner/workbench.vue is missing release partner workbench token: ${token}`)
+  }
+}
+
+const publishSource = read('pages/publish/index.vue')
+for (const token of ['goActivityCreate', 'goPartnerCreate', '发活动', '发搭子帖']) {
+  if (!publishSource.includes(token)) {
+    errors.push(`pages/publish/index.vue is missing release publish hub token: ${token}`)
+  }
 }
 
 const appMessageSource = read('common/api/application.js')
@@ -886,6 +982,18 @@ if (!messageApiSource.includes('eventKey') || !messageApiSource.includes('existi
 }
 if (!messageApiSource.includes('getUnreadMessageCount')) {
   errors.push('common/api/message.js must expose getUnreadMessageCount for release notification badges')
+}
+
+const partnerCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-partner/index.js')
+for (const token of ['surego-conversations', 'ensureConversationForIntent', 'participant_ids', 'conversation_id']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must create/link conversations when accepting intents with ${token}`)
+  }
+}
+for (const token of ["if (!record.schedule)", "if (!record.location)", "if (!record.description)"]) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must validate partner post required fields with ${token}`)
+  }
 }
 
 const moderationSource = read('common/api/moderation.js')

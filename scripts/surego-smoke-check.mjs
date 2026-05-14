@@ -6,8 +6,10 @@ const requiredFiles = [
   'pages.json',
   'App.vue',
   'common/mock/activities.js',
+  'common/mock/partners.js',
   'common/utils/route.js',
   'components/surego/SuActivityCard.vue',
+  'components/surego/SuPartnerCard.vue',
   'components/surego/SuBottomDock.vue',
   'components/surego/SuActionSheet.vue',
   'components/surego/SuWechatProfileSheet.vue',
@@ -19,6 +21,7 @@ const requiredFiles = [
   'common/utils/cover-presets.js',
   'common/utils/code128.js',
   'common/api/activity.js',
+  'common/api/partner.js',
   'common/api/application.js',
   'common/api/order.js',
   'common/api/message.js',
@@ -36,6 +39,16 @@ const requiredFiles = [
   'pages/discover/search.vue',
   'pages/discover/city.vue',
   'pages/calendar/index.vue',
+  'pages/graduation/index.vue',
+  'pages/hackathon/index.vue',
+  'pages/hackathon/team.vue',
+  'pages/verify/index.vue',
+  'pages/partners/index.vue',
+  'pages/partner/detail.vue',
+  'pages/partner/create.vue',
+  'pages/partner/workbench.vue',
+  'pages/partner/conversation.vue',
+  'pages/publish/index.vue',
   'pages/messages/index.vue',
   'pages/auth/login.vue',
   'pages/user/profile.vue',
@@ -65,6 +78,16 @@ const expectedPages = [
   'pages/discover/search',
   'pages/discover/city',
   'pages/calendar/index',
+  'pages/graduation/index',
+  'pages/hackathon/index',
+  'pages/hackathon/team',
+  'pages/verify/index',
+  'pages/partners/index',
+  'pages/partner/detail',
+  'pages/partner/create',
+  'pages/partner/workbench',
+  'pages/partner/conversation',
+  'pages/publish/index',
   'pages/messages/index',
   'pages/auth/login',
   'pages/user/profile',
@@ -102,6 +125,10 @@ const expectedSchemas = [
   'uniCloud-aliyun/database/surego-applications.schema.json',
   'uniCloud-aliyun/database/surego-orders.schema.json',
   'uniCloud-aliyun/database/surego-messages.schema.json',
+  'uniCloud-aliyun/database/surego-partner-posts.schema.json',
+  'uniCloud-aliyun/database/surego-partner-intents.schema.json',
+  'uniCloud-aliyun/database/surego-follows.schema.json',
+  'uniCloud-aliyun/database/surego-conversations.schema.json',
   'uniCloud-aliyun/database/surego-checkins.schema.json',
   'uniCloud-aliyun/database/surego-reports.schema.json',
   'uniCloud-aliyun/database/surego-audit-logs.schema.json',
@@ -113,6 +140,7 @@ const expectedCloudFunctions = [
   'uniCloud-aliyun/cloudfunctions/surego-application/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-order/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-message/index.js',
+  'uniCloud-aliyun/cloudfunctions/surego-partner/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-moderation/index.js',
   'uniCloud-aliyun/cloudfunctions/surego-user/index.js'
@@ -256,12 +284,12 @@ if (fs.existsSync(pagesPath)) {
 const dockPath = path.join(root, 'components/surego/SuBottomDock.vue');
 if (fs.existsSync(dockPath)) {
   const dockSource = fs.readFileSync(dockPath, 'utf8');
-  for (const staleKey of ["key: 'calendar'", "key: 'message'", "key: 'profile'"]) {
+  for (const staleKey of ["key: 'calendar'", "key: 'message'", "key: 'discover'"]) {
     if (dockSource.includes(staleKey)) {
       errors.push(`SuBottomDock.vue still contains stale bottom nav item: ${staleKey}`);
     }
   }
-  for (const helper of ['goHomeRoot', 'goDiscoverRoot']) {
+  for (const helper of ['goHomeRoot', 'goPartnersRoot', 'goPublishCenter', 'goMessages', 'goUserProfile']) {
     if (!dockSource.includes(helper)) {
       errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`);
     }
@@ -314,6 +342,11 @@ if (fs.existsSync(routePath)) {
       errors.push(`common/utils/route.js is missing stack navigation helper: ${helper}`);
     }
   }
+  for (const helper of ['goPartnersRoot', 'goPublishCenter', 'goPartnerDetail', 'goPartnerCreate', 'goPartnerWorkbench', 'goPartnerConversation']) {
+    if (!routeSource.includes(helper)) {
+      errors.push(`common/utils/route.js is missing dual-entry helper: ${helper}`);
+    }
+  }
   for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
     if (!routeSource.includes(token)) {
       errors.push(`common/utils/route.js is missing stack-safe navigation token: ${token}`);
@@ -325,6 +358,70 @@ if (fs.existsSync(routePath)) {
     const helperSource = routeSource.slice(helperStart, helperEnd === -1 ? routeSource.length : helperEnd)
     if (!helperSource.includes('guardLoginAction')) {
       errors.push(`common/utils/route.js ${guardedHelper} must use guardLoginAction`);
+    }
+  }
+  for (const guardedHelper of ['goPartnerCreate', 'goPartnerWorkbench']) {
+    const helperStart = routeSource.indexOf(`export function ${guardedHelper}`)
+    const helperEnd = routeSource.indexOf('\nexport function ', helperStart + 1)
+    const helperSource = routeSource.slice(helperStart, helperEnd === -1 ? routeSource.length : helperEnd)
+    if (!helperSource.includes('guardLoginAction')) {
+      errors.push(`common/utils/route.js ${guardedHelper} must use guardLoginAction`);
+    }
+  }
+}
+
+const partnerApiPath = path.join(root, 'common/api/partner.js');
+if (fs.existsSync(partnerApiPath)) {
+  const source = fs.readFileSync(partnerApiPath, 'utf8');
+  for (const helper of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'listPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
+    if (!source.includes(helper)) {
+      errors.push(`common/api/partner.js is missing ${helper}`);
+    }
+  }
+  for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js', 'createMessage']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/partner.js is missing ${token}`);
+    }
+  }
+  for (const token of ['getPartnerConversation', 'listPartnerConversations', 'CONVERSATIONS_KEY']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/partner.js is missing conversation token: ${token}`);
+    }
+  }
+}
+
+const partnerCardPath = path.join(root, 'components/surego/SuPartnerCard.vue');
+if (fs.existsSync(partnerCardPath)) {
+  const source = fs.readFileSync(partnerCardPath, 'utf8');
+  for (const token of ['goPartnerDetail', 'partner.typeLabel', 'partner.intentCount', 'partner.fitTags']) {
+    if (!source.includes(token)) {
+      errors.push(`SuPartnerCard.vue is missing partner card token: ${token}`);
+    }
+  }
+}
+
+const partnerMessageSchemaPath = path.join(root, 'uniCloud-aliyun/database/surego-messages.schema.json');
+if (fs.existsSync(partnerMessageSchemaPath)) {
+  const schema = JSON.parse(fs.readFileSync(partnerMessageSchemaPath, 'utf8'));
+  for (const field of ['partner_post_id', 'conversation_id']) {
+    if (!schema.properties?.[field]) {
+      errors.push(`surego-messages schema is missing ${field}`);
+    }
+  }
+}
+
+for (const [file, fields] of Object.entries({
+  'uniCloud-aliyun/database/surego-partner-posts.schema.json': ['title', 'type', 'creator_id', 'status'],
+  'uniCloud-aliyun/database/surego-partner-intents.schema.json': ['partner_post_id', 'user_id', 'status'],
+  'uniCloud-aliyun/database/surego-follows.schema.json': ['target_type', 'target_id', 'user_id'],
+  'uniCloud-aliyun/database/surego-conversations.schema.json': ['partner_post_id', 'participant_ids', 'status']
+})) {
+  const absolute = path.join(root, file);
+  if (!fs.existsSync(absolute)) continue;
+  const schema = JSON.parse(fs.readFileSync(absolute, 'utf8'));
+  for (const field of fields) {
+    if (!(schema.required || []).includes(field)) {
+      errors.push(`${file} must require ${field}`);
     }
   }
 }
