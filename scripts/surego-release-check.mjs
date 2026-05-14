@@ -104,6 +104,9 @@ const bannedPatterns = [
 ]
 
 const errors = []
+const mojibakePattern = /[\u93bc\u934f\u9366\u7ead\u93cd\u9353\u8e47\u5bf0\u6fb6\u9422\u6dc7\u7487\u95c2\u95b8\u95bb\u9420\u5a62\u7035\u5bb8\u97eb\u59a4\u6fde\u5a32\u59e9\u70ac\u60e7\u57d7\u9352\u55e4\u60b3\u7ef1\u2540\u7d91\u935a\u5d89\ue582]/
+const questionRun = String.fromCharCode(63, 63, 63)
+const replacementChar = String.fromCharCode(0xfffd)
 
 const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue']
 const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"']
@@ -130,6 +133,15 @@ function readJson(relativePath) {
     errors.push(`${relativePath} is not valid JSON: ${error.message}`)
     return {}
   }
+}
+
+function assertNoMojibake(relativePath, source) {
+  const lines = source.split(/\r?\n/)
+  lines.forEach((line, index) => {
+    if (mojibakePattern.test(line) || line.includes(questionRun) || line.includes(replacementChar)) {
+      errors.push(`${relativePath}:${index + 1} contains likely mojibake text`)
+    }
+  })
 }
 
 const pagesConfig = readJson('pages.json')
@@ -202,6 +214,7 @@ if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
 
 for (const apiFile of requiredApiFiles) {
   const source = read(apiFile)
+  assertNoMojibake(apiFile, source)
   const isLocalPlatformFacade = apiFile === 'common/api/upload.js' || apiFile === 'common/api/location.js'
   if (!isLocalPlatformFacade && (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction'))) {
     errors.push(`${apiFile} must keep mock/uniCloud facade mode`)
@@ -212,11 +225,11 @@ for (const apiFile of requiredApiFiles) {
 }
 
 for (const utilityFile of requiredUtilityFiles) {
-  read(utilityFile)
+  assertNoMojibake(utilityFile, read(utilityFile))
 }
 
 for (const component of requiredComponents) {
-  read(component)
+  assertNoMojibake(component, read(component))
 }
 
 for (const name of requiredCloudFunctions) {
@@ -228,6 +241,21 @@ for (const name of requiredCloudFunctions) {
 
 for (const page of businessPages) {
   const source = read(`${page}.vue`)
+  assertNoMojibake(`${page}.vue`, source)
+  const corruptedTag = source.match(/\?\/(?:text|view|button|scroll-view|template)>/)
+  if (corruptedTag) {
+    errors.push(`${page}.vue contains a corrupted template closing tag: ${corruptedTag[0]}`)
+  }
+  const interpolationPattern = /{{([\s\S]*?)}}/g
+  let interpolationMatch
+  while ((interpolationMatch = interpolationPattern.exec(source))) {
+    const expression = interpolationMatch[1].trim()
+    try {
+      new Function(`return (${expression})`)
+    } catch (error) {
+      errors.push(`${page}.vue has invalid template expression "${expression}": ${error.message}`)
+    }
+  }
   if (source.includes('uniCloud.callFunction')) {
     errors.push(`${page}.vue must call common/api facade instead of uniCloud.callFunction`)
   }
@@ -275,6 +303,12 @@ for (const navKey of ["key: 'home'", "key: 'partners'", "key: 'publish'", "key: 
     errors.push(`SuBottomDock.vue must render dual-entry nav item ${navKey}`)
   }
 }
+if (!dockSource.includes("label: '搭子'")) {
+  errors.push("SuBottomDock.vue must use '搭子' as the partner tab label")
+}
+if (dockSource.includes("label: '找搭子'")) {
+  errors.push("SuBottomDock.vue must not render the stale '找搭子' tab label")
+}
 for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
   if (!routeSource.includes(token)) {
     errors.push(`common/utils/route.js is missing stack-safe navigation token: ${token}`)
@@ -286,6 +320,14 @@ for (const token of ['open-type="share"', 'createReport', 'goSharePoster']) {
   if (!detailSource.includes(token)) {
     errors.push(`pages/activity/detail.vue is missing release entry: ${token}`)
   }
+}
+for (const token of ['priority-row', 'priority-row__content', 'priority-row__primary', 'priority-row__secondary']) {
+  if (!detailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue must use explicit flex priority rows to avoid narrow vertical text: ${token}`)
+  }
+}
+if (detailSource.includes('.priority { display: grid') || detailSource.includes('grid-template-columns: 34rpx 1fr')) {
+  errors.push('pages/activity/detail.vue priority summary must not rely on mini-program grid layout')
 }
 
 const profileSource = read('pages/user/profile.vue')
@@ -373,13 +415,15 @@ if (!createSource.includes('adjust-position="false"') || !createSource.includes(
 
 for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   const source = read(page)
-  for (const token of ['unicloud-city-select', ':location="false"', 'hotCities', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
-    if (!source.includes(token)) {
-      errors.push(`${page} must sync selected map location to activity city with ${token}`)
+  for (const staleToken of ['unicloud-city-select', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'city-select']) {
+    if (source.includes(staleToken)) {
+      errors.push(`${page} must not expose city selection in Tianjin University mode: ${staleToken}`)
     }
   }
-  if (source.includes('<picker :range="cityNames"') || source.includes('cityNames =') || source.includes('cityIndex')) {
-    errors.push(`${page} must use unicloud-city-select instead of a fixed city picker`)
+  for (const token of ['CAMPUS_NAME', '天津大学', 'CAMPUS_CITY_CODE', 'form.cityCode', 'form.district']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must keep fixed Tianjin University campus metadata with ${token}`)
+    }
   }
 }
 
@@ -446,6 +490,16 @@ for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'positi
 for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority']) {
   if (!homeSource.includes(token)) {
     errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`)
+  }
+}
+for (const staleStat of ['{{ activities.length }}', '{{ visibleMyActivities.length }}', '{{ quickStartCount }}']) {
+  if (homeSource.includes(staleStat)) {
+    errors.push(`pages/home/index.vue must not bind topic stats to stale runtime count: ${staleStat}`)
+  }
+}
+for (const bannedCopy of ['快成行', '我的进行中']) {
+  if (homeSource.includes(bannedCopy)) {
+    errors.push(`pages/home/index.vue must not expose stale topic stat copy: ${bannedCopy}`)
   }
 }
 
@@ -573,6 +627,11 @@ for (const token of ['getPartnerConversation', 'listPartnerConversations', 'CONV
     errors.push(`common/api/partner.js must align conversation flow with ${token}`)
   }
 }
+for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must expose document-aligned partner conversion token: ${token}`)
+  }
+}
 const followHelperStart = partnerApiSource.indexOf('export async function followPartnerPost')
 const followHelperEnd = partnerApiSource.indexOf('\nfunction ', followHelperStart + 1)
 const followHelperSource = partnerApiSource.slice(followHelperStart, followHelperEnd === -1 ? partnerApiSource.length : followHelperEnd)
@@ -586,12 +645,36 @@ for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'ge
     errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
   }
 }
+if (partnerPageSource.includes('找搭子')) {
+  errors.push('pages/partners/index.vue must not render the stale 找搭子 label')
+}
+
+const partnerCardSource = read('components/surego/SuPartnerCard.vue')
+for (const token of ['contract-row__copy', 'contract-row__action', 'min-width: 152rpx', 'white-space: nowrap', 'text-overflow: ellipsis']) {
+  if (!partnerCardSource.includes(token)) {
+    errors.push(`SuPartnerCard.vue action capsule must keep single-line text on real devices with ${token}`)
+  }
+}
+if (partnerCardSource.includes('grid-template-columns: 1fr;') && partnerCardSource.includes('.contract-row')) {
+  errors.push('SuPartnerCard.vue action capsule must sit on the right of the contract row, not stretch as a full-width grid row')
+}
+if (partnerCardSource.includes('width: 120rpx')) {
+  errors.push('SuPartnerCard.vue action capsule must not use fixed 120rpx width because four Chinese characters wrap on device')
+}
 
 const partnerDetailSource = read('pages/partner/detail.vue')
 for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'followPartnerPost', 'goPartnerWorkbench', 'guardLoginAction']) {
   if (!partnerDetailSource.includes(token)) {
     errors.push(`pages/partner/detail.vue is missing release partner detail token: ${token}`)
   }
+}
+for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange', 'connectionRule']) {
+  if (!partnerDetailSource.includes(token)) {
+    errors.push(`pages/partner/detail.vue must align partner detail information order with ${token}`)
+  }
+}
+if (partnerDetailSource.includes('搭子帖')) {
+  errors.push('pages/partner/detail.vue must not expose 搭子帖 in user-visible copy')
 }
 
 const partnerCreateSource = read('pages/partner/create.vue')
@@ -612,6 +695,16 @@ const partnerWorkbenchSource = read('pages/partner/workbench.vue')
 for (const token of ['listPartnerIntents', 'updatePartnerIntentStatus', 'goPartnerDetail']) {
   if (!partnerWorkbenchSource.includes(token)) {
     errors.push(`pages/partner/workbench.vue is missing release partner workbench token: ${token}`)
+  }
+}
+for (const token of ['convertPartnerPostToActivity', "handleConvert({ visibility: 'public' })", "handleConvert({ visibility: 'members_only' })"]) {
+  if (!partnerWorkbenchSource.includes(token)) {
+    errors.push(`pages/partner/workbench.vue must support real partner conversion flow token: ${token}`)
+  }
+}
+for (const staleToken of ['搭子转活动正在接入', '定向通知正在接入']) {
+  if (partnerWorkbenchSource.includes(staleToken)) {
+    errors.push(`pages/partner/workbench.vue must not keep placeholder conversion copy: ${staleToken}`)
   }
 }
 
@@ -956,6 +1049,11 @@ for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "stat
     errors.push(`surego-activity must enforce review-gated visibility: ${token}`)
   }
 }
+for (const token of ["visibility: payload.visibility || 'public'", 'source_partner_post_id', "source: payload.source || 'direct_activity'"]) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must support converted activity visibility/source token: ${token}`)
+  }
+}
 for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
   if (!activityCloudSource.includes(token)) {
     errors.push(`surego-activity must guard creator lifecycle transitions with ${token}`)
@@ -988,6 +1086,11 @@ const partnerCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-partner/i
 for (const token of ['surego-conversations', 'ensureConversationForIntent', 'participant_ids', 'conversation_id']) {
   if (!partnerCloudSource.includes(token)) {
     errors.push(`surego-partner must create/link conversations when accepting intents with ${token}`)
+  }
+}
+for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', "participant_ids: payload.participantIds || payload.participant_ids || []"]) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must support partner conversion flow token: ${token}`)
   }
 }
 for (const token of ["if (!record.schedule)", "if (!record.location)", "if (!record.description)"]) {
