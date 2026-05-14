@@ -1,238 +1,150 @@
-﻿<template>
+<template>
   <view v-if="isPageLoading" class="detail su-page">
     <SuPageLoading :style="contentTopStyle" text="活动详情加载中..." />
   </view>
   <view v-else class="detail su-page">
-    <view class="detail__nav" :style="navStyle">
-      <view class="detail__nav-row" :style="navRowStyle">
-      <view class="detail__nav-btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#0f172a" />
-      </view>
-      <text class="detail__nav-title">活动详情</text>
-      <view class="detail__nav-actions" :style="navActionsStyle">
-        <view class="detail__nav-btn" @tap="showShare = true">
-          <uni-icons type="redo" size="22" color="#0f172a" />
+    <scroll-view scroll-y class="detail__scroll">
+      <view class="detail-cover">
+        <image class="detail-cover__image" :src="activity.image" mode="aspectFill" />
+        <view class="detail-cover__shade" />
+        <view class="detail-cover__top" :style="navRowStyle">
+          <view class="floating-back" @tap="goBackOrFallback('/pages/home/index')">返回</view>
+          <view class="detail-cover__actions">
+            <view @tap="showShare = true">
+              <uni-icons type="redo" size="20" color="#fff" />
+            </view>
+            <view @tap="showMore = true">
+              <uni-icons type="more-filled" size="20" color="#fff" />
+            </view>
+          </view>
         </view>
-        <view class="detail__nav-btn" @tap="showMore = true">
-          <uni-icons type="more-filled" size="22" color="#0f172a" />
+        <view class="detail-cover__body">
+          <text class="pill" :class="{ 'pill--amber': isFull }">{{ isFull ? '满员候补中' : activityStatusMeta.label || '招募中' }}</text>
+          <text class="detail-cover__title">{{ activity.title }}</text>
         </view>
       </view>
-      </view>
-    </view>
 
-    <view class="detail__main" :style="contentTopStyle">
-      <view class="hero-card">
-        <view class="hero-card__image-wrap">
-          <image class="hero-card__image" :src="activity.image" mode="aspectFill" />
-          <view class="hero-card__mode" :class="`hero-card__mode--${activity.partyMode}`">
-            <uni-icons :type="mode.icon" size="13" color="#fff" />
+      <view class="detail__body">
+        <view class="info-card priority">
+          <view>
+            <uni-icons type="calendar" size="18" color="#2388ff" />
+            <text>{{ activity.date }} {{ activity.time }}</text>
+            <text>{{ countdownText }}</text>
+          </view>
+          <view @tap="openLocation">
+            <uni-icons type="location" size="18" color="#2388ff" />
+            <text>{{ activity.location }}</text>
+            <text>{{ activity.distance ? `${activity.distance}km` : '查看集合地点' }}</text>
+          </view>
+          <view>
+            <uni-icons type="personadd" size="18" color="#2388ff" />
+            <text>{{ participantText }}</text>
+            <text>{{ seatsLeftText }}</text>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="section-title">
+            <text>谁适合来</text>
+          </view>
+          <view class="question-list">
+            <text v-for="item in detailTags" :key="item">{{ item }}</text>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="section-title">
+            <text>详细碰头说明</text>
+          </view>
+          <text class="card-copy">{{ meetupText }}</text>
+        </view>
+
+        <view class="rule-card">
+          <view>
+            <text>报名与费用规则</text>
             <text>{{ mode.label }}</text>
           </view>
-          <view class="hero-card__hot">
-            <text>热行中</text>
-          </view>
+          <text>{{ refundRuleText }}</text>
+          <text class="pill pill--blue">{{ mode.desc }}</text>
         </view>
-        <view class="hero-card__content">
-          <text class="hero-card__title">{{ activity.title }}</text>
-          <view class="hero-card__meta">
-            <uni-icons type="calendar" size="16" color="#94a3b8" />
-            <text>{{ activity.date }} {{ activity.time }} - {{ activity.endTime }}</text>
-          </view>
-          <view class="hero-card__meta" @tap="openLocation">
-            <uni-icons type="location" size="16" color="#94a3b8" />
-            <text class="su-line-1">{{ activity.location }}</text>
-          </view>
-          <view class="hero-card__chips">
-            <text class="hero-card__chip" :class="{ 'hero-card__chip--approval': activity.requireApproval }">
-              {{ activity.requireApproval ? '审核制' : '自由报名' }}
-            </text>
-            <text v-if="activity.partyMode !== 'free'" class="hero-card__hint">{{ mode.desc }}</text>
-          </view>
-          <view class="hero-card__status">
-            <view class="hero-card__status-dot" :class="statusClass" />
-            <text>{{ statusText }}</text>
-          </view>
-          <view v-if="activity.moderationStatus && activity.moderationStatus !== 'visible'" class="hero-card__moderation" :class="`hero-card__moderation--${activity.moderationStatus}`">
-            <text>{{ moderationStatusText }}</text>
-            <text v-if="activity.moderationNote">{{ activity.moderationNote }}</text>
-          </view>
-        </view>
-      </view>
 
-      <view class="detail-card detail-card--intro">
-        <uni-icons type="chatbubble-filled" size="48" color="rgba(34,197,94,.18)" />
-        <text class="detail-card__kicker">活动详情</text>
-        <text class="detail-card__description">“{{ activity.description }}”</text>
-      </view>
-
-      <view class="detail-card">
-        <view class="progress-head">
-          <text class="progress-head__label">当前人数</text>
-          <text class="progress-head__count">
-            {{ activity.participantCount }}
-            <text v-if="activity.hasParticipantLimit"> / {{ activity.maxParticipants }}</text>
-          </text>
-        </view>
-        <view v-if="activity.hasParticipantLimit" class="progress">
-          <view class="progress__bar" :style="{ width: progressWidth }" />
-        </view>
-        <view class="progress-foot">
-          <text>{{ seatsLeftText }}</text>
-          <text>{{ activity.viewCount }} 次浏览 · {{ activity.likeCount }} 人心动</text>
-        </view>
-      </view>
-
-      <view class="detail-card">
-        <view class="detail-card__head">
+        <view class="credit-card">
+          <uni-icons type="auth-filled" size="30" color="#2388ff" />
           <view>
-            <text class="detail-card__title">已确认成员</text>
-            <text class="detail-card__sub">CONFIRMED MEMBERS</text>
-          </view>
-          <text class="detail-card__link" @tap="goActivityMembers(activity.id)">查看全部</text>
-        </view>
-        <view class="member-grid">
-          <view v-for="member in visibleMembers" :key="member.id" class="member" @tap="selectMember(member)">
-            <view class="member__avatar-wrap">
-              <image class="member__avatar" :src="member.avatar" mode="aspectFill" />
-              <view v-if="member.role === '局长'" class="member__crown">
-                <uni-icons type="fire-filled" size="10" color="#fff" />
-              </view>
-            </view>
-            <text class="member__name su-line-1">{{ member.name }}</text>
-          </view>
-          <view v-if="activity.hasParticipantLimit" class="member member--join" @tap="handlePrimaryAction">
-            <view class="member__join">
-              <uni-icons type="plusempty" size="24" color="#34d399" />
-            </view>
-            <text class="member__join-text">待加入</text>
+            <text>信用与安全提示</text>
+            <text>报名成功后请按时到场，核销记录会影响后续活动和搭子匹配。</text>
           </view>
         </view>
-      </view>
 
-      <view v-if="isLeader" class="command-card">
-        <view class="command-card__ghost">
-          <uni-icons type="gear-filled" size="108" color="rgba(79,70,229,.08)" />
-        </view>
-        <view class="command-card__head">
-          <view class="command-card__icon">
-            <uni-icons type="staff-filled" size="20" color="#fff" />
+        <view class="info-card">
+          <view class="section-title">
+            <text>报名问答</text>
           </view>
+          <view class="question-list">
+            <text v-for="question in detailQuestions" :key="question">{{ question }}</text>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="section-title section-title--inline">
+            <text>大家问过</text>
+            <text @tap="showComingSoon('提问功能正在接入')">提问</text>
+          </view>
+          <view v-for="item in faqList" :key="item.q" class="faq-item">
+            <text>{{ item.q }}</text>
+            <text>{{ item.a }}</text>
+          </view>
+        </view>
+
+        <view class="info-card">
+          <view class="section-title">
+            <text>成行后怎么联系</text>
+          </view>
+          <text class="card-copy">报名成功并被发起人确认后，可以在我的页查看群二维码或个人二维码。</text>
+          <text class="pill pill--blue">通过后再联系</text>
+        </view>
+
+        <view class="organizer-card" @tap="openOrganizerProfile">
+          <image class="organizer-card__avatar" :src="activity.organizerAvatar" mode="aspectFill" />
           <view>
-            <text class="command-card__title">局面指挥台 / COMMAND</text>
-            <text class="command-card__sub">Operational Console V2.0</text>
+            <text>{{ activity.organizer }}</text>
+            <text>{{ organizerSubText }}</text>
           </view>
-        </view>
-        <view class="command-card__stats">
-          <view class="command-card__stat">
-            <text>集结进度</text>
-            <view><text>{{ padCount(activity.participantCount) }}</text><text>/{{ activity.maxParticipants }}</text></view>
-          </view>
-          <view class="command-card__stat command-card__stat--blue">
-            <text>待审申请</text>
-            <view><text>03</text></view>
-          </view>
-        </view>
-        <view class="command-card__button" @tap="handlePrimaryAction">
-          <text>进入局面管理中心</text>
+          <uni-icons type="right" size="18" color="#94a3b8" />
         </view>
       </view>
+    </scroll-view>
 
-      <view v-else class="organizer-card" @tap="openOrganizerProfile">
-        <image class="organizer-card__avatar" :src="activity.organizerAvatar" mode="aspectFill" />
-        <view class="organizer-card__info">
-          <text class="organizer-card__name">{{ activity.organizer }}</text>
-          <text class="organizer-card__role">本局局长 / FOUNDER</text>
-        </view>
-        <view class="organizer-card__chat" @tap.stop="showComingSoon('私信暂未开放')">
-          <uni-icons type="chat" size="20" color="#64748b" />
-        </view>
-      </view>
-    </view>
-
-    <view class="bottom-bar su-safe-bottom">
-      <view class="bottom-bar__state">
-        <text>当前状态</text>
-        <view>
-          <view class="bottom-bar__dot" :class="statusClass" />
-          <text>{{ bottomStatusText }}</text>
-        </view>
-      </view>
-      <view class="bottom-bar__button" :class="primaryButtonClass" @tap="handlePrimaryAction">
+    <view class="bottom-cta su-safe-bottom">
+      <view class="primary-button" :class="{ 'primary-button--disabled': primaryDisabled }" @tap="handlePrimaryAction">
         <text>{{ primaryButtonText }}</text>
-        <uni-icons :type="primaryIcon" size="18" color="#fff" />
       </view>
+      <view class="secondary-button" @tap="openOrganizerProfile">看发起人</view>
     </view>
 
     <SuActionSheet v-model="showShare" title="分享活动 / SHARE">
       <view class="sheet-grid">
-        <button class="sheet-item" open-type="share">
-          <view class="sheet-item__icon sheet-item__icon--green">
-            <uni-icons type="weixin" size="28" color="#fff" />
-          </view>
-          <text>微信</text>
-        </button>
-        <view class="sheet-item" @tap="copySharePath">
-          <view class="sheet-item__icon sheet-item__icon--dark">
-            <uni-icons type="link" size="28" color="#fff" />
-          </view>
-          <text>复制链接</text>
-        </view>
-        <view class="sheet-item" @tap="openPoster">
-          <view class="sheet-item__icon sheet-item__icon--blue">
-            <uni-icons type="image" size="28" color="#fff" />
-          </view>
-          <text>生成海报</text>
-        </view>
-        <view class="sheet-item" @tap="showComingSoon('朋友圈分享需小程序转发能力')">
-          <view class="sheet-item__icon sheet-item__icon--emerald">
-            <uni-icons type="pyq" size="28" color="#fff" />
-          </view>
-          <text>朋友圈</text>
-        </view>
+        <button class="sheet-item" open-type="share">微信</button>
+        <view class="sheet-item" @tap="copySharePath">复制链接</view>
+        <view class="sheet-item" @tap="openPoster">生成海报</view>
+        <view class="sheet-item" @tap="showComingSoon('朋友圈分享需小程序转发能力')">朋友圈</view>
       </view>
     </SuActionSheet>
 
     <SuActionSheet v-model="showMore" title="更多操作 / MORE">
       <view class="more-list">
-        <view class="more-list__item more-list__item--danger" @tap="submitActivityReport">
-          <uni-icons type="flag" size="20" color="#ef4444" />
-          <text>举报该活动</text>
-        </view>
-        <view class="more-report">
-          <text class="more-report__label">举报理由</text>
-          <textarea
-            v-model="reportReason"
-            class="more-report__textarea"
-            maxlength="120"
-            placeholder="请填写举报理由，例如内容违规、活动异常等"
-            placeholder-class="more-report__placeholder"
-          />
-        </view>
-        <view class="more-list__item" @tap="toastAndClose('已减少类似推荐')">
-          <uni-icons type="hand-down-filled" size="20" color="#64748b" />
-          <text>不喜欢这类内容</text>
-        </view>
-        <view class="more-list__item" @tap="toastAndClose('成行平台 v1.0')">
-          <uni-icons type="info" size="20" color="#64748b" />
-          <text>关于成行平台</text>
-        </view>
+        <view class="more-list__item more-list__item--danger" @tap="submitActivityReport">举报该活动</view>
+        <textarea
+          v-model="reportReason"
+          class="more-report__textarea"
+          maxlength="120"
+          placeholder="请填写举报理由，例如内容违规、活动异常等"
+          placeholder-class="more-report__placeholder"
+        />
+        <view class="more-list__item" @tap="toastAndClose('已减少类似推荐')">不喜欢这类内容</view>
+        <view class="more-list__item" @tap="toastAndClose('成行平台 v1.0')">关于成行平台</view>
       </view>
     </SuActionSheet>
-
-    <view v-if="selectedMember" class="member-modal">
-      <view class="member-modal__mask" @tap="selectedMember = null" />
-      <view class="member-modal__panel">
-        <image class="member-modal__avatar" :src="selectedMember.avatar" mode="aspectFill" />
-        <text class="member-modal__name">{{ selectedMember.name }}</text>
-        <text class="member-modal__role">{{ selectedMember.role }}</text>
-        <view class="member-modal__rows">
-          <view><text>参与次数</text><text>12 次</text></view>
-          <view><text>信用分</text><text>96 分</text></view>
-          <view><text>加入时间</text><text>今天</text></view>
-        </view>
-        <view class="member-modal__button" @tap="selectedMember = null">知道了</view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -247,93 +159,80 @@ import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityMembers, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, goUserDetail, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityRegister, goBackOrFallback, goManageDashboard, goParticipantDashboard, goSharePoster, goUserDetail, showComingSoon } from '@/common/utils/route.js'
 import { buildActivitySharePath, buildActivitySharePayload } from '@/common/utils/share.js'
 
 const activity = ref(createEmptyActivity('101'))
-const visibleMembers = ref([])
 const showShare = ref(false)
 const showMore = ref(false)
-const selectedMember = ref(null)
 const reportReason = ref('')
+const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
-const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 240 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 28 })
 
+const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
 const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
-const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
 const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
+const isFull = computed(() => activity.value.hasParticipantLimit && Number(activity.value.participantCount || 0) >= Number(activity.value.maxParticipants || 0))
+const primaryDisabled = computed(() => activity.value.applicationStatus === 'pending' || (isTerminalActivity.value && !isLeader.value))
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
-    return { label: `诚意金 ¥${activity.value.amount}`, desc: '签到后全额退回', icon: 'wallet' }
+    return { label: `诚意金 ¥${activity.value.amount}`, desc: '签到后按规则退回' }
   }
   if (activity.value.partyMode === 'ticket') {
-    return { label: `门票 ¥${activity.value.amount}`, desc: '支付后参与', icon: 'paperplane-filled' }
+    return { label: `门票 ¥${activity.value.amount}`, desc: '支付后锁定席位' }
   }
-  return { label: '免费局', desc: '免费参与', icon: 'checkmarkempty' }
+  return { label: '免费局', desc: '免费参与' }
 })
-
-const progressWidth = computed(() => {
-  if (!activity.value.hasParticipantLimit) return '0%'
-  return `${Math.min(100, Math.round((activity.value.participantCount / activity.value.maxParticipants) * 100))}%`
+const detailTags = computed(() => {
+  const base = [
+    ...(activity.value.tags || []),
+    activity.value.category,
+    activity.value.requireApproval ? '发起人审核' : '直接报名',
+    activity.value.hasParticipantLimit ? `${activity.value.maxParticipants} 人以内` : '不限人数'
+  ]
+  return [...new Set(base.filter(Boolean))].slice(0, 8)
 })
-
+const detailQuestions = computed(() => {
+  const questions = activity.value.questions || []
+  return questions.length ? questions : ['你为什么想参加这场活动？', '是否能按时到场？']
+})
+const faqList = computed(() => [
+  { q: '临时有事可以退出吗？', a: activity.value.partyMode === 'free' ? '请尽早联系发起人，避免影响成行。' : '按费用规则处理，具体以活动说明为准。' },
+  { q: '通过后怎么联系？', a: '通过后可在我的页或通知中心查看联系入口。' }
+])
+const meetupText = computed(() => activity.value.meetup || activity.value.description || '发起人会在报名通过后同步集合点和注意事项。')
+const refundRuleText = computed(() => {
+  if (activity.value.partyMode === 'sincerity') return '诚意金用于确认席位，到场核销后按规则退回；临时爽约会影响信用记录。'
+  if (activity.value.partyMode === 'ticket') return '门票确认后保留名额，活动取消时进入退款流程。'
+  return '本活动免费参与，请按时到场。若无法参加，请提前告知发起人。'
+})
+const participantText = computed(() => {
+  if (!activity.value.hasParticipantLimit) return `${activity.value.participantCount || 0} 人已加入`
+  return `${activity.value.participantCount}/${activity.value.maxParticipants} 已占位`
+})
 const seatsLeftText = computed(() => {
-  if (!activity.value.hasParticipantLimit) return '不限人数，开放报名中'
-  const left = Math.max(0, activity.value.maxParticipants - activity.value.participantCount)
-  return left > 0 ? `还剩 ${left} 个名额` : '名额已满'
+  if (!activity.value.hasParticipantLimit) return '开放报名中'
+  const left = Math.max(0, Number(activity.value.maxParticipants || 0) - Number(activity.value.participantCount || 0))
+  if (left <= 0) return '当前仅可候补'
+  return `还差 ${left} 人成行`
 })
-
-const statusText = computed(() => {
-  if (isTerminalActivity.value) return activityStatusMeta.value.label
-  if (isLeader.value) return '作为局长管理中'
-  if (activity.value.applicationStatus === 'approved') return '已获得准入'
-  if (activity.value.applicationStatus === 'pending') return '申请审核中'
-  if (activity.value.applicationStatus === 'rejected') return '申请未通过'
-  return '开放申请中'
-})
-
-const bottomStatusText = computed(() => statusText.value)
-
-const moderationStatusText = computed(() => {
-  const labels = {
-    approved: '运营已通过',
-    rejected: '运营已驳回',
-    hidden: '运营已下架'
-  }
-  return labels[activity.value.moderationStatus] || '运营处理中'
-})
-
-const statusClass = computed(() => {
-  if (['cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key)) return 'is-rejected'
-  if (activityStatusMeta.value.key === 'finished') return 'is-pending'
-  if (activity.value.applicationStatus === 'pending') return 'is-pending'
-  if (activity.value.applicationStatus === 'rejected') return 'is-rejected'
-  return 'is-ready'
-})
-
+const countdownText = computed(() => activity.value.dayOfWeek || '即将开始')
+const organizerSubText = computed(() => `${activity.value.city || '本校'} · 发起人主页`)
 const primaryButtonText = computed(() => {
-  if (isLeader.value) return '局面中心'
+  if (isLeader.value) return '进入活动管理'
   if (isTerminalActivity.value) return activityStatusMeta.value.label
-  if (isJoined.value) return '入场凭证'
+  if (isJoined.value) return '查看到场凭证'
   if (activity.value.applicationStatus === 'pending') return '审核中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
-  return '申请入局'
+  if (isFull.value) return '加入候补'
+  if (activity.value.requireApproval) return '提交申请'
+  if (activity.value.partyMode === 'free') return '立即报名'
+  return '报名并支付'
 })
-
-const primaryIcon = computed(() => {
-  if (isLeader.value) return 'staff-filled'
-  if (isJoined.value) return 'paperplane-filled'
-  return 'fire-filled'
-})
-
-const primaryButtonClass = computed(() => ({
-  'bottom-bar__button--disabled': activity.value.applicationStatus === 'pending' || (isTerminalActivity.value && !isLeader.value),
-  'bottom-bar__button--leader': isLeader.value
-}))
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
@@ -341,33 +240,27 @@ onLoad(async (query) => {
 })
 
 async function loadData(id = activity.value.id || '101') {
-  const detail = await getActivityDetail(id)
-  const [application, members] = await Promise.all([
-    getApplicationForActivity(detail.id || id),
-    listActivityMembers(detail.id || id)
-  ])
-  const memberCount = members.length
-  activity.value = {
-    ...detail,
-    ...(application ? {
-      application,
-      applicationStatus: application.status || detail.applicationStatus,
-      reviewNote: application.reviewNote || detail.reviewNote || '',
-      rejectReason: application.rejectReason || detail.rejectReason || ''
-    } : {}),
-    participantCount: Math.max(Number(detail.participantCount || 0), memberCount)
+  isPageLoading.value = true
+  try {
+    const detail = await getActivityDetail(id)
+    const application = await getApplicationForActivity(detail.id || id)
+    activity.value = {
+      ...detail,
+      ...(application ? {
+        application,
+        applicationStatus: application.status || detail.applicationStatus,
+        reviewNote: application.reviewNote || detail.reviewNote || '',
+        rejectReason: application.rejectReason || detail.rejectReason || ''
+      } : {})
+    }
+  } finally {
+    isPageLoading.value = false
   }
-  visibleMembers.value = members.slice(0, Math.min(Number(activity.value.participantCount || 5), members.length || 5))
 }
 
 onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '101')))
-
 onShareAppMessage(() => buildActivitySharePayload(activity.value))
 onShareTimeline(() => buildActivitySharePayload(activity.value))
-
-function padCount(count) {
-  return String(count).padStart(2, '0')
-}
 
 function openLocation() {
   const latitude = Number(activity.value.latitude || 0)
@@ -376,24 +269,12 @@ function openLocation() {
     uni.showToast({ title: activity.value.location || '暂无地图坐标', icon: 'none' })
     return
   }
-
   uni.openLocation({
     latitude,
     longitude,
     name: activity.value.location,
-    address: activity.value.address || activity.value.location,
-    fail() {
-      uni.showToast({ title: activity.value.location || '地图打开失败', icon: 'none' })
-    }
+    address: activity.value.address || activity.value.location
   })
-}
-
-function selectMember(member) {
-  if (member?.userId || member?.id) {
-    goUserDetail(member.userId || member.id, { activityId: activity.value.id })
-    return
-  }
-  selectedMember.value = member
 }
 
 function openOrganizerProfile() {
@@ -401,11 +282,7 @@ function openOrganizerProfile() {
 }
 
 function handlePrimaryAction() {
-  if (isTerminalActivity.value && !isLeader.value) {
-    uni.showToast({ title: `${activityStatusMeta.value.label}，暂不可报名`, icon: 'none' })
-    return
-  }
-  if (activity.value.applicationStatus === 'pending') return
+  if (primaryDisabled.value) return
   if (isLeader.value) {
     goManageDashboard(activity.value.id)
     return
@@ -455,753 +332,59 @@ function toastAndClose(title) {
 </script>
 
 <style scoped>
-.detail {
-  min-height: 100vh;
-  padding-bottom: 178rpx;
-  background: #f0f4f8;
-}
-
-.detail__nav {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 30;
-  padding: 0;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(18px);
-}
-
-.detail__nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.detail__nav-title {
-  color: #1e293b;
-  font-size: 28rpx;
-  font-weight: 900;
-}
-
-.detail__nav-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 14rpx;
-  overflow: hidden;
-}
-
-.detail__nav-btn {
-  display: flex;
-  width: 58rpx;
-  height: 58rpx;
-  align-items: center;
-  justify-content: center;
-}
-
-.detail__main {
-  display: flex;
-  flex-direction: column;
-  gap: 28rpx;
-  padding-right: 34rpx;
-  padding-left: 34rpx;
-}
-
-.hero-card,
-.detail-card,
-.organizer-card,
-.command-card {
-  overflow: hidden;
-  border: 1rpx solid rgba(255, 255, 255, 0.86);
-  border-radius: 50rpx;
-  background: #fff;
-  box-shadow: 0 14rpx 44rpx rgba(15, 23, 42, 0.04);
-}
-
-.hero-card__image-wrap {
-  position: relative;
-  height: 386rpx;
-  background: #e2e8f0;
-}
-
-.hero-card__image {
-  width: 100%;
-  height: 100%;
-}
-
-.hero-card__mode,
-.hero-card__hot {
-  position: absolute;
-  top: 28rpx;
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 11rpx 20rpx;
-  border-radius: 999rpx;
-  color: #fff;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.hero-card__mode {
-  left: 28rpx;
-  background: #22c55e;
-}
-
-.hero-card__mode--sincerity {
-  background: #ef4444;
-}
-
-.hero-card__mode--ticket {
-  background: #8b5cf6;
-}
-
-.hero-card__hot {
-  right: 28rpx;
-  background: rgba(16, 185, 129, 0.9);
-}
-
-.hero-card__content {
-  padding: 36rpx;
-}
-
-.hero-card__title {
-  display: block;
-  color: #0f172a;
-  font-size: 39rpx;
-  font-weight: 900;
-  line-height: 1.45;
-}
-
-.hero-card__meta {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-top: 22rpx;
-  color: #64748b;
-  font-size: 25rpx;
-  font-weight: 800;
-}
-
-.hero-card__chips {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  margin-top: 24rpx;
-}
-
-.hero-card__chip {
-  padding: 9rpx 18rpx;
-  border-radius: 12rpx;
-  background: #dcfce7;
-  color: #16a34a;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.hero-card__chip--approval {
-  background: #e0e7ff;
-  color: #4f46e5;
-}
-
-.hero-card__hint {
-  color: #94a3b8;
-  font-size: 21rpx;
-  font-weight: 800;
-}
-
-.hero-card__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-top: 24rpx;
-  padding: 10rpx 20rpx;
-  border-radius: 999rpx;
-  background: #dcfce7;
-  color: #15803d;
-  font-size: 21rpx;
-  font-weight: 900;
-}
-
-.hero-card__moderation {
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-  margin-top: 18rpx;
-  padding: 18rpx 20rpx;
-  border-radius: 20rpx;
-  background: #fef3c7;
-  color: #b45309;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.hero-card__moderation--approved {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.hero-card__moderation--rejected,
-.hero-card__moderation--hidden {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.hero-card__status-dot,
-.bottom-bar__dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-  background: #22c55e;
-}
-
-.is-pending {
-  background: #f59e0b;
-}
-
-.is-rejected {
-  background: #ef4444;
-}
-
-.is-ready {
-  background: #22c55e;
-}
-
-.detail-card {
-  padding: 36rpx;
-}
-
-.detail-card--intro {
-  position: relative;
-  padding: 52rpx 46rpx;
-}
-
-.detail-card__kicker {
-  display: block;
-  margin-top: -46rpx;
-  color: #cbd5e1;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.detail-card__description {
-  display: block;
-  margin-top: 24rpx;
-  color: #334155;
-  font-size: 33rpx;
-  font-style: italic;
-  font-weight: 800;
-  line-height: 1.72;
-}
-
-.progress-head,
-.progress-foot,
-.detail-card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.progress-head__label,
-.detail-card__sub {
-  color: #cbd5e1;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.progress-head__count {
-  color: #0f172a;
-  font-size: 36rpx;
-  font-weight: 900;
-}
-
-.progress-head__count text {
-  color: #cbd5e1;
-  font-size: 26rpx;
-  font-style: italic;
-}
-
-.progress {
-  height: 14rpx;
-  margin-top: 22rpx;
-  overflow: hidden;
-  border-radius: 999rpx;
-  background: #f1f5f9;
-}
-
-.progress__bar {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #22c55e, #3b82f6);
-}
-
-.progress-foot {
-  margin-top: 18rpx;
-  color: #94a3b8;
-  font-size: 21rpx;
-  font-weight: 800;
-}
-
-.detail-card__title {
-  display: block;
-  color: #0f172a;
-  font-size: 31rpx;
-  font-weight: 900;
-}
-
-.detail-card__link {
-  color: #3b82f6;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.member-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 26rpx 18rpx;
-  margin-top: 34rpx;
-}
-
-.member {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.member__avatar-wrap {
-  position: relative;
-}
-
-.member__avatar,
-.member__join {
-  width: 92rpx;
-  height: 92rpx;
-  border-radius: 50%;
-}
-
-.member__avatar {
-  border: 4rpx solid #fff;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.12);
-}
-
-.member__crown {
-  position: absolute;
-  right: -2rpx;
-  bottom: -4rpx;
-  display: flex;
-  width: 30rpx;
-  height: 30rpx;
-  align-items: center;
-  justify-content: center;
-  border: 4rpx solid #fff;
-  border-radius: 10rpx;
-  background: #4f46e5;
-}
-
-.member__name,
-.member__join-text {
-  width: 100%;
-  color: #64748b;
-  text-align: center;
-  font-size: 19rpx;
-  font-weight: 900;
-}
-
-.member__join {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 3rpx dashed #bbf7d0;
-  background: #f0fdf4;
-}
-
-.member__join-text {
-  color: #34d399;
-}
-
-.command-card {
-  position: relative;
-  padding: 42rpx;
-}
-
-.command-card__ghost {
-  position: absolute;
-  top: 28rpx;
-  right: 24rpx;
-}
-
-.command-card__head {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 20rpx;
-}
-
-.command-card__icon {
-  display: flex;
-  width: 70rpx;
-  height: 70rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24rpx;
-  background: #4f46e5;
-  box-shadow: 0 12rpx 30rpx rgba(79, 70, 229, 0.3);
-}
-
-.command-card__title,
-.command-card__sub {
-  display: block;
-}
-
-.command-card__title {
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.command-card__sub {
-  margin-top: 5rpx;
-  color: #cbd5e1;
-  font-size: 17rpx;
-  font-weight: 900;
-}
-
-.command-card__stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 22rpx;
-  margin-top: 42rpx;
-}
-
-.command-card__stat {
-  padding: 30rpx;
-  border-radius: 34rpx;
-  background: #f8fafc;
-}
-
-.command-card__stat--blue {
-  background: rgba(79, 70, 229, 0.08);
-}
-
-.command-card__stat > text {
-  display: block;
-  color: #cbd5e1;
-  font-size: 19rpx;
-  font-weight: 900;
-}
-
-.command-card__stat view {
-  display: flex;
-  align-items: baseline;
-  gap: 8rpx;
-  margin-top: 10rpx;
-}
-
-.command-card__stat view text:first-child {
-  color: #0f172a;
-  font-size: 46rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.command-card__stat view text:last-child {
-  color: #cbd5e1;
-  font-size: 21rpx;
-  font-weight: 900;
-}
-
-.command-card__button {
-  display: flex;
-  height: 88rpx;
-  align-items: center;
-  justify-content: center;
-  margin-top: 38rpx;
-  border-radius: 26rpx;
-  background: #0f172a;
-  color: #fff;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.organizer-card {
-  display: flex;
-  align-items: center;
-  gap: 26rpx;
-  padding: 38rpx;
-}
-
-.organizer-card__avatar {
-  width: 106rpx;
-  height: 106rpx;
-  border-radius: 28rpx;
-  background: #f1f5f9;
-}
-
-.organizer-card__info {
-  flex: 1;
-  min-width: 0;
-}
-
-.organizer-card__name {
-  display: block;
-  color: #0f172a;
-  font-size: 34rpx;
-  font-weight: 900;
-}
-
-.organizer-card__role {
-  display: block;
-  margin-top: 6rpx;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.organizer-card__chat {
-  display: flex;
-  width: 82rpx;
-  height: 82rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 28rpx;
-  background: #f8fafc;
-}
-
-.bottom-bar {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28rpx 44rpx 32rpx;
-  border-top: 1rpx solid #f1f5f9;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(18px);
-}
-
-.bottom-bar__state > text {
-  display: block;
-  color: #cbd5e1;
-  font-size: 19rpx;
-  font-weight: 900;
-}
-
-.bottom-bar__state view {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  margin-top: 8rpx;
-  color: #0f172a;
-  font-size: 26rpx;
-  font-weight: 900;
-}
-
-.bottom-bar__button {
-  display: flex;
-  height: 88rpx;
-  min-width: 220rpx;
-  align-items: center;
-  justify-content: center;
-  gap: 14rpx;
-  padding: 0 34rpx;
-  border-radius: 28rpx;
-  background: #6366f1;
-  color: #fff;
-  font-size: 26rpx;
-  font-weight: 900;
-  box-shadow: 0 18rpx 42rpx rgba(99, 102, 241, 0.3);
-}
-
-.bottom-bar__button--leader {
-  background: #4f46e5;
-}
-
-.bottom-bar__button--disabled {
-  background: #94a3b8;
-  box-shadow: none;
-}
-
-.sheet-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20rpx;
-}
-
-.sheet-item {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 14rpx;
-  color: #475569;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.sheet-item__icon {
-  display: flex;
-  width: 88rpx;
-  height: 88rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 30rpx;
-}
-
-.sheet-item__icon--green,
-.sheet-item__icon--emerald {
-  background: #22c55e;
-}
-
-.sheet-item__icon--dark {
-  background: #0f172a;
-}
-
-.sheet-item__icon--blue {
-  background: #3b82f6;
-}
-
-.more-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.more-report {
-  padding: 10rpx 0 20rpx;
-}
-
-.more-report__label {
-  display: block;
-  margin-bottom: 12rpx;
-  color: #94a3b8;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.more-report__textarea {
-  width: 100%;
-  min-height: 160rpx;
-  box-sizing: border-box;
-  padding: 22rpx;
-  border: 1rpx solid #e2e8f0;
-  border-radius: 24rpx;
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 24rpx;
-  line-height: 1.5;
-}
-
-.more-report__placeholder {
-  color: #cbd5e1;
-}
-
-.more-list__item {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  min-height: 92rpx;
-  color: #334155;
-  font-size: 27rpx;
-  font-weight: 900;
-}
-
-.more-list__item--danger {
-  color: #ef4444;
-}
-
-.member-modal {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 80;
-}
-
-.member-modal__mask {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  background: rgba(15, 23, 42, 0.48);
-}
-
-.member-modal__panel {
-  position: absolute;
-  top: 50%;
-  right: 48rpx;
-  left: 48rpx;
-  padding: 52rpx 40rpx 40rpx;
-  border-radius: 44rpx;
-  background: #fff;
-  text-align: center;
-  transform: translateY(-50%);
-}
-
-.member-modal__avatar {
-  width: 150rpx;
-  height: 150rpx;
-  border-radius: 34rpx;
-  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.14);
-}
-
-.member-modal__name,
-.member-modal__role {
-  display: block;
-}
-
-.member-modal__name {
-  margin-top: 24rpx;
-  color: #0f172a;
-  font-size: 40rpx;
-  font-weight: 900;
-}
-
-.member-modal__role {
-  margin-top: 8rpx;
-  color: #94a3b8;
-  font-size: 24rpx;
-  font-weight: 800;
-}
-
-.member-modal__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-  margin-top: 34rpx;
-}
-
-.member-modal__rows view {
-  display: flex;
-  justify-content: space-between;
-  padding: 22rpx 26rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 24rpx;
-  font-weight: 800;
-}
-
-.member-modal__rows view text:last-child {
-  color: #0f172a;
-  font-weight: 900;
-}
-
-.member-modal__button {
-  display: flex;
-  height: 82rpx;
-  align-items: center;
-  justify-content: center;
-  margin-top: 32rpx;
-  border-radius: 26rpx;
-  background: #4f46e5;
-  color: #fff;
-  font-size: 25rpx;
-  font-weight: 900;
-}
+.detail { min-height: 100vh; padding-bottom: 170rpx; background: #f8f9f9; }
+.detail__scroll { height: 100vh; }
+.detail-cover { position: relative; min-height: 620rpx; overflow: hidden; background: #102033; }
+.detail-cover__image, .detail-cover__shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.detail-cover__shade { background: linear-gradient(180deg, rgba(16, 32, 51, 0.2), rgba(16, 32, 51, 0.84)); }
+.detail-cover__top { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
+.floating-back { display: flex; height: 68rpx; align-items: center; padding: 0 22rpx; border-radius: 999rpx; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 23rpx; font-weight: 950; backdrop-filter: blur(12px); }
+.detail-cover__actions { display: flex; gap: 12rpx; }
+.detail-cover__actions view { display: flex; width: 68rpx; height: 68rpx; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(12px); }
+.detail-cover__body { position: absolute; right: 34rpx; bottom: 46rpx; left: 34rpx; z-index: 2; display: flex; flex-direction: column; gap: 18rpx; }
+.detail-cover__title { color: #fff; font-size: 56rpx; font-weight: 950; line-height: 1.12; }
+.pill { align-self: flex-start; padding: 11rpx 18rpx; border-radius: 999rpx; background: #dcfce7; color: #16a34a; font-size: 21rpx; font-weight: 950; }
+.pill--amber { background: #fef3c7; color: #d97706; }
+.pill--blue { margin-top: 20rpx; background: #dbeafe; color: #2563eb; }
+.detail__body { display: flex; flex-direction: column; gap: 22rpx; padding: 24rpx 34rpx 40rpx; }
+.info-card, .rule-card, .credit-card, .organizer-card { border: 1rpx solid rgba(24, 24, 27, 0.08); border-radius: 34rpx; background: #fff; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
+.info-card, .rule-card, .credit-card { padding: 30rpx; }
+.priority { display: grid; gap: 18rpx; }
+.priority view { display: grid; grid-template-columns: 40rpx 1fr; align-items: center; column-gap: 12rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #f1f5f9; }
+.priority view:last-child { padding-bottom: 0; border-bottom: 0; }
+.priority view text:nth-child(2) { color: #102033; font-size: 25rpx; font-weight: 950; }
+.priority view text:nth-child(3) { grid-column: 2; margin-top: 6rpx; color: #94a3b8; font-size: 21rpx; font-weight: 850; }
+.section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18rpx; }
+.section-title text:first-child { color: #102033; font-size: 31rpx; font-style: italic; font-weight: 950; }
+.section-title--inline text:last-child { color: #2388ff; font-size: 23rpx; font-weight: 950; }
+.question-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.question-list text { padding: 12rpx 18rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 22rpx; font-weight: 900; }
+.card-copy, .rule-card > text:nth-child(2) { display: block; color: #64748b; font-size: 25rpx; font-weight: 800; line-height: 1.62; }
+.rule-card { background: #eef7ff; }
+.rule-card view text { display: block; }
+.rule-card view text:first-child { color: #64748b; font-size: 21rpx; font-weight: 950; }
+.rule-card view text:last-child { margin-top: 8rpx; color: #102033; font-size: 34rpx; font-style: italic; font-weight: 950; }
+.rule-card > text:nth-child(2) { margin-top: 18rpx; }
+.credit-card { display: grid; grid-template-columns: 58rpx 1fr; gap: 18rpx; align-items: flex-start; background: #fff; }
+.credit-card text:first-child { display: block; color: #102033; font-size: 28rpx; font-weight: 950; }
+.credit-card text:last-child { display: block; margin-top: 8rpx; color: #64748b; font-size: 22rpx; font-weight: 800; line-height: 1.5; }
+.faq-item { padding: 20rpx 0; border-top: 1rpx solid #f1f5f9; }
+.faq-item text:first-child { display: block; color: #102033; font-size: 24rpx; font-weight: 950; }
+.faq-item text:last-child { display: block; margin-top: 8rpx; color: #64748b; font-size: 22rpx; font-weight: 800; line-height: 1.5; }
+.organizer-card { display: grid; grid-template-columns: 94rpx 1fr 30rpx; gap: 20rpx; align-items: center; padding: 26rpx; }
+.organizer-card__avatar { width: 94rpx; height: 94rpx; border-radius: 28rpx; background: #f1f5f9; }
+.organizer-card view text:first-child { display: block; color: #102033; font-size: 30rpx; font-weight: 950; }
+.organizer-card view text:last-child { display: block; margin-top: 8rpx; color: #94a3b8; font-size: 21rpx; font-weight: 850; }
+.bottom-cta { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; display: grid; grid-template-columns: 1fr 190rpx; gap: 16rpx; padding: 22rpx 34rpx; background: rgba(255, 255, 255, 0.92); box-shadow: 0 -12rpx 36rpx rgba(15, 23, 42, 0.08); backdrop-filter: blur(18px); }
+.primary-button, .secondary-button { display: flex; height: 88rpx; align-items: center; justify-content: center; border-radius: 999rpx; font-size: 25rpx; font-weight: 950; }
+.primary-button { background: #2388ff; color: #fff; box-shadow: 0 16rpx 34rpx rgba(35, 136, 255, 0.28); }
+.primary-button--disabled { background: #94a3b8; box-shadow: none; }
+.secondary-button { border: 1rpx solid #e2e8f0; background: #fff; color: #102033; }
+.sheet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16rpx; }
+.sheet-item { display: flex; min-height: 80rpx; align-items: center; justify-content: center; border-radius: 24rpx; background: #f3f6fa; color: #102033; font-size: 22rpx; font-weight: 950; }
+.more-list { display: flex; flex-direction: column; gap: 18rpx; }
+.more-list__item { min-height: 74rpx; color: #102033; font-size: 25rpx; font-weight: 950; }
+.more-list__item--danger { color: #ef4444; }
+.more-report__textarea { width: 100%; min-height: 160rpx; box-sizing: border-box; padding: 22rpx; border: 1rpx solid #e2e8f0; border-radius: 24rpx; background: #f8fafc; color: #102033; font-size: 24rpx; line-height: 1.5; }
+.more-report__placeholder { color: #cbd5e1; }
 </style>

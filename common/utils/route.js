@@ -182,6 +182,14 @@ export function goActivityCreate() {
   guardLoginAction('/pages/activity/create')
 }
 
+export function goPartnerCreate(options = {}) {
+  guardLoginAction('/pages/partner/create', options)
+}
+
+export function goPublishCenter(options = {}) {
+  guardLoginAction('/pages/publish/index', options)
+}
+
 export function goDiscover() {
   goDiscoverRoot()
 }
@@ -206,16 +214,46 @@ export function goCalendar(date = '') {
   })
 }
 
-export function goMessages() {
-  uni.navigateTo({
-    url: '/pages/messages/index'
+export function goGraduation(options = {}) {
+  goToUrl('/pages/graduation/index', options)
+}
+
+export function goHackathon(options = {}) {
+  goToUrl('/pages/hackathon/index', options)
+}
+
+export function goHackathonTeam(id, options = {}) {
+  goToUrl(`/pages/hackathon/team?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goVerify(options = {}) {
+  goToUrl('/pages/verify/index', options)
+}
+
+export function goPartnersRoot() {
+  uni.reLaunch({
+    url: '/pages/partners/index'
   })
 }
 
-export function goUserProfile() {
-  uni.navigateTo({
-    url: '/pages/user/profile'
-  })
+export function goPartnerDetail(id, options = {}) {
+  goToUrl(`/pages/partner/detail?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goPartnerWorkbench(id, options = {}) {
+  guardLoginAction(`/pages/partner/workbench?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goPartnerConversation(id, options = {}) {
+  guardLoginAction(`/pages/partner/conversation?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goMessages(options = {}) {
+  goToUrl('/pages/messages/index', options)
+}
+
+export function goUserProfile(options = {}) {
+  goToUrl('/pages/user/profile', options)
 }
 
 
@@ -309,7 +347,7 @@ export function goHomeRoot() {
 
 export function goDiscoverRoot() {
   uni.reLaunch({
-    url: '/pages/discover/index'
+    url: '/pages/home/index'
   })
 }
 
@@ -326,8 +364,8 @@ export function goBackOrFallback(fallbackUrl = '/pages/home/index') {
     return
   }
 
-  if (safeFallbackUrl === '/pages/discover/index') {
-    goDiscoverRoot()
+  if (safeFallbackUrl === '/pages/partners/index') {
+    goPartnersRoot()
     return
   }
 

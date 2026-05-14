@@ -1,125 +1,115 @@
-﻿<template>
-  <view v-if="isPageLoading" class="participant su-page">
+<template>
+  <view v-if="isPageLoading" class="ref-page">
     <SuPageLoading :style="contentTopStyle" text="参与信息加载中..." />
   </view>
-  <view v-else class="participant su-page">
-    <view class="participant__nav" :style="navStyle">
-      <view class="participant__nav-row" :style="navRowStyle">
-      <view class="participant__nav-btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="24" color="#0f172a" />
-      </view>
-      <text class="participant__nav-title">参与者中心</text>
-      <view class="participant__nav-actions" :style="navActionsStyle">
-        <view class="participant__nav-btn" @tap="goMessages">
-          <uni-icons type="notification-filled" size="20" color="#0f172a" />
+  <view v-else class="ref-page">
+    <view class="ref-topbar" :style="navStyle">
+      <view class="ref-topbar__row" :style="navRowStyle">
+        <view class="ref-back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="22" color="#102033" />
+        </view>
+        <text class="ref-topbar__title">到场凭证</text>
+        <view class="ref-icon-button pass-message" @tap="goMessages">
+          <uni-icons type="notification-filled" size="20" color="#102033" />
           <view v-if="unreadCount > 0" class="message-badge">
             <text>{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
           </view>
         </view>
-        <view class="participant__nav-btn" @tap="goActivityDetail(activity.id)">
-          <uni-icons type="paperplane-filled" size="20" color="#0f172a" />
-        </view>
-      </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="participant__scroll" :style="contentTopStyle">
-      <view class="hero">
-        <view class="hero__cover-wrap">
-          <image class="hero__cover" :src="activity.image" mode="aspectFill" />
-          <view class="hero__badge" :class="`hero__badge--${activity.partyMode}`">
-            <text>{{ modeLabel }}</text>
-          </view>
+    <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab" :style="contentTopStyle">
+      <view class="ref-page-head">
+        <text class="ref-page-head__eyebrow">到场凭证</text>
+        <text class="ref-page-head__title">到场要用的都在这里</text>
+      </view>
+
+      <view class="ref-summary-card ref-card">
+        <image :src="activity.image" mode="aspectFill" />
+        <view>
+          <text class="su-line-2">{{ activity.title }}</text>
+          <text>{{ activity.location }}</text>
         </view>
+      </view>
 
-        <view class="hero__content">
-          <view class="hero__topline">
-            <text class="hero__title">{{ activity.title }}</text>
-            <text class="hero__state" :class="`hero__state--${applicationState.key}`">{{ applicationState.label }}</text>
-          </view>
-          <text class="hero__meta">{{ activity.date }} {{ activity.time }} - {{ activity.endTime }}</text>
-          <text class="hero__meta">{{ activity.location }}</text>
+      <view class="ref-qr-card ref-card pass-gap">
+        <SuQrCode v-if="showEntryQr" class="code-box__qr" :value="entryCode" :size="184" />
+        <view v-else class="locked-qr">
+          <uni-icons :type="primaryIcon" size="46" color="#94a3b8" />
+        </view>
+        <text class="ref-qr-card__code">{{ entryCode || '等待审核通过后生成' }}</text>
+        <text class="ref-qr-card__hint">{{ entryHint }}</text>
+        <text v-if="reviewFeedback" class="pass-feedback" :class="{ 'pass-feedback--danger': applicationState.key === 'rejected' }">
+          {{ reviewFeedback }}
+        </text>
+      </view>
 
-          <view class="hero__chips">
-            <text class="hero__chip">{{ paymentState.label }}</text>
-            <text class="hero__chip hero__chip--alt">{{ checkinState.label }}</text>
+      <view class="ref-info-card ref-card pass-gap">
+        <view class="status-line">
+          <text class="ref-pill ref-pill--blue">{{ checkinState.label }}</text>
+          <text>{{ activity.date }} {{ activity.time }}</text>
+        </view>
+        <text class="ref-info-card__text pass-meetup">{{ activity.meetup || activity.location }}</text>
+        <view class="pass-status-grid">
+          <view v-for="item in statCards" :key="item.label" class="pass-status" :class="`pass-status--${item.tone}`">
+            <text>{{ item.value }}</text>
+            <text>{{ item.label }}</text>
+            <text>{{ item.desc }}</text>
           </view>
         </view>
       </view>
 
-      <view class="panel">
-        <view class="panel__head">
-          <view>
-            <text class="panel__title">入场凭证</text>
-            <text class="panel__sub">ACCESS PASS</text>
-          </view>
-          <view class="panel__head-action" @tap="refreshEntryCode">
-            <uni-icons type="refresh" size="18" color="#3b82f6" />
-            <text>刷新</text>
-          </view>
+      <view class="ref-action-grid pass-gap">
+        <view class="ref-action-grid__item" @tap="showToast('导航能力正在接入')">
+          <uni-icons type="map-pin-ellipse" size="20" color="#2388ff" />
+          <text>打开导航</text>
+          <text>{{ activity.location }}</text>
         </view>
-
-        <view class="code-box">
-          <text class="code-box__label">{{ entryLabel }}</text>
-          <SuQrCode v-if="showEntryQr" class="code-box__qr" :value="entryCode" :size="304" />
-          <text class="code-box__code">{{ entryCode || '等待审核通过后生成' }}</text>
-          <text class="code-box__hint">{{ entryHint }}</text>
-          <text v-if="reviewFeedback" class="code-box__feedback" :class="{ 'code-box__feedback--danger': applicationState.key === 'rejected' }">
-            {{ reviewFeedback }}
-          </text>
+        <view class="ref-action-grid__item" @tap="showToast(paymentState.desc)">
+          <uni-icons type="auth-filled" size="20" color="#2388ff" />
+          <text>退出规则</text>
+          <text>{{ paymentState.label }}</text>
         </view>
-
-        <view class="action-row">
-          <view class="action-row__btn" @tap="copyEntryCode">
-            <uni-icons type="link" size="18" color="#0f172a" />
-            <text>复制凭证</text>
-          </view>
-          <view class="action-row__btn action-row__btn--primary" @tap="handlePrimaryAction">
-            <uni-icons :type="primaryIcon" size="18" color="#fff" />
-            <text>{{ primaryActionText }}</text>
-          </view>
+        <view class="ref-action-grid__item" @tap="showToast('申诉入口正在接入')">
+          <uni-icons type="help" size="20" color="#2388ff" />
+          <text>发起申诉</text>
+          <text>核销或订单异常</text>
         </view>
-        <view v-if="order" class="order-strip" @tap="goOrderDetail(order.id, { activityId: activity.value.id })">
-          <text>{{ order.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
-          <text>{{ getOrderStatusText(order.status) }} · 查看详情</text>
+        <view class="ref-action-grid__item" @tap="handlePrimaryAction">
+          <uni-icons :type="primaryIcon" size="20" color="#2388ff" />
+          <text>{{ primaryActionText }}</text>
+          <text>{{ entryLabel }}</text>
         </view>
       </view>
 
-      <view class="stats">
-        <view v-for="item in statCards" :key="item.label" class="stat" :class="`stat--${item.tone}`">
-          <text class="stat__label">{{ item.label }}</text>
-          <text class="stat__value">{{ item.value }}</text>
-          <text class="stat__desc">{{ item.desc }}</text>
+      <view v-if="order" class="ref-info-card ref-card pass-gap" @tap="goOrderDetail(order.id, { activityId: activity.id })">
+        <text class="ref-info-card__title">{{ order.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
+        <text class="ref-info-card__text">{{ getOrderStatusText(order.status) }} · 点击查看订单详情</text>
+      </view>
+
+      <view class="ref-info-card ref-card pass-gap">
+        <text class="ref-info-card__title">核销后继续联系</text>
+        <text class="ref-info-card__text">到场确认后可查看发起人放置的二维码或群二维码，由你自己决定是否继续联系。</text>
+        <view class="contact-lock">
+          <uni-icons type="scan" size="26" color="#2388ff" />
+          <text>核销后可看</text>
         </view>
       </view>
 
-      <view class="panel">
-        <view class="panel__head">
-          <view>
-            <text class="panel__title">相关消息</text>
-            <text class="panel__sub">RELATED UPDATES</text>
-          </view>
-          <view class="panel__head-action" @tap="goMessages">
-            <text>进入消息中心</text>
-          </view>
+      <view class="ref-info-card ref-card pass-gap">
+        <view class="ref-section-title pass-section-title">
+          <text>相关消息</text>
+          <text @tap="goMessages">进入通知</text>
         </view>
-
-        <view v-if="relatedMessages.length === 0" class="empty">
+        <view v-if="relatedMessages.length === 0" class="ref-empty">
           <uni-icons type="notification-filled" size="38" color="#cbd5e1" />
           <text>暂无活动相关消息</text>
         </view>
-
-        <view v-for="item in relatedMessages" :key="item.id" class="message-card" @tap="handleMessageTap(item)">
-          <view class="message-card__icon" :class="`message-card__icon--${item.type}`">
-            <uni-icons :type="getMessageIcon(item)" size="20" color="#fff" />
-          </view>
-          <view class="message-card__body">
-            <view class="message-card__row">
-              <text class="message-card__title su-line-1">{{ item.title }}</text>
-                <text class="message-card__time">{{ getMessageTime(item) }}</text>
-            </view>
-            <text class="message-card__content su-line-2">{{ item.content }}</text>
-          </view>
+        <view v-for="item in relatedMessages" :key="item.id" class="pass-message-card" @tap="handleMessageTap(item)">
+          <text class="ref-pill" :class="`pass-message-card__pill--${item.type}`">{{ item.type === 'application' ? '报名审核' : item.type === 'activity' ? '活动通知' : '系统' }}</text>
+          <text class="pass-message-card__title su-line-1">{{ item.title }}</text>
+          <text class="pass-message-card__content su-line-2">{{ item.content }}</text>
+          <text class="pass-message-card__time">{{ getMessageTime(item) }}</text>
         </view>
       </view>
     </scroll-view>
@@ -139,7 +129,7 @@ import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { formatMessageTime } from '@/common/utils/time-format.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goMessages, goManageDashboard, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard, goMessages, goOrderDetail, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 import SuQrCode from '@/components/surego/SuQrCode.vue'
 
 const activityId = ref('103')
@@ -153,14 +143,7 @@ const unreadCount = ref(0)
 const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
-const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 420 })
-const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
-
-const modeLabel = computed(() => {
-  if (activity.value.partyMode === 'sincerity') return `诚意金 ¥${activity.value.amount}`
-  if (activity.value.partyMode === 'ticket') return `门票 ¥${activity.value.amount}`
-  return '免费局'
-})
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
 const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
 const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
@@ -185,7 +168,7 @@ const applicationState = computed(() => {
 const reviewFeedback = computed(() => {
   const rejectReason = application.value?.rejectReason || activity.value.rejectReason || ''
   const reviewNote = application.value?.reviewNote || activity.value.reviewNote || ''
-  if (applicationState.value.key === 'rejected') return rejectReason || '局长暂未填写拒绝原因'
+  if (applicationState.value.key === 'rejected') return rejectReason || '发起人暂未填写拒绝原因'
   if (applicationState.value.key === 'approved') return reviewNote
   return ''
 })
@@ -303,14 +286,12 @@ async function loadState() {
   }
 }
 
-function getMessageIcon(item) {
-  if (item.type === 'application') return 'personadd-filled'
-  if (item.type === 'activity') return 'calendar'
-  return 'notification-filled'
-}
-
 function getMessageTime(item) {
   return formatMessageTime(item.createdAt)
+}
+
+function showToast(title) {
+  uni.showToast({ title, icon: 'none' })
 }
 
 function refreshEntryCode() {
@@ -351,7 +332,7 @@ async function handlePrimaryAction() {
   }
 
   if (applicationState.value.key === 'pending') {
-    uni.showToast({ title: '等待局长审核', icon: 'none' })
+    uni.showToast({ title: '等待发起人审核', icon: 'none' })
     return
   }
 
@@ -420,61 +401,18 @@ async function handleMessageTap(item) {
 </script>
 
 <style scoped>
-.participant {
-  min-height: 100vh;
-  background: #f8f9f9;
+.pass-gap {
+  margin-top: 24rpx;
 }
 
-.participant__nav {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 20;
-  background: rgba(248, 249, 249, 0.92);
-  backdrop-filter: blur(18px);
-}
-
-.participant__nav-row {
-  display: flex;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.participant__nav-btn,
-.participant__nav-actions {
-  display: flex;
-  align-items: center;
-}
-
-.participant__nav-btn {
+.pass-message {
   position: relative;
-  width: 72rpx;
-  height: 72rpx;
-  justify-content: center;
-  border: 1rpx solid #f1f5f9;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.06);
-}
-
-.participant__nav-title {
-  color: #0f172a;
-  font-size: 32rpx;
-  font-weight: 900;
-}
-
-.participant__nav-actions {
-  gap: 12rpx;
-  flex-shrink: 0;
-  overflow: hidden;
 }
 
 .message-badge {
   position: absolute;
-  top: 7rpx;
-  right: 6rpx;
+  top: 4rpx;
+  right: 2rpx;
   display: flex;
   min-width: 30rpx;
   height: 30rpx;
@@ -488,390 +426,128 @@ async function handleMessageTap(item) {
   font-size: 18rpx;
   font-weight: 900;
   line-height: 1;
-  box-sizing: border-box;
 }
 
-.participant__scroll {
-  height: 100vh;
-  box-sizing: border-box;
-  padding-bottom: 60rpx;
-}
-
-.hero {
-  margin: 0 34rpx 28rpx;
-  overflow: hidden;
-  border-radius: 40rpx;
-  background: #fff;
-  box-shadow: 0 22rpx 58rpx rgba(15, 23, 42, 0.06);
-}
-
-.hero__cover-wrap {
-  position: relative;
-  height: 320rpx;
-}
-
-.hero__cover {
-  width: 100%;
-  height: 100%;
-}
-
-.hero__badge {
-  position: absolute;
-  top: 24rpx;
-  left: 24rpx;
-  padding: 10rpx 18rpx;
-  border-radius: 999rpx;
-  color: #fff;
-  font-size: 20rpx;
-  font-weight: 900;
-  background: #22c55e;
-}
-
-.hero__badge--sincerity {
-  background: #ef4444;
-}
-
-.hero__badge--ticket {
-  background: #8b5cf6;
-}
-
-.hero__content {
-  padding: 32rpx;
-}
-
-.hero__topline {
+.locked-qr {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18rpx;
+  width: 184rpx;
+  height: 184rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 34rpx;
+  background: #edf6ff;
 }
 
-.hero__title {
-  color: #0f172a;
-  font-size: 38rpx;
-  font-weight: 900;
-  line-height: 1.4;
-}
-
-.hero__state {
-  flex: 0 0 auto;
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: #e0e7ff;
-  color: #4f46e5;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.hero__state--approved,
-.hero__state--leader {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.hero__state--pending {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.hero__state--rejected {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.hero__meta {
-  display: block;
-  margin-top: 12rpx;
-  color: #64748b;
+.pass-feedback {
+  color: #047857;
   font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.5;
-}
-
-.hero__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-  margin-top: 22rpx;
-}
-
-.hero__chip {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: #0f172a;
-  color: #fff;
-  font-size: 20rpx;
   font-weight: 900;
+  line-height: 1.45;
 }
 
-.hero__chip--alt {
-  background: #e2e8f0;
-  color: #334155;
+.pass-feedback--danger {
+  color: #b91c1c;
 }
 
-.panel {
-  margin: 0 34rpx 26rpx;
-  padding: 30rpx;
-  border-radius: 38rpx;
-  background: #fff;
-  box-shadow: 0 18rpx 46rpx rgba(15, 23, 42, 0.05);
-}
-
-.panel__head {
+.status-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18rpx;
+  gap: 20rpx;
 }
 
-.panel__title {
-  display: block;
-  color: #0f172a;
-  font-size: 31rpx;
-  font-weight: 900;
-}
-
-.panel__sub {
-  display: block;
-  margin-top: 6rpx;
-  color: #cbd5e1;
-  font-size: 18rpx;
-  font-weight: 900;
-}
-
-.panel__head-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 8rpx;
-  color: #3b82f6;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.code-box {
-  margin-top: 24rpx;
-  padding: 30rpx;
-  border-radius: 30rpx;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(34, 197, 94, 0.08));
-}
-
-.code-box__label {
-  display: block;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.code-box__qr {
-  margin: 22rpx auto 0;
-}
-
-.code-box__code {
-  display: block;
-  margin-top: 10rpx;
-  color: #0f172a;
-  font-size: 46rpx;
-  font-style: italic;
-  font-weight: 900;
-  letter-spacing: 4rpx;
-}
-
-.code-box__hint {
-  display: block;
-  margin-top: 12rpx;
+.status-line > text:last-child {
   color: #64748b;
   font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.5;
-}
-
-.code-box__feedback {
-  display: block;
-  margin-top: 16rpx;
-  padding: 16rpx 18rpx;
-  border-radius: 20rpx;
-  background: #dcfce7;
-  color: #16a34a;
-  font-size: 22rpx;
   font-weight: 900;
-  line-height: 1.5;
 }
 
-.code-box__feedback--danger {
-  background: #fee2e2;
-  color: #ef4444;
+.pass-meetup {
+  margin-top: 20rpx;
 }
 
-.action-row {
+.pass-status-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14rpx;
   margin-top: 24rpx;
 }
 
-.action-row__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10rpx;
-  height: 86rpx;
-  border-radius: 26rpx;
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 900;
+.pass-status {
+  min-width: 0;
+  border-radius: 28rpx;
+  background: #edf6ff;
+  padding: 20rpx 16rpx;
 }
 
-.action-row__btn--primary {
-  background: #0f172a;
-  color: #fff;
-}
-
-.order-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  margin-top: 16rpx;
-  padding: 20rpx 22rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.order-strip text:first-child {
-  color: #0f172a;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16rpx;
-  margin: 0 34rpx 26rpx;
-}
-
-.stat {
-  padding: 24rpx 22rpx;
-  border-radius: 30rpx;
-  background: #fff;
-  box-shadow: 0 16rpx 38rpx rgba(15, 23, 42, 0.05);
-}
-
-.stat--green {
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.stat--blue {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.stat--orange {
-  background: rgba(245, 158, 11, 0.12);
-}
-
-.stat--dark {
-  background: rgba(15, 23, 42, 0.06);
-}
-
-.stat__label {
+.pass-status text:first-child {
   display: block;
-  color: #64748b;
-  font-size: 20rpx;
-  font-weight: 900;
+  color: #102033;
+  font-size: 26rpx;
+  font-weight: 950;
 }
 
-.stat__value {
-  display: block;
-  margin-top: 10rpx;
-  color: #0f172a;
-  font-size: 28rpx;
-  font-weight: 900;
-}
-
-.stat__desc {
+.pass-status text:nth-child(2),
+.pass-status text:nth-child(3) {
   display: block;
   margin-top: 8rpx;
-  color: #94a3b8;
-  font-size: 18rpx;
-  font-weight: 800;
-  line-height: 1.4;
+  color: #64748b;
+  font-size: 19rpx;
+  font-weight: 850;
+  line-height: 1.35;
 }
 
-.empty {
-  display: flex;
+.contact-lock {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 12rpx;
+  margin-top: 24rpx;
+  border-radius: 999rpx;
+  background: #edf6ff;
+  padding: 14rpx 18rpx;
+  color: #1d4ed8;
+  font-size: 22rpx;
+  font-weight: 950;
+}
+
+.pass-section-title {
+  margin-top: 0;
+}
+
+.pass-message-card {
+  display: flex;
   flex-direction: column;
-  gap: 14rpx;
-  padding: 90rpx 0;
-  color: #94a3b8;
-  font-size: 24rpx;
-  font-weight: 900;
+  gap: 12rpx;
+  padding: 24rpx 0;
+  border-top: 1rpx solid #edf2f7;
 }
 
-.message-card {
-  display: flex;
-  gap: 18rpx;
-  margin-top: 18rpx;
-  padding: 22rpx 0 0;
-  border-top: 1rpx solid #f1f5f9;
+.pass-message-card__title {
+  color: #102033;
+  font-size: 27rpx;
+  font-weight: 950;
 }
 
-.message-card__icon {
-  display: flex;
-  width: 72rpx;
-  height: 72rpx;
-  flex: 0 0 72rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24rpx;
-}
-
-.message-card__icon--application {
-  background: #8b5cf6;
-}
-
-.message-card__icon--activity {
-  background: #3b82f6;
-}
-
-.message-card__icon--system {
-  background: #22c55e;
-}
-
-.message-card__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.message-card__row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14rpx;
-}
-
-.message-card__title {
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.message-card__time {
-  color: #cbd5e1;
-  font-size: 18rpx;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.message-card__content {
-  display: block;
-  margin-top: 10rpx;
+.pass-message-card__content,
+.pass-message-card__time {
   color: #64748b;
   font-size: 22rpx;
   font-weight: 800;
-  line-height: 1.5;
+  line-height: 1.45;
+}
+
+.pass-message-card__pill--application {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+.pass-message-card__pill--activity {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.pass-message-card__pill--system {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
 }
 </style>

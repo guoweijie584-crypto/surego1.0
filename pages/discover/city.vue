@@ -95,7 +95,7 @@ function selectCity(city, code = '') {
     if (pages.length > 1) {
       uni.navigateBack()
     } else {
-      uni.redirectTo({ url: '/pages/discover/index' })
+      uni.redirectTo({ url: '/pages/home/index' })
     }
   }, 260)
 }

@@ -14,9 +14,61 @@
 
     <scroll-view scroll-y class="create__scroll" :style="contentTopStyle">
       <view class="create__hero">
-        <text class="create__eyebrow">CREATE A SPOT</text>
-        <text class="create__title">把想法开成一局</text>
-        <text class="create__desc">设置时间、地点和报名方式，提交后等待运营审核。</text>
+        <text class="create__eyebrow">发活动</text>
+        <text class="create__title">填清楚时间、地点、人数和费用</text>
+        <text class="create__desc">普通同学也能发起明确活动，规则说清楚，大家才敢放心加入。</text>
+      </view>
+
+      <view class="voice-launch-button" @tap="showComingSoon('语音发布正在接入')">
+        <uni-icons type="mic-filled" size="22" color="#2388ff" />
+        <view>
+          <text>语音发布</text>
+          <text>说一句出初稿</text>
+        </view>
+      </view>
+
+      <view class="voice-card">
+        <view class="voice-card__button">
+          <uni-icons type="mic-filled" size="28" color="#fff" />
+        </view>
+        <view>
+          <text>试着说：“今晚北洋园火锅，6 人 AA，差 3 个饭搭子”</text>
+          <text>说完后先给你一版标题、时间地点、人数、费用和报名问题，你再确认细节。</text>
+        </view>
+      </view>
+
+      <view class="composer-strip">
+        <view class="composer-block">
+          <text class="composer-block__label">活动成行方式</text>
+          <view class="compact-segmented">
+            <view
+              v-for="item in intentModes"
+              :key="item.key"
+              class="compact-segmented__item"
+              :class="{ 'compact-segmented__item--active': intentMode === item.key }"
+              @tap="handleIntentModeChange(item.key)"
+            >
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="composer-block">
+          <text class="composer-block__label">场景</text>
+          <scroll-view scroll-x class="scene-scroll-row" :show-scrollbar="false">
+            <view class="scene-scroll-row__inner">
+              <view
+                v-for="(item, index) in categories"
+                :key="item"
+                class="scene-filter-chip"
+                :class="{ 'scene-filter-chip--active': form.category === item }"
+                @tap="selectCategory(index)"
+              >
+                <text>{{ item }}</text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
       </view>
 
       <view class="form-card">
@@ -217,7 +269,7 @@ import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
 import { DEFAULT_CITY, DEFAULT_CITY_CODE, HOT_CITY_OPTIONS, findCityOption, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 import { buildFieldHint, collectMissingFields, isFutureDate, normalizeTimeValue } from '@/common/utils/form.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess, showComingSoon } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CITY_KEY = 'surego_selected_city'
@@ -228,8 +280,14 @@ const partyModes = [
   { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
   { value: 'ticket', label: '门票局', desc: '支付锁位', icon: 'paperplane-filled', color: '#8b5cf6' }
 ]
+const intentModes = [
+  { key: 'now', label: '马上成行' },
+  { key: 'plan', label: '先约时间' },
+  { key: 'longterm', label: '长期固定' }
+]
 
 const categoryIndex = ref(0)
+const intentMode = ref('now')
 const citySelectRef = ref(null)
 const showPreview = ref(false)
 const showCoverPicker = ref(false)
@@ -282,6 +340,29 @@ function handleCategoryChange(event) {
   coverCategory.value = form.category
   if (isPresetCover(previousImage)) {
     selectCoverPreset(getDefaultCoverPreset(form.category), { keepSheetOpen: true })
+  }
+}
+
+function selectCategory(index) {
+  const event = {
+    detail: {
+      value: index
+    }
+  }
+  handleCategoryChange(event)
+}
+
+function handleIntentModeChange(key) {
+  intentMode.value = key
+  if (key === 'now') {
+    form.requireApproval = false
+    if (!form.maxParticipants) form.maxParticipants = '6'
+    return
+  }
+  form.requireApproval = true
+  if (key === 'longterm') {
+    form.partyMode = 'free'
+    if (!form.maxParticipants) form.maxParticipants = '12'
   }
 }
 
@@ -499,6 +580,156 @@ async function handleSubmit() {
   font-size: 25rpx;
   font-weight: 700;
   line-height: 1.55;
+}
+
+.voice-launch-button {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin: 0 34rpx 24rpx;
+  padding: 24rpx 28rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.16);
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.06);
+}
+
+.voice-launch-button view {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.voice-launch-button text:first-child {
+  color: #102033;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.voice-launch-button text:last-child {
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+
+.voice-card {
+  display: flex;
+  gap: 22rpx;
+  margin: 0 34rpx 24rpx;
+  padding: 30rpx;
+  border-radius: 38rpx;
+  background: linear-gradient(135deg, #102033, #2340a4);
+  color: #fff;
+  box-shadow: 0 22rpx 60rpx rgba(35, 64, 164, 0.22);
+}
+
+.voice-card__button {
+  display: flex;
+  width: 82rpx;
+  height: 82rpx;
+  flex: 0 0 82rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #2388ff;
+  box-shadow: 0 12rpx 30rpx rgba(35, 136, 255, 0.42);
+}
+
+.voice-card view:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.voice-card text:first-child {
+  color: #fff;
+  font-size: 27rpx;
+  font-weight: 900;
+  line-height: 1.42;
+}
+
+.voice-card text:last-child {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 22rpx;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.composer-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 26rpx;
+  margin: 0 34rpx 26rpx;
+  padding: 30rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 36rpx;
+  background: #fff;
+  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.05);
+}
+
+.composer-block__label {
+  display: block;
+  margin-bottom: 16rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  font-weight: 900;
+}
+
+.compact-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10rpx;
+  padding: 8rpx;
+  border-radius: 28rpx;
+  background: #f3f6fa;
+}
+
+.compact-segmented__item {
+  display: flex;
+  min-width: 0;
+  height: 66rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.compact-segmented__item--active {
+  background: #102033;
+  color: #fff;
+  box-shadow: 0 10rpx 24rpx rgba(16, 32, 51, 0.18);
+}
+
+.scene-scroll-row {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.scene-scroll-row__inner {
+  display: flex;
+  gap: 14rpx;
+}
+
+.scene-filter-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 15rpx 24rpx;
+  border-radius: 999rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.scene-filter-chip--active {
+  background: #dbeafe;
+  color: #2388ff;
 }
 
 .form-card {

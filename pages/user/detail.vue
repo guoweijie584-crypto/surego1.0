@@ -1,78 +1,100 @@
 <template>
-  <view class="public-profile su-page">
-    <view class="public-profile__nav" :style="navStyle">
-      <view class="public-profile__nav-row" :style="navRowStyle">
-        <view class="public-profile__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#0f172a" />
+  <view class="public-profile ref-page">
+    <view class="ref-topbar" :style="navStyle">
+      <view class="ref-topbar__row" :style="navRowStyle">
+        <view class="ref-back" @tap="goBackOrFallback('/pages/partners/index')">
+          <uni-icons type="left" size="22" color="#102033" />
         </view>
-        <text class="public-profile__title">个人资料</text>
-        <view class="public-profile__spacer" />
+        <text class="ref-topbar__title">搭子主页</text>
+        <view class="ref-icon-button">
+          <uni-icons type="auth-filled" size="20" color="#2388ff" />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="public-profile__scroll" :style="contentTopStyle">
-      <view class="hero">
-        <view class="hero__avatar-wrap">
-          <image class="hero__avatar" :src="profile.avatar" mode="aspectFill" />
-          <view class="hero__glow" />
-        </view>
-        <view class="hero__body">
-          <view class="hero__name-row">
-            <text class="hero__name">{{ profile.nickname }}</text>
-            <text class="hero__credit">信用 {{ profile.credit || 100 }}</text>
+    <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab public-scroll" :style="contentTopStyle">
+      <view class="ref-profile-card ref-card">
+        <view class="ref-profile-card__top">
+          <image class="ref-profile-card__avatar" :src="profile.avatar" mode="aspectFill" />
+          <view class="ref-profile-card__body">
+            <text class="ref-pill ref-pill--blue">天津大学 · 学信网增强认证</text>
+            <text class="ref-profile-card__name">{{ profile.nickname }}</text>
+            <text class="ref-profile-card__bio">
+              {{ profile.bio || '硬核推理 / AI 黑客松 / 周末 Citywalk。活动说明会提前写清楚。' }}
+            </text>
+            <view class="ref-account-row">
+              <view v-for="account in socialAccounts" :key="account.label" class="ref-account" :class="{ 'ref-account--active': account.active }">
+                <uni-icons :type="account.icon" size="16" :color="account.active ? '#1d4ed8' : '#94a3b8'" />
+                <text>{{ account.label }}</text>
+              </view>
+            </view>
           </view>
-          <text class="hero__meta">{{ profile.mbti || 'MBTI 未填写' }}</text>
-          <text class="hero__bio">{{ profile.bio || '这个成员还没有填写简介。' }}</text>
-          <text class="hero__quote">{{ profile.quote || '期待在下一场活动里认识 TA。' }}</text>
         </view>
-      </view>
 
-      <view v-if="hasActivityContext" class="context-card">
-        <view class="context-card__icon">
-          <uni-icons type="person-filled" size="20" color="#4f46e5" />
-        </view>
-        <view class="context-card__copy">
-          <text class="context-card__title">来自同一场活动</text>
-          <text class="context-card__text">你正在查看这位成员的公开 SureGo 名片。</text>
-        </view>
-      </view>
-
-      <view class="stats">
-        <view class="stat">
-          <text>{{ profile.activityCount || 0 }}</text>
-          <text>活动</text>
-        </view>
-        <view class="stat">
-          <text>{{ profile.hostedCount || 0 }}</text>
-          <text>主办</text>
-        </view>
-        <view class="stat">
-          <text>{{ profile.joinedCount || 0 }}</text>
-          <text>参与</text>
-        </view>
-      </view>
-
-      <view class="panel">
-        <view class="panel__head">
+        <view class="trust-strip">
           <view>
-            <text class="panel__title">最近公开活动</text>
-            <text class="panel__sub">PUBLIC ACTIVITIES</text>
+            <text>98.6%</text>
+            <text>到场率</text>
+          </view>
+          <view>
+            <text>{{ profile.activityCount || 0 }}</text>
+            <text>成行</text>
+          </view>
+          <view>
+            <text>{{ profile.hostedCount || 0 }}</text>
+            <text>主办</text>
+          </view>
+          <view>
+            <text>1.2%</text>
+            <text>爽约率</text>
           </view>
         </view>
-        <view v-if="recentActivities.length === 0" class="empty">
+      </view>
+
+      <view class="ref-bottom-cta public-actions">
+        <view class="ref-primary" :class="{ 'ref-primary--dark': followed }" @tap="followed = !followed">{{ followed ? '已关注' : '关注 TA' }}</view>
+        <view class="ref-secondary" @tap="openFirstActivity">看 TA 的局</view>
+      </view>
+
+      <view v-if="hasActivityContext" class="ref-info-card ref-card">
+        <text class="ref-info-card__title">来自同一场活动</text>
+        <text class="ref-info-card__text">你正在查看这位成员的公开 SureGo 名片。</text>
+      </view>
+
+      <view class="ref-info-card ref-card">
+        <text class="ref-info-card__title">标签与印象</text>
+        <view class="tag-list">
+          <text v-for="item in tags" :key="item">{{ item }}</text>
+        </view>
+      </view>
+
+      <view class="ref-info-card ref-card">
+        <text class="ref-info-card__title">履历记录</text>
+        <view v-if="recentActivities.length === 0" class="ref-empty">
           <uni-icons type="calendar" size="36" color="#cbd5e1" />
           <text>暂无公开活动</text>
         </view>
-        <view v-for="item in recentActivities" :key="item.id" class="activity-row" @tap="openActivity(item)">
-          <image class="activity-row__cover" :src="item.image" mode="aspectFill" />
-          <view class="activity-row__body">
-            <view class="activity-row__line">
-              <text class="activity-row__title su-line-1">{{ item.title }}</text>
-              <text class="activity-row__badge" :class="`activity-row__badge--${item.relation || 'joined'}`">
-                {{ getActivityRelationLabel(item.relation) }}
-              </text>
+        <view v-for="item in recentActivities" :key="item.id" class="ref-record-row" @tap="openActivity(item)">
+          <image :src="item.image" mode="aspectFill" />
+          <view>
+            <text class="su-line-1">{{ item.title }}</text>
+            <text>{{ getActivityMeta(item) }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="ref-info-card ref-card">
+        <text class="ref-info-card__title">真实评价记录</text>
+        <view class="review-list">
+          <view v-for="item in reviews" :key="item.author" class="review-item">
+            <view class="review-author">
+              <view class="review-avatar">{{ item.author.slice(0, 1) }}</view>
+              <view>
+                <text>{{ item.author }}</text>
+                <text>{{ item.source }}</text>
+              </view>
             </view>
-            <text class="activity-row__meta">{{ getActivityMeta(item) }}</text>
+            <text>{{ item.content }}</text>
           </view>
         </view>
       </view>
@@ -89,6 +111,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 
 const userId = ref('')
 const contextActivityId = ref('')
+const followed = ref(false)
 const profile = ref({
   nickname: '微信用户',
   avatar: DEFAULT_USER_AVATAR,
@@ -103,10 +126,35 @@ const profile = ref({
 })
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
-const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
 const hasActivityContext = computed(() => Boolean(contextActivityId.value))
 const recentActivities = computed(() => Array.isArray(profile.value.recentActivities) ? profile.value.recentActivities : [])
+const socialAccounts = computed(() => [
+  { label: '小红书', icon: 'compose', active: true },
+  { label: '抖音', icon: 'videocam-filled', active: false },
+  { label: 'GitHub', icon: 'gear-filled', active: String(profile.value.nickname || '').includes('林') },
+  { label: '微信', icon: 'chatboxes-filled', active: false }
+])
+const tags = computed(() => [
+  profile.value.mbti || '规则清楚',
+  '靠谱发起人',
+  '准时',
+  '推理爱好者',
+  'AI 项目'
+])
+const reviews = [
+  {
+    author: '吴同学',
+    source: '来自剧本杀局 · 3 天前',
+    content: '发起人规则写得很清楚，集合点、费用和迟到规则都提前说明了。'
+  },
+  {
+    author: '小周',
+    source: '来自桌游局 · 上周',
+    content: '现场节奏舒服，照顾新手，也没有临时改地点。'
+  }
+]
 
 onLoad(async (query = {}) => {
   userId.value = String(query.id || query.userId || '')
@@ -125,10 +173,6 @@ onLoad(async (query = {}) => {
   }
 })
 
-function getActivityRelationLabel(relation = '') {
-  return relation === 'hosted' ? '主办' : '参与'
-}
-
 function getActivityMeta(item = {}) {
   return [item.date, item.time, item.city || item.location].filter(Boolean).join(' · ') || '公开活动'
 }
@@ -137,311 +181,126 @@ function openActivity(item = {}) {
   if (!item.id) return
   goActivityDetail(item.id)
 }
+
+function openFirstActivity() {
+  if (recentActivities.value[0]?.id) {
+    goActivityDetail(recentActivities.value[0].id)
+    return
+  }
+  uni.showToast({ title: '暂无公开活动', icon: 'none' })
+}
 </script>
 
 <style scoped>
-.public-profile {
-  min-height: 100vh;
-  background: #f8f9f9;
-}
-
-.public-profile__nav {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 20;
-  background: rgba(248, 249, 249, 0.9);
-  backdrop-filter: blur(18px);
-}
-
-.public-profile__nav-row {
+.public-scroll {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
-.public-profile__back,
-.public-profile__spacer {
-  display: flex;
-  width: 78rpx;
-  height: 78rpx;
-  align-items: center;
-  justify-content: center;
+.trust-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 28rpx;
 }
 
-.public-profile__back {
-  border: 1rpx solid #f1f5f9;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 14rpx 34rpx rgba(15, 23, 42, 0.06);
-}
-
-.public-profile__title {
-  color: #0f172a;
-  font-size: 30rpx;
-  font-weight: 900;
-}
-
-.public-profile__scroll {
-  height: 100vh;
-  box-sizing: border-box;
-}
-
-.hero {
-  display: flex;
-  gap: 34rpx;
-  margin: 0 34rpx 26rpx;
-  padding: 34rpx 34rpx 38rpx;
-  border-radius: 40rpx;
-  background: #fff;
-  box-shadow: 0 18rpx 50rpx rgba(15, 23, 42, 0.07);
-}
-
-.hero__avatar-wrap {
-  position: relative;
-  width: 160rpx;
-  height: 160rpx;
-  flex: 0 0 160rpx;
-}
-
-.hero__avatar {
-  position: relative;
-  z-index: 2;
-  width: 160rpx;
-  height: 160rpx;
-  border: 8rpx solid #fff;
-  border-radius: 50%;
-  background: #f1f5f9;
-  box-shadow: 0 20rpx 48rpx rgba(15, 23, 42, 0.14);
-}
-
-.hero__glow {
-  position: absolute;
-  inset: -8rpx;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #22c55e, #ff6b6b);
-  filter: blur(10rpx);
-  opacity: 0.24;
-}
-
-.hero__body {
-  flex: 1;
+.trust-strip view {
   min-width: 0;
+  border-radius: 26rpx;
+  background: #edf6ff;
+  padding: 18rpx 10rpx;
+  text-align: center;
 }
 
-.hero__name-row {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  flex-wrap: wrap;
-}
-
-.hero__name {
-  color: #0f172a;
-  font-size: 42rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.hero__credit {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: #22c55e;
-  color: #fff;
-  font-size: 18rpx;
-  font-weight: 900;
-}
-
-.hero__meta,
-.hero__bio,
-.hero__quote {
+.trust-strip text:first-child {
   display: block;
-  margin-top: 12rpx;
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.5;
+  color: #102033;
+  font-size: 28rpx;
+  font-weight: 950;
 }
 
-.hero__quote {
-  padding-left: 18rpx;
-  border-left: 4rpx solid rgba(34, 197, 94, 0.35);
-  color: #94a3b8;
-}
-
-.context-card {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  margin: 0 34rpx 26rpx;
-  padding: 22rpx 24rpx;
-  border: 1rpx solid #e0e7ff;
-  border-radius: 28rpx;
-  background: #eef2ff;
-}
-
-.context-card__icon {
-  display: flex;
-  width: 56rpx;
-  height: 56rpx;
-  flex: 0 0 56rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 18rpx;
-  background: #fff;
-}
-
-.context-card__copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.context-card__title,
-.context-card__text {
+.trust-strip text:last-child {
   display: block;
-}
-
-.context-card__title {
-  color: #1e293b;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.context-card__text {
   margin-top: 6rpx;
   color: #64748b;
-  font-size: 21rpx;
-  font-weight: 800;
+  font-size: 19rpx;
+  font-weight: 850;
 }
 
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16rpx;
-  margin: 0 34rpx 26rpx;
+.public-actions {
+  margin-top: 0;
 }
 
-.stat {
-  padding: 24rpx 20rpx;
-  border-radius: 28rpx;
-  background: #fff;
-  box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05);
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
 }
 
-.stat text:first-child {
-  display: block;
-  color: #0f172a;
-  font-size: 34rpx;
-  font-style: italic;
+.tag-list text {
+  border-radius: 999rpx;
+  background: #edf6ff;
+  padding: 14rpx 18rpx;
+  color: #3f3f46;
+  font-size: 22rpx;
   font-weight: 900;
 }
 
-.stat text:last-child {
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22rpx;
+}
+
+.review-item {
+  border-top: 1rpx solid #edf2f7;
+  padding-top: 22rpx;
+}
+
+.review-author {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.review-avatar {
+  display: flex;
+  width: 66rpx;
+  height: 66rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe, #93c5fd);
+  color: #0f4f9f;
+  font-size: 24rpx;
+  font-weight: 950;
+}
+
+.review-author text:first-child,
+.review-author text:last-child,
+.review-item > text {
   display: block;
-  margin-top: 8rpx;
+}
+
+.review-author text:first-child {
+  color: #102033;
+  font-size: 24rpx;
+  font-weight: 950;
+}
+
+.review-author text:last-child {
+  margin-top: 4rpx;
   color: #94a3b8;
   font-size: 20rpx;
-  font-weight: 900;
+  font-weight: 850;
 }
 
-.panel {
-  margin: 0 34rpx 44rpx;
-  padding: 30rpx;
-  border-radius: 34rpx;
-  background: #fff;
-}
-
-.panel__title,
-.panel__sub {
-  display: block;
-}
-
-.panel__title {
-  color: #0f172a;
-  font-size: 30rpx;
-  font-weight: 900;
-}
-
-.panel__sub {
-  margin-top: 6rpx;
-  color: #94a3b8;
-  font-size: 18rpx;
-  font-weight: 900;
-}
-
-.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 14rpx;
-  padding: 70rpx 0 48rpx;
-  color: #94a3b8;
-  font-size: 23rpx;
-  font-weight: 900;
-}
-
-.activity-row {
-  display: flex;
-  gap: 20rpx;
-  padding: 24rpx 0;
-  border-top: 1rpx solid #f1f5f9;
-}
-
-.activity-row:first-of-type {
-  margin-top: 18rpx;
-}
-
-.activity-row__cover {
-  width: 118rpx;
-  height: 118rpx;
-  flex: 0 0 118rpx;
-  border-radius: 24rpx;
-  background: #e2e8f0;
-}
-
-.activity-row__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-row__line {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.activity-row__title {
-  flex: 1;
-  min-width: 0;
-  color: #0f172a;
-  font-size: 26rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.activity-row__badge {
-  flex: 0 0 auto;
-  padding: 6rpx 14rpx;
-  border-radius: 999rpx;
-  background: #e0e7ff;
-  color: #4f46e5;
-  font-size: 18rpx;
-  font-weight: 900;
-}
-
-.activity-row__badge--hosted {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.activity-row__meta {
-  display: block;
+.review-item > text {
   margin-top: 16rpx;
-  color: #94a3b8;
-  font-size: 21rpx;
+  color: #64748b;
+  font-size: 23rpx;
   font-weight: 800;
-  line-height: 1.4;
+  line-height: 1.55;
 }
 </style>

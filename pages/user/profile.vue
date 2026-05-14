@@ -86,6 +86,49 @@
           <uni-icons type="right" size="18" color="#94a3b8" />
         </view>
 
+        <view v-if="activeTab === 'overview'" class="task-list">
+          <view class="task-card" @tap="activeTab = 'activities'">
+            <uni-icons type="calendar" size="20" color="#2388ff" />
+            <view>
+              <text>我的报名</text>
+              <text>{{ activityList.length }} 个活动与你有关，申请、核销和管理都从这里进。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+          <view class="task-card" @tap="openNextActivity">
+            <uni-icons type="paperplane-filled" size="20" color="#2388ff" />
+            <view>
+              <text>我的到场 / 待核销</text>
+              <text>进入最近活动，查看凭证、集合信息和现场状态。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+          <view class="task-card" @tap="openFirstPartnerPost">
+            <uni-icons type="personadd" size="20" color="#2388ff" />
+            <view>
+              <text>我发布的搭子</text>
+              <text>{{ partnerPostList.length }} 个搭子帖，可处理意向、私聊或约成活动。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+          <view class="task-card" @tap="goMessages">
+            <uni-icons type="chat" size="20" color="#2388ff" />
+            <view>
+              <text>私聊 / 群聊</text>
+              <text>{{ unreadCount }} 条未读消息，活动提醒和搭子意向都在通知里。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+          <view class="task-card" @tap="goVerify">
+            <uni-icons type="auth-filled" size="20" color="#2388ff" />
+            <view>
+              <text>关注 / 认证 / 资料</text>
+              <text>维护校园名片、信用信息和搭子标签。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+        </view>
+
         <view v-if="activeTab === 'activities'" class="profile__list">
           <view v-if="activityList.length > 0" class="activity-filters">
             <view
@@ -114,6 +157,21 @@
               </view>
               <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
             </view>
+          </view>
+        </view>
+
+        <view v-if="activeTab === 'partners'" class="profile__list">
+          <view v-if="partnerPostList.length === 0" class="empty">
+            <uni-icons type="personadd" size="42" color="#cbd5e1" />
+            <text>暂无搭子帖</text>
+          </view>
+          <view v-for="item in partnerPostList" :key="item.id" class="partner-profile-card" @tap="goPartnerWorkbench(item.id)">
+            <view>
+              <text class="partner-profile-card__type">{{ item.typeLabel }}</text>
+              <text class="partner-profile-card__title su-line-2">{{ item.title }}</text>
+              <text class="partner-profile-card__meta">{{ item.intentCount }} 个意向 · {{ item.followCount }} 人关注</text>
+            </view>
+            <text class="partner-profile-card__status">{{ item.status === 'open' ? '招募中' : '已处理' }}</text>
           </view>
         </view>
 
@@ -153,6 +211,48 @@
             <text class="order-card__badge" :class="`order-card__badge--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
           </view>
         </view>
+
+        <view v-if="activeTab === 'messages'" class="task-list">
+          <view class="task-card" @tap="goMessages">
+            <uni-icons type="notification-filled" size="20" color="#2388ff" />
+            <view>
+              <text>通知中心</text>
+              <text>报名审核、搭子意向、聊天和等待状态都在这里。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+          <view class="task-card" @tap="goMessages">
+            <uni-icons type="staff" size="20" color="#2388ff" />
+            <view>
+              <text>私聊 / 群聊</text>
+              <text>通过搭子意向后，会在这里继续确认时间和地点。</text>
+            </view>
+            <uni-icons type="right" size="18" color="#94a3b8" />
+          </view>
+        </view>
+
+        <view v-if="activeTab === 'profile'" class="profile-info">
+          <view class="profile-info__card">
+            <text>标签与印象</text>
+            <view class="question-list">
+              <text>饭搭子雷达</text>
+              <text>羽毛球新手</text>
+              <text>周末看展</text>
+              <text>不临时鸽</text>
+              <text>准时</text>
+              <text>好沟通</text>
+            </view>
+          </view>
+          <view class="profile-info__card">
+            <text>关注与认证资料</text>
+            <view class="question-list">
+              <text>关注 {{ partnerPostList.length + 12 }} 人</text>
+              <text>信用 {{ user.credit }}</text>
+              <text>{{ profileComplete ? '资料已完善' : '资料待完善' }}</text>
+              <text>{{ canUseOps ? '运营身份' : '普通用户' }}</text>
+            </view>
+          </view>
+        </view>
       </view>
     </scroll-view>
 
@@ -162,6 +262,7 @@
       @saved="handleProfileSaved"
       @close="profileSheetVisible = false"
     />
+    <SuBottomDock active="profile" />
   </view>
 </template>
 
@@ -170,21 +271,24 @@ import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
+import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { listMyPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goUserEdit } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goAuthLogin, goBackOrFallback, goCalendar, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goPartnerWorkbench, goUserEdit, goVerify } from '@/common/utils/route.js'
 
-const activeTab = ref('activities')
+const activeTab = ref('overview')
 const activeActivityFilter = ref('all')
 const activeOrderFilter = ref('all')
 const loggedIn = ref(false)
 const canUseOps = ref(false)
 const unreadCount = ref(0)
 const myActivities = ref({ hosting: [], joined: [], pending: [] })
+const partnerPosts = ref([])
 const orders = ref([])
 const reviews = ref([])
 const user = ref(getCurrentUserProfile())
@@ -201,6 +305,7 @@ const activityList = computed(() => sortActivitiesByStatusPriority([
   ...myActivities.value.joined,
   ...myActivities.value.pending
 ]))
+const partnerPostList = computed(() => partnerPosts.value)
 const filteredActivityList = computed(() => filterActivitiesByStatusGroup(activityList.value, activeActivityFilter.value))
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
 const orderFilters = [
@@ -216,9 +321,11 @@ const filteredOrders = computed(() => {
 })
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 const tabs = computed(() => [
+  { key: 'overview', label: '总览', count: 'ME' },
   { key: 'activities', label: '活动', count: activityList.value.length },
-  { key: 'reviews', label: '评价', count: reviews.value.length },
-  { key: 'orders', label: '订单', count: orders.value.length }
+  { key: 'partners', label: '搭子帖', count: partnerPostList.value.length },
+  { key: 'messages', label: '消息', count: unreadCount.value },
+  { key: 'profile', label: '资料', count: user.value.credit || 0 }
 ])
 
 function withTimeout(promise, fallback, timeout = 5000) {
@@ -238,6 +345,7 @@ async function loadData() {
       user.value = getCurrentUserProfile()
       canUseOps.value = false
       myActivities.value = { hosting: [], joined: [], pending: [] }
+      partnerPosts.value = []
       orders.value = []
       reviews.value = []
       unreadCount.value = 0
@@ -246,12 +354,14 @@ async function loadData() {
 
     user.value = await withTimeout(getCurrentUser(), getCurrentUserProfile(), 5000)
     canUseOps.value = hasOpsRole(user.value)
-    const [activities, orderItems, unread] = await Promise.all([
+    const [activities, partnerItems, orderItems, unread] = await Promise.all([
       listMyActivities(),
+      listMyPartnerPosts(),
       listOrders(),
       getUnreadMessageCount()
     ])
     myActivities.value = Array.isArray(activities) ? activities : { hosting: [], joined: [], pending: [] }
+    partnerPosts.value = Array.isArray(partnerItems) ? partnerItems : []
     orders.value = Array.isArray(orderItems) ? orderItems : []
     unreadCount.value = Number(unread) || 0
     reviews.value = []
@@ -279,6 +389,24 @@ function openActivity(item) {
   goActivityDetail(item.id)
 }
 
+function openNextActivity() {
+  const item = activityList.value[0]
+  if (item) {
+    openActivity(item)
+    return
+  }
+  uni.showToast({ title: '暂无待处理活动', icon: 'none' })
+}
+
+function openFirstPartnerPost() {
+  const item = partnerPostList.value[0]
+  if (item?.id) {
+    goPartnerWorkbench(item.id)
+    return
+  }
+  uni.showToast({ title: '暂无搭子帖', icon: 'none' })
+}
+
 function handleProfileSaved(nextUser) {
   user.value = {
     ...user.value,
@@ -293,6 +421,7 @@ function handleProfileSaved(nextUser) {
 <style scoped>
 .profile {
   min-height: 100vh;
+  padding-bottom: 180rpx;
   background: #f8f9f9;
 }
 
@@ -444,7 +573,7 @@ function handleProfileSaved(nextUser) {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr) 132rpx;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18rpx;
   align-items: center;
   padding: 0 40rpx 28rpx;
@@ -478,6 +607,7 @@ function handleProfileSaved(nextUser) {
 
 .stats__edit {
   display: flex;
+  grid-column: 1 / -1;
   height: 62rpx;
   align-items: center;
   justify-content: center;
@@ -596,6 +726,78 @@ function handleProfileSaved(nextUser) {
   padding: 12rpx 34rpx 70rpx;
 }
 
+.task-list,
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding: 12rpx 34rpx 70rpx;
+}
+
+.task-card,
+.profile-info__card {
+  border: 1rpx solid #eef2f7;
+  border-radius: 32rpx;
+  background: #fff;
+  box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05);
+}
+
+.task-card {
+  display: grid;
+  grid-template-columns: 48rpx 1fr 30rpx;
+  align-items: center;
+  gap: 18rpx;
+  padding: 26rpx;
+}
+
+.task-card view {
+  min-width: 0;
+}
+
+.task-card view text:first-child {
+  display: block;
+  color: #102033;
+  font-size: 27rpx;
+  font-weight: 900;
+}
+
+.task-card view text:last-child {
+  display: block;
+  margin-top: 8rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.profile-info__card {
+  padding: 30rpx;
+}
+
+.profile-info__card > text {
+  display: block;
+  color: #102033;
+  font-size: 30rpx;
+  font-style: italic;
+  font-weight: 900;
+}
+
+.question-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.question-list text {
+  padding: 12rpx 18rpx;
+  border-radius: 999rpx;
+  background: #f3f6fa;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
 .activity-filters,
 .order-filters {
   display: flex;
@@ -624,6 +826,7 @@ function handleProfileSaved(nextUser) {
 }
 
 .profile-card,
+.partner-profile-card,
 .review-card,
 .order-card {
   display: flex;
@@ -716,6 +919,50 @@ function handleProfileSaved(nextUser) {
   color: #94a3b8;
   font-size: 22rpx;
   font-weight: 800;
+}
+
+.partner-profile-card {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.partner-profile-card__type {
+  display: inline-flex;
+  padding: 7rpx 14rpx;
+  border-radius: 999rpx;
+  background: #fee2e2;
+  color: #ef4444;
+  font-size: 18rpx;
+  font-weight: 900;
+}
+
+.partner-profile-card__title {
+  display: block;
+  margin-top: 14rpx;
+  color: #111827;
+  font-size: 29rpx;
+  font-style: italic;
+  font-weight: 900;
+  line-height: 1.38;
+}
+
+.partner-profile-card__meta {
+  display: block;
+  margin-top: 12rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  font-weight: 800;
+}
+
+.partner-profile-card__status {
+  flex: 0 0 auto;
+  margin-left: 18rpx;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #dcfce7;
+  color: #16a34a;
+  font-size: 19rpx;
+  font-weight: 900;
 }
 
 .review-card {

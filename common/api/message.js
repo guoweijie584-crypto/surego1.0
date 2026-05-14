@@ -26,6 +26,8 @@ function buildMessage(payload = {}) {
     content: payload.content || '',
     sender: payload.sender || '',
     activityId: payload.activityId || payload.activity_id || '',
+    partnerPostId: payload.partnerPostId || payload.partner_post_id || '',
+    conversationId: payload.conversationId || payload.conversation_id || '',
     read: Boolean(payload.read),
     createdAt: payload.createdAt || payload.created_at || payload.sentAt || payload.sent_at || new Date().toISOString(),
     updatedAt: payload.updatedAt || payload.updated_at || ''

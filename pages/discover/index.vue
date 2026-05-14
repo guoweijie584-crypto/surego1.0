@@ -25,9 +25,9 @@
 
     <scroll-view scroll-y class="discover__scroll">
       <view class="discover__hero" :style="contentTopStyle">
-        <text class="discover__kicker">DISCOVER</text>
-        <text class="discover__title">发现好局</text>
-        <text class="discover__desc">按城市、分类和热度探索附近正在成行的活动。</text>
+        <text class="discover__kicker">成行</text>
+        <text class="discover__title">本校正在约</text>
+        <text class="discover__desc">按城市、分类和热度探索正在成行的校园活动。</text>
         <view class="discover__search" @tap="goSearch()">
           <uni-icons type="search" size="20" color="#94a3b8" />
           <text>搜索活动、兴趣、地点</text>
@@ -37,7 +37,7 @@
       <view class="section section--compact">
         <view class="section__head">
           <text class="section__title">热门主题</text>
-          <text class="section__sub">TRENDING</text>
+          <text class="section__sub">热门场景</text>
         </view>
         <scroll-view scroll-x class="topic-scroll" :show-scrollbar="false">
           <view class="topic-list">
@@ -52,7 +52,7 @@
 
       <view class="blind-box" @tap="openBlindPick">
         <view>
-          <text class="blind-box__kicker">BLIND PICK</text>
+          <text class="blind-box__kicker">随机推荐</text>
           <text class="blind-box__title">不知道去哪？随机开一局</text>
           <text class="blind-box__desc">根据当前城市和热门活动，给你一个轻松的选择。</text>
         </view>
@@ -72,7 +72,7 @@
       <view class="section">
         <view class="section__head">
           <text class="section__title">{{ activeCategory === '全部' ? '附近推荐' : activeCategory }}</text>
-          <text class="section__sub">{{ filteredActivities.length }} SPOTS</text>
+          <text class="section__sub">{{ filteredActivities.length }} 个活动</text>
         </view>
         <view class="discover__list">
           <SuActivityCard v-for="item in filteredActivities" :key="item.id" :activity="item" />
@@ -84,7 +84,7 @@
       </view>
     </scroll-view>
 
-    <SuBottomDock active="discover" />
+    <SuBottomDock active="home" />
   </view>
 </template>
 

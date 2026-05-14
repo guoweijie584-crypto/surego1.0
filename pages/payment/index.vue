@@ -1,60 +1,61 @@
-﻿<template>
-  <view v-if="isPageLoading" class="payment su-page">
+<template>
+  <view v-if="isPageLoading" class="ref-page">
     <SuPageLoading :style="contentTopStyle" text="订单加载中..." />
   </view>
-  <view v-else class="payment su-page">
-    <view class="payment__nav" :style="navStyle">
-      <view class="payment__nav-row" :style="navRowStyle">
-        <view class="payment__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#0f172a" />
+  <view v-else class="ref-page">
+    <view class="ref-topbar" :style="navStyle">
+      <view class="ref-topbar__row" :style="navRowStyle">
+        <view class="ref-back" @tap="goBackOrFallback">
+          <uni-icons type="left" size="22" color="#102033" />
         </view>
-        <text>支付确认</text>
-        <view class="payment__back" />
+        <text class="ref-topbar__title">确认占位</text>
+        <view class="ref-icon-button">
+          <uni-icons type="wallet-filled" size="20" color="#2388ff" />
+        </view>
       </view>
     </view>
 
-    <view class="payment__content" :style="contentTopStyle">
-      <view class="pay-card">
-        <view class="pay-card__top">
-          <view class="pay-card__icon" :class="`pay-card__icon--${activity.partyMode}`">
-            <uni-icons :type="activity.partyMode === 'ticket' ? 'paperplane-filled' : 'wallet-filled'" size="34" color="#fff" />
-          </view>
-          <text class="pay-card__title">{{ modeTitle }}</text>
-          <text class="pay-card__desc">{{ modeDesc }}</text>
-        </view>
+    <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab" :style="contentTopStyle">
+      <view class="ref-page-head">
+        <text class="ref-page-head__eyebrow">确认占位</text>
+        <text class="ref-page-head__title">{{ pageTitle }}</text>
+      </view>
 
-        <view class="activity">
-          <image class="activity__cover" :src="activity.image" mode="aspectFill" />
-          <view class="activity__info">
-            <text class="activity__title su-line-2">{{ activity.title }}</text>
-            <text class="activity__meta">{{ activity.date }} {{ activity.time }}</text>
-          </view>
+      <view class="ref-payment-card ref-card payment-card">
+        <view class="payment-card__icon">
+          <uni-icons :type="activity.partyMode === 'ticket' ? 'paperplane-filled' : 'wallet-filled'" size="32" color="#2388ff" />
         </view>
+        <text class="payment-card__label">{{ modeTitle }}</text>
+        <text class="payment-card__amount">{{ feeText }}</text>
+        <text class="payment-card__desc">{{ modeDesc }}</text>
+      </view>
 
-        <view class="amount">
-          <text>需支付</text>
-          <text>¥{{ activity.amount }}</text>
+      <view class="ref-summary-card ref-card payment-gap">
+        <image :src="activity.image" mode="aspectFill" />
+        <view>
+          <text class="su-line-2">{{ activity.title }}</text>
+          <text>{{ activity.date }} {{ activity.time }} · {{ activity.location }}</text>
         </view>
+      </view>
 
-        <view class="order-state" @tap="order && goOrderDetail(order.id, { activityId: activity.id })">
+      <view class="ref-info-card ref-card payment-gap">
+        <view class="ref-section-title payment-section-title">
           <text>订单状态</text>
-          <text :class="`order-state__badge order-state__badge--${orderStatus}`">{{ orderStatusText }}</text>
+          <text @tap="order && goOrderDetail(order.id, { activityId: activity.id })">{{ order ? '查看订单' : '待创建' }}</text>
         </view>
-
-        <view class="rule-list">
-          <view v-for="item in rules" :key="item" class="rule">
-            <uni-icons type="checkmarkempty" size="16" color="#22c55e" />
-            <text>{{ item }}</text>
-          </view>
+        <view class="timeline">
+          <text class="timeline__item timeline__item--done">已创建订单</text>
+          <text class="timeline__item" :class="{ 'timeline__item--done': orderStatus === 'paid' }">待支付</text>
+          <text class="timeline__item">待核销</text>
+          <text class="timeline__item">{{ activity.partyMode === 'sincerity' ? '退款' : '结算' }}</text>
         </view>
-
-        <button class="pay-button" :disabled="isPaying" @tap="handlePay">
-          {{ payButtonText }}
-        </button>
-        <view v-if="order" class="order-link" @tap="goOrderDetail(order.id, { activityId: activity.id })">查看订单详情</view>
-        <text class="payment__note">试运营订单确认，不发生真实扣款。</text>
+        <text class="payment-note">试运营订单确认，不发生真实扣款。当前状态：{{ orderStatusText }}</text>
       </view>
-    </view>
+
+      <view class="ref-bottom-cta">
+        <button class="ref-primary" :disabled="isPaying" @tap="handlePay">{{ payButtonText }}</button>
+      </view>
+    </scroll-view>
   </view>
 </template>
 
@@ -74,25 +75,21 @@ const isPaying = ref(false)
 const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
-const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
+const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
-const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票支付' : '诚意金支付'))
+const pageTitle = computed(() => (activity.value.partyMode === 'sincerity' ? '冻结诚意金，占住席位' : '支付门票，核销后结算'))
+const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票' : '诚意金'))
+const feeText = computed(() => `¥${activity.value.amount || 0}`)
 const modeDesc = computed(() => {
-  if (activity.value.partyMode === 'ticket') return '支付后锁定名额，后续接入真实微信支付。'
-  return '签到后全额退回，爽约将扣除诚意金。'
-})
-const rules = computed(() => {
-  if (activity.value.partyMode === 'ticket') return ['门票确认后获得入场凭证', '活动取消时进入退款流程', '试运营确认，不发生真实扣款']
-  return ['签到后诚意金全额退回', '活动开始前可查看入场凭证', '试运营确认，不发生真实扣款']
+  if (activity.value.partyMode === 'ticket') return '支付成功后保留名额，核销完成后进入结算。'
+  return '到场核销后按规则退回；临时爽约会影响信用记录。'
 })
 const orderStatus = computed(() => order.value?.status || 'pending')
-const orderStatusText = computed(() => {
-  return getOrderStatusText(orderStatus.value)
-})
+const orderStatusText = computed(() => getOrderStatusText(orderStatus.value))
 const payButtonText = computed(() => {
   if (isPaying.value) return '处理中...'
-  if (orderStatus.value === 'paid') return '查看入场凭证'
-  return '确认订单'
+  if (orderStatus.value === 'paid') return '查看到场凭证'
+  return '确认支付'
 })
 
 onLoad(async (query) => {
@@ -140,232 +137,83 @@ async function handlePay() {
 </script>
 
 <style scoped>
-.payment {
-  min-height: 100vh;
-  background: #f0f4f8;
-}
-
-.payment__nav {
-  position: fixed;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(18px);
-  color: #0f172a;
-  font-size: 28rpx;
-  font-weight: 900;
-}
-
-.payment__nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.payment__back {
-  display: flex;
-  width: 62rpx;
-  height: 62rpx;
-  align-items: center;
-  justify-content: center;
-}
-
-.payment__content {
-  padding-right: 34rpx;
-  padding-bottom: 56rpx;
-  padding-left: 34rpx;
-}
-
-.pay-card {
-  padding: 38rpx;
-  border-radius: 46rpx;
-  background: #fff;
-  box-shadow: 0 24rpx 70rpx rgba(15, 23, 42, 0.08);
-}
-
-.pay-card__top {
+.payment-card {
   display: flex;
   align-items: center;
   flex-direction: column;
+  gap: 16rpx;
   text-align: center;
 }
 
-.pay-card__icon {
+.payment-card__icon {
   display: flex;
-  width: 116rpx;
-  height: 116rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 36rpx;
-  background: #ef4444;
-}
-
-.pay-card__icon--ticket {
-  background: #8b5cf6;
-}
-
-.pay-card__title {
-  display: block;
-  margin-top: 26rpx;
-  color: #0f172a;
-  font-size: 44rpx;
-  font-weight: 900;
-}
-
-.pay-card__desc {
-  display: block;
-  margin-top: 14rpx;
-  color: #64748b;
-  font-size: 25rpx;
-  font-weight: 700;
-  line-height: 1.55;
-}
-
-.activity {
-  display: flex;
-  gap: 22rpx;
-  margin-top: 40rpx;
-  padding: 20rpx;
-  border-radius: 30rpx;
-  background: #f8fafc;
-}
-
-.activity__cover {
-  width: 142rpx;
-  height: 142rpx;
-  flex: 0 0 142rpx;
-  border-radius: 24rpx;
-  background: #e2e8f0;
-}
-
-.activity__info {
-  min-width: 0;
-  flex: 1;
-}
-
-.activity__title {
-  color: #0f172a;
-  font-size: 28rpx;
-  font-weight: 900;
-  line-height: 1.4;
-}
-
-.activity__meta {
-  display: block;
-  margin-top: 12rpx;
-  color: #94a3b8;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-
-.amount {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-top: 34rpx;
-  padding: 28rpx;
-  border-radius: 30rpx;
-  background: #0f172a;
-  color: #fff;
-}
-
-.amount text:first-child {
-  font-size: 24rpx;
-  font-weight: 800;
-}
-
-.amount text:last-child {
-  font-size: 56rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.order-state {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 22rpx;
-  padding: 22rpx 26rpx;
-  border-radius: 26rpx;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 23rpx;
-  font-weight: 900;
-}
-
-.order-state__badge {
-  padding: 8rpx 18rpx;
-  border-radius: 999rpx;
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.order-state__badge--paid {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.order-state__badge--refunded {
-  background: #e0e7ff;
-  color: #4f46e5;
-}
-
-.order-state__badge--closed {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.rule-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  margin-top: 32rpx;
-}
-
-.rule {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  color: #64748b;
-  font-size: 23rpx;
-  font-weight: 800;
-}
-
-.pay-button {
-  display: flex;
+  width: 96rpx;
   height: 96rpx;
   align-items: center;
   justify-content: center;
-  margin-top: 38rpx;
-  border-radius: 30rpx;
-  background: #0f172a;
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 900;
+  border-radius: 32rpx;
+  background: #edf6ff;
 }
 
-.order-link {
+.payment-card__label {
+  color: #64748b;
+  font-size: 23rpx;
+  font-weight: 950;
+}
+
+.payment-card__amount {
+  color: #102033;
+  font-size: 64rpx;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.payment-card__desc {
+  color: #64748b;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.payment-gap {
+  margin-top: 24rpx;
+}
+
+.payment-section-title {
+  margin-top: 0;
+}
+
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10rpx;
+  margin-top: 10rpx;
+}
+
+.timeline__item {
+  min-height: 80rpx;
   display: flex;
-  height: 74rpx;
   align-items: center;
   justify-content: center;
-  margin-top: 16rpx;
   border-radius: 24rpx;
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 23rpx;
+  background: #edf6ff;
+  color: #64748b;
+  font-size: 21rpx;
   font-weight: 900;
+  text-align: center;
 }
 
-.payment__note {
+.timeline__item--done {
+  background: rgba(18, 163, 127, 0.12);
+  color: #047857;
+}
+
+.payment-note {
   display: block;
-  margin-top: 18rpx;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 700;
+  margin-top: 22rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 800;
   line-height: 1.5;
-  text-align: center;
 }
 </style>
