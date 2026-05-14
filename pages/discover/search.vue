@@ -1,12 +1,12 @@
-﻿<template>
+<template>
   <view class="search su-page">
     <view class="search__nav" :style="navStyle">
       <view class="search__nav-row" :style="navRowStyle">
         <view class="search__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view class="search__box">
-          <uni-icons type="search" size="20" color="#94a3b8" />
+          <SuIcon name="search" size="40" glyph-size="20" variant="inline" color="#94a3b8" />
           <input
             class="search__input"
             v-model="keyword"
@@ -51,7 +51,7 @@
             class="recent-item"
             @tap="pickKeyword(item)"
           >
-            <uni-icons type="clock" size="17" color="#94a3b8" />
+            <SuIcon name="clock" size="34" glyph-size="17" variant="inline" color="#94a3b8" />
             <text>{{ item }}</text>
           </view>
         </view>
@@ -70,7 +70,7 @@
           />
         </view>
         <view v-if="hasSearched && results.length === 0" class="empty">
-          <uni-icons type="search" size="44" color="#cbd5e1" />
+          <SuIcon name="search" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
           <text>没有找到相关活动</text>
         </view>
       </view>
@@ -79,6 +79,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
@@ -206,9 +207,7 @@ function clearRecent() {
 
 .section-title {
   color: #111827;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 34rpx; font-weight: 900;
 }
 
 .section-sub {

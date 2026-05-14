@@ -3,15 +3,15 @@
     <view class="manager-topbar" :style="navStyle">
       <view class="manager-topbar__row" :style="navRowStyle">
         <view class="exit-button" @tap="goBackOrFallback('/pages/user/profile')">
-          <uni-icons type="left" size="18" color="#102033" />
+          <SuIcon name="left" size="36" glyph-size="18" variant="inline" color="#102033" />
           <text>退出</text>
         </view>
         <view class="manager-topbar__title">
           <text>申请管理</text>
-          <text class="su-line-1">{{ partner.title || '搭子工作台' }}</text>
+          <text class="su-line-1">{{ partner.title || '当前搭子需求' }}</text>
         </view>
         <view class="ref-icon-button" @tap="goPartnerDetail(currentId)">
-          <uni-icons type="right" size="19" color="#102033" />
+          <SuIcon name="arrowRight" size="38" glyph-size="19" variant="inline" color="#102033" />
         </view>
       </view>
     </view>
@@ -44,7 +44,7 @@
 
       <view v-if="activeTab === 'intent'" class="ref-stack">
         <view v-if="intents.length === 0" class="ref-empty ref-card">
-          <uni-icons type="personadd" size="42" color="#cbd5e1" />
+          <SuIcon name="people" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
           <text>意向申请已处理完</text>
         </view>
         <view v-for="item in intents" :key="item.id" class="applicant-card ref-card">
@@ -65,21 +65,30 @@
       </view>
 
       <view v-if="activeTab === 'chat'" class="ref-stack">
-        <view class="ref-task-card" @tap="showComingSoon('通过意向后会生成私聊入口')">
-          <uni-icons type="chat" size="22" color="#2388ff" />
-          <view class="ref-task-card__body">
-            <text>私聊确认时间</text>
-            <text>{{ acceptedCount }} 个同学已通过，可以一对一确认细节。</text>
-          </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+        <view v-if="acceptedIntents.length === 0" class="ref-empty ref-card">
+          <SuIcon name="chat" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
+          <text>先通过意向，再开始沟通</text>
         </view>
-        <view class="ref-task-card" @tap="showComingSoon('临时群聊能力正在接入')">
-          <uni-icons type="staff" size="22" color="#2388ff" />
+        <view
+          v-for="item in acceptedIntents"
+          :key="`chat-${item.id}`"
+          class="ref-task-card"
+          @tap="openConversation(item)"
+        >
+          <SuIcon name="chat" size="44" glyph-size="22" variant="inline" color="#2388ff" />
+          <view class="ref-task-card__body">
+            <text>和 {{ item.nickname || '已通过同学' }} 私聊</text>
+            <text>{{ item.message || '继续确认时间、地点和加入节奏。' }}</text>
+          </view>
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
+        </view>
+        <view v-if="acceptedIntents.length > 1" class="ref-task-card" @tap="openGroupConversation">
+          <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>创建临时群聊</text>
-            <text>把通过的同学拉到一起，确认时间、地点和注意事项。</text>
+            <text>把已通过的同学拉到一起，统一确认时间、地点和注意事项。</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
       </view>
 
@@ -87,12 +96,12 @@
         <view class="ref-info-card ref-card">
           <text class="ref-info-card__title">公开约人</text>
           <text class="ref-info-card__text">还想继续招人，就让同校同学也能报名或候补。</text>
-          <view class="ref-primary convert-button" @tap="showComingSoon('搭子转活动正在接入')">继续公开招人</view>
+          <view class="ref-primary convert-button" @tap="handleConvert({ visibility: 'public' })">继续公开招人</view>
         </view>
         <view class="ref-info-card ref-card">
           <text class="ref-info-card__title">只约已通过的人</text>
           <text class="ref-info-card__text">人已经够了，就只通知已通过的同学。</text>
-          <view class="ref-primary convert-button" @tap="showComingSoon('定向通知正在接入')">只通知这些人</view>
+          <view class="ref-primary convert-button" @tap="handleConvert({ visibility: 'members_only' })">只通知这些人</view>
         </view>
       </view>
     </scroll-view>
@@ -100,11 +109,12 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
-import { PARTNER_INTENT_STATUS_META, getPartnerPostDetail, listPartnerIntents, updatePartnerIntentStatus } from '@/common/api/partner.js'
+import { PARTNER_INTENT_STATUS_META, convertPartnerPostToActivity, ensurePartnerGroupConversation, getPartnerPostDetail, listPartnerIntents, updatePartnerIntentStatus } from '@/common/api/partner.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goManageDashboard, goPartnerConversation, goPartnerDetail } from '@/common/utils/route.js'
 
 const currentId = ref('')
 const partner = ref({})
@@ -120,6 +130,7 @@ const tabs = [
 ]
 const pendingCount = computed(() => intents.value.filter((item) => item.status === 'pending').length)
 const acceptedCount = computed(() => intents.value.filter((item) => item.status === 'accepted').length)
+const acceptedIntents = computed(() => intents.value.filter((item) => item.status === 'accepted'))
 
 async function loadData() {
   const [detail, items] = await Promise.all([
@@ -151,6 +162,43 @@ async function reviewIntent(item, status) {
   await updatePartnerIntentStatus(item.id, status)
   uni.showToast({ title: '已处理', icon: 'success' })
   loadData()
+}
+
+function openConversation(item) {
+  if (!item?.conversationId) {
+    uni.showToast({ title: '私聊入口准备中', icon: 'none' })
+    return
+  }
+  goPartnerConversation(item.conversationId)
+}
+
+async function openGroupConversation() {
+  const participantIds = acceptedIntents.value
+    .map((item) => item.userId || item.user_id)
+    .filter(Boolean)
+  const conversation = await ensurePartnerGroupConversation(currentId.value, participantIds)
+  if (!conversation?.id) {
+    uni.showToast({ title: '暂时无法创建群聊', icon: 'none' })
+    return
+  }
+  goPartnerConversation(conversation.id)
+}
+
+async function handleConvert({ visibility }) {
+  const participantIds = acceptedIntents.value
+    .map((item) => item.userId || item.user_id)
+    .filter(Boolean)
+  const activity = await convertPartnerPostToActivity({
+    partnerPostId: currentId.value,
+    visibility,
+    participantIds
+  })
+  if (!activity?.id) {
+    uni.showToast({ title: '转活动失败', icon: 'none' })
+    return
+  }
+  uni.showToast({ title: visibility === 'public' ? '已转为公开活动' : '已转为私密活动', icon: 'success' })
+  goManageDashboard(activity.id, { replace: true })
 }
 </script>
 

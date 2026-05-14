@@ -1,13 +1,13 @@
-﻿<template>
+<template>
   <view class="checkin su-page">
     <view class="checkin__nav" :style="navStyle">
       <view class="checkin__nav-row" :style="navRowStyle">
         <view class="checkin__nav-btn" @tap="handleBack">
-          <uni-icons type="left" size="24" color="#fff" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#fff" />
         </view>
         <text class="checkin__nav-title">签到核销</text>
         <view class="checkin__nav-btn" @tap="refreshCode">
-          <uni-icons type="refresh" size="20" color="#fff" />
+          <SuIcon name="refresh" size="40" glyph-size="20" variant="inline" color="#fff" />
         </view>
       </view>
     </view>
@@ -53,14 +53,14 @@
             <input v-model="codeInput" adjust-position="false" cursor-spacing="28" placeholder="输入成员入场凭证码" placeholder-class="input-placeholder" />
           </view>
           <view class="code-actions__button" @tap="confirmByCode">
-            <uni-icons type="checkmarkempty" size="18" color="#fff" />
+            <SuIcon name="check" size="36" glyph-size="18" variant="inline" color="#fff" />
             <text>确认</text>
           </view>
         </view>
 
         <view class="scan-button" @tap="scanCheckinCode()">
-          <uni-icons type="scan" size="22" color="#0f172a" />
-          <text>扫码核销 / 模拟扫码</text>
+          <SuIcon name="scan" size="44" glyph-size="22" variant="inline" color="#0f172a" />
+          <text>扫码核销</text>
         </view>
       </view>
 
@@ -85,7 +85,7 @@
             <text class="member__meta">{{ person.note }}</text>
           </view>
           <view class="member__button" :class="{ 'member__button--done': person.checked }" @tap="toggleCheckin(person)">
-            <uni-icons :type="person.checked ? 'checkmarkempty' : 'scan'" size="18" :color="person.checked ? '#16a34a' : '#fff'" />
+            <SuIcon :name="person.checked ? 'checkmarkempty' : 'scan'" size="36" glyph-size="18" variant="inline" :color="person.checked ? '#16a34a' : '#fff'" />
           </view>
         </view>
       </view>
@@ -94,6 +94,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
@@ -396,9 +397,7 @@ async function confirmPerson(person, code, source = 'manual') {
   display: block;
   margin-top: 12rpx;
   color: #fff;
-  font-size: 36rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 36rpx; font-weight: 900;
 }
 .stat--blue {
   background: rgba(79, 70, 229, 0.22);
@@ -452,9 +451,7 @@ async function confirmPerson(person, code, source = 'manual') {
 }
 .code-box__value {
   color: #0f172a;
-  font-size: 40rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 40rpx; font-weight: 900;
   letter-spacing: 4rpx;
   text-align: center;
 }

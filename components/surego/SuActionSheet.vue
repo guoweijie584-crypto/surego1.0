@@ -6,7 +6,7 @@
       <view class="su-sheet__header">
         <text class="su-sheet__title">{{ title }}</text>
         <view class="su-sheet__close" @tap.stop="close">
-          <uni-icons type="closeempty" size="24" color="#64748b" />
+          <SuIcon name="closeempty" size="48" glyph-size="24" variant="inline" color="#64748b" />
         </view>
       </view>
       <slot />
@@ -15,6 +15,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 defineProps({
   modelValue: {
     type: Boolean,

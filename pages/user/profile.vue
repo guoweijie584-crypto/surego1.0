@@ -8,7 +8,7 @@
         <text class="profile__nav-title">我的</text>
         <view class="profile__nav-actions" :style="navActionsStyle">
           <view class="profile__nav-btn" @tap="goVerify">
-            <uni-icons type="gear-filled" size="19" color="#102033" />
+            <SuIcon name="settings" size="44" glyph-size="19" variant="soft" />
           </view>
         </view>
       </view>
@@ -18,9 +18,7 @@
       <view class="profile__content">
         <view class="profile-hero-card">
           <view class="profile-hero-card__top">
-            <view class="initial-avatar initial-avatar--large">
-              <text>吴</text>
-            </view>
+            <image class="profile-avatar" :src="mockProfileAvatar" mode="aspectFill" />
             <view class="profile-hero-card__main">
               <text class="ref-pill ref-pill--green">天津大学 · 学生邮箱认证</text>
               <text class="profile-hero-card__name">吴同学</text>
@@ -30,9 +28,9 @@
                   v-for="account in socialAccounts"
                   :key="account.label"
                   class="account-icon"
-                  :class="{ active: account.active }"
+                  :class="[`account-icon--${account.key}`, { active: account.active }]"
                 >
-                  <uni-icons :type="account.icon" size="18" :color="account.active ? '#2388ff' : '#a1a1aa'" />
+                  <SuIcon :name="account.icon" size="52" glyph-size="28" variant="brand" :disabled="!account.active" />
                   <text>{{ account.label }}</text>
                 </view>
               </view>
@@ -48,7 +46,7 @@
 
         <view v-if="!loggedIn" class="login-card">
           <view class="login-card__icon">
-            <uni-icons type="personadd-filled" size="28" color="#fff" />
+            <SuIcon name="login" size="54" glyph-size="28" variant="inline" color="#fff" />
           </view>
           <view class="login-card__copy">
             <text class="login-card__title">你还没有登录</text>
@@ -68,13 +66,13 @@
 
           <view v-if="canUseOps" class="ops-entry" @tap="goOpsDashboard">
             <view class="ops-entry__icon">
-              <uni-icons type="gear-filled" size="22" color="#fff" />
+              <SuIcon name="settings" size="48" glyph-size="22" variant="inline" color="#fff" />
             </view>
             <view class="ops-entry__copy">
               <text class="ops-entry__title">运营控制台</text>
-              <text class="ops-entry__desc">处理举报、活动审核和试运营数据</text>
+              <text class="ops-entry__desc">处理举报和活动审核</text>
             </view>
-            <uni-icons type="right" size="18" color="#94a3b8" />
+            <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
           </view>
 
           <scroll-view scroll-x class="filter-row" :show-scrollbar="false">
@@ -93,60 +91,53 @@
 
           <view v-if="activeTab === 'overview'" class="task-list">
             <view class="task-card" @tap="openFirstJoinedActivity">
-              <uni-icons type="calendar" size="20" color="#2388ff" />
+              <SuIcon name="calendar" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的报名</text>
-                <text>2 个活动已报名，1 个申请待审核。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="openNextActivity">
-              <uni-icons type="scan" size="20" color="#2388ff" />
+              <SuIcon name="scan" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的到场 / 待核销</text>
-                <text>剧本杀局今晚 19:20 集合，凭证已准备好。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="openHostingActivity">
-              <uni-icons type="checkmarkempty" size="20" color="#2388ff" />
+              <SuIcon name="check" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我发起的活动</text>
-                <text>3 个申请待审核，2 个候补等待处理。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="openPrimaryPartnerPost">
-              <uni-icons type="staff" size="20" color="#2388ff" />
+              <SuIcon name="people" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我发布的搭子</text>
-                <text>羽毛球长期搭子收到 4 个申请。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="openIntentPartnerPost">
-              <uni-icons type="paperplane-filled" size="20" color="#2388ff" />
+              <SuIcon name="send" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的意向</text>
-                <text>AI 黑客松组队意向等待队长确认。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="goMessages">
-              <uni-icons type="chat" size="20" color="#2388ff" />
+              <SuIcon name="chat" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>私聊 / 群聊</text>
-                <text>2 个私聊、1 个临时群聊有新消息。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="goVerify">
-              <uni-icons type="auth-filled" size="20" color="#2388ff" />
+              <SuIcon name="shield" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>关注 / 认证 / 资料</text>
-                <text>学生认证已完成，可继续维护搭子名片。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
           </view>
 
@@ -198,23 +189,23 @@
 
           <view v-if="activeTab === 'messages'" class="profile-stack">
             <view class="task-card" @tap="goMessages">
-              <uni-icons type="chat" size="20" color="#2388ff" />
+              <SuIcon name="chat" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>私聊</text>
                 <text>南门饭搭子：今晚 18:10 二食堂门口见？</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="task-card" @tap="goMessages">
-              <uni-icons type="staff" size="20" color="#2388ff" />
+              <SuIcon name="people" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>群聊</text>
                 <text>Switch 派对群：还差 1 人就能约起来。</text>
               </view>
-              <uni-icons type="right" size="18" color="#94a3b8" />
+              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
             <view class="order-card" @tap="openFirstOrder">
-              <uni-icons type="wallet-filled" size="22" color="#2388ff" />
+              <SuIcon name="wallet" size="48" glyph-size="22" variant="soft" />
               <view>
                 <text>微醺局诚意金</text>
                 <text>{{ firstOrder ? getOrderStatusText(firstOrder.status) : '已核销，退款处理中' }}</text>
@@ -271,6 +262,7 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
+import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { listMyPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
@@ -289,11 +281,12 @@ const profileTabs = [
   { key: 'profile', label: '资料' }
 ]
 const socialAccounts = [
-  { label: '小红书', icon: 'image', active: true },
-  { label: '抖音', icon: 'mic-filled', active: true },
-  { label: 'GitHub', icon: 'link', active: true },
-  { label: '微信', icon: 'weixin', active: false }
+  { key: 'xiaohongshu', label: '小红书', icon: 'xiaohongshu', active: true },
+  { key: 'douyin', label: '抖音', icon: 'douyin', active: true },
+  { key: 'github', label: 'GitHub', icon: 'github', active: true },
+  { key: 'wechat', label: '微信', icon: 'wechat', active: false }
 ]
+const mockProfileAvatar = 'https://images.pexels.com/photos/12603316/pexels-photo-12603316.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop'
 const activeTab = ref('overview')
 const activeActivityFilter = ref('all')
 const activeOrderFilter = ref('all')
@@ -436,7 +429,7 @@ function openPrimaryPartnerPost() {
     goPartnerWorkbench(postedPartnerPost.value.id)
     return
   }
-  uni.showToast({ title: '暂无搭子帖', icon: 'none' })
+  uni.showToast({ title: '暂无搭子需求', icon: 'none' })
 }
 
 function openIntentPartnerPost() {
@@ -528,18 +521,19 @@ function handleProfileSaved(nextUser) {
 
 .profile-hero-card {
   display: grid;
-  gap: 32rpx;
-  padding: 36rpx;
+  gap: 28rpx;
+  padding: 34rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 56rpx;
-  background: linear-gradient(135deg, #ffffff, #edf6ff);
-  box-shadow: 0 16rpx 34rpx rgba(30, 88, 156, 0.07);
+  border-radius: 46rpx;
+  background: linear-gradient(145deg, #ffffff 0%, #f6fbff 100%);
+  box-shadow: 0 18rpx 42rpx rgba(30, 88, 156, 0.08);
 }
 
 .profile-hero-card__top {
   display: grid;
-  grid-template-columns: 156rpx minmax(0, 1fr);
-  gap: 28rpx;
+  grid-template-columns: 136rpx minmax(0, 1fr);
+  align-items: center;
+  gap: 26rpx;
 }
 
 .initial-avatar {
@@ -558,6 +552,16 @@ function handleProfileSaved(nextUser) {
 .initial-avatar--large {
   width: 156rpx;
   height: 156rpx;
+}
+
+.profile-avatar {
+  width: 136rpx;
+  height: 136rpx;
+  box-sizing: border-box;
+  border: 6rpx solid #fff;
+  border-radius: 50%;
+  background: #e8f3ff;
+  box-shadow: 0 14rpx 32rpx rgba(15, 23, 42, 0.14);
 }
 
 .initial-avatar text {
@@ -580,15 +584,15 @@ function handleProfileSaved(nextUser) {
 }
 
 .ref-pill--green {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
+  background: rgba(35, 136, 255, 0.12);
+  color: #1d4ed8;
 }
 
 .profile-hero-card__name {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 14rpx;
   color: #102033;
-  font-size: 56rpx;
+  font-size: 50rpx;
   font-weight: 950;
   line-height: 1.05;
 }
@@ -597,36 +601,57 @@ function handleProfileSaved(nextUser) {
   display: block;
   margin-top: 12rpx;
   color: #64748b;
-  font-size: 26rpx;
+  font-size: 25rpx;
   font-weight: 850;
   line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .account-icon-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
-  margin-top: 24rpx;
+  gap: 14rpx;
+  margin-top: 20rpx;
 }
 
 .account-icon {
   position: relative;
   display: flex;
-  width: 76rpx;
-  height: 76rpx;
+  width: 68rpx;
+  height: 68rpx;
   align-items: center;
   justify-content: center;
-  border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 30rpx;
+  border: 1rpx solid rgba(24, 24, 27, 0.06);
+  border-radius: 24rpx;
   background: #fff;
   color: #a1a1aa;
+  box-shadow: 0 10rpx 22rpx rgba(30, 88, 156, 0.06);
 }
 
 .account-icon.active {
-  border-color: rgba(35, 136, 255, 0.22);
-  background: #e8f3ff;
-  color: #2388ff;
-  box-shadow: 0 8rpx 18rpx rgba(35, 136, 255, 0.1);
+  border-color: rgba(35, 136, 255, 0.18);
+}
+
+.account-icon--xiaohongshu {
+  background: #fff1f4;
+}
+
+.account-icon--douyin,
+.account-icon--github {
+  background: #f4f6f8;
+}
+
+.account-icon--wechat {
+  background: #effdf5;
+}
+
+.account-icon__image {
+  width: 34rpx;
+  height: 34rpx;
 }
 
 .account-icon text {
@@ -704,7 +729,7 @@ function handleProfileSaved(nextUser) {
 .task-list,
 .profile-stack {
   display: grid;
-  gap: 24rpx;
+  gap: 18rpx;
 }
 
 .task-card,
@@ -712,7 +737,7 @@ function handleProfileSaved(nextUser) {
   display: grid;
   align-items: center;
   gap: 24rpx;
-  padding: 32rpx;
+  padding: 26rpx 30rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.07);
   border-radius: 40rpx;
   background: #fff;
@@ -722,6 +747,7 @@ function handleProfileSaved(nextUser) {
 
 .task-card {
   grid-template-columns: 48rpx minmax(0, 1fr) 36rpx;
+  min-height: 92rpx;
 }
 
 .task-card view,
@@ -738,7 +764,7 @@ function handleProfileSaved(nextUser) {
   line-height: 1.25;
 }
 
-.task-card view text:last-child,
+.task-card view text:nth-child(2),
 .order-card view text:last-child {
   display: block;
   margin-top: 8rpx;
@@ -920,6 +946,7 @@ function handleProfileSaved(nextUser) {
 
 .ops-entry {
   background: #0f172a;
+  margin-bottom: 12rpx;
 }
 
 .login-card__icon,
@@ -934,7 +961,7 @@ function handleProfileSaved(nextUser) {
 }
 
 .ops-entry__icon {
-  background: #22c55e;
+  background: #2388ff;
 }
 
 .login-card__copy,

@@ -3,7 +3,7 @@
     <view class="manager-topbar" :style="navStyle">
       <view class="manager-topbar__row" :style="navRowStyle">
         <view class="exit-button" @tap="handleBack">
-          <uni-icons type="left" size="18" color="#102033" />
+          <SuIcon name="left" size="36" glyph-size="18" variant="inline" color="#102033" />
           <text>退出</text>
         </view>
         <view class="manager-topbar__title">
@@ -11,7 +11,7 @@
           <text class="su-line-1">{{ activity.title }}</text>
         </view>
         <view class="ref-icon-button" @tap="openActivityDetail">
-          <uni-icons type="right" size="19" color="#102033" />
+          <SuIcon name="arrowRight" size="38" glyph-size="19" variant="inline" color="#102033" />
         </view>
       </view>
     </view>
@@ -44,28 +44,28 @@
 
       <view v-if="activeTab === 'overview'" class="ref-stack">
         <view class="ref-task-card" @tap="activeTab = 'review'">
-          <uni-icons type="personadd-filled" size="22" color="#2388ff" />
+          <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>先处理报名申请</text>
             <text>{{ pendingCount }} 个申请会影响是否准时成行</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
         <view class="ref-task-card" @tap="activeTab = 'notice'">
-          <uni-icons type="paperplane-filled" size="22" color="#2388ff" />
+          <SuIcon name="send" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>发送集合提醒</text>
             <text>{{ activity.time }} {{ activity.location }}，提前通知成员</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
         <view class="ref-task-card" @tap="activeTab = 'checkin'">
-          <uni-icons type="scan" size="22" color="#2388ff" />
+          <SuIcon name="scan" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>活动当天核销</text>
-            <text>支持扫码、手动码和名单勾选</text>
+            <text>现场到场名单</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
 
         <view class="ref-info-card ref-card">
@@ -115,7 +115,7 @@
 
       <view v-if="activeTab === 'review'" id="manage-applications" class="ref-stack">
         <view v-if="applications.length === 0" class="ref-empty ref-card">
-          <uni-icons type="personadd-filled" size="38" color="#cbd5e1" />
+          <SuIcon name="people" size="76" glyph-size="38" variant="inline" color="#cbd5e1" />
           <text>待审核申请已处理完</text>
         </view>
         <view v-for="item in applications" :key="item.id" class="applicant-card ref-card">
@@ -155,7 +155,7 @@
       </view>
 
       <view v-if="activeTab === 'checkin'" class="ref-qr-card ref-card">
-        <uni-icons type="scan" size="64" color="#2388ff" />
+        <SuIcon name="scan" size="128" glyph-size="64" variant="inline" color="#2388ff" />
         <text class="ref-qr-card__code">发起人核销</text>
         <text class="ref-qr-card__hint">支持扫码、手动码、名单勾选；核销后有撤销窗口。</text>
         <input class="checkin-input" placeholder="输入手动核销码" />
@@ -197,6 +197,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, nextTick, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
@@ -275,7 +276,7 @@ const lifecycleHint = computed(() => {
   if (moderationStatus === 'rejected') return '活动未通过运营审核，可编辑后重新提交。'
   if (moderationStatus === 'hidden') return '活动已被运营下架，状态只读。'
   const hints = {
-    draft: '草稿仅自己可见，提交审核后等待平台确认。',
+    draft: '草稿状态。',
     reviewing: '审核中不能直接公开，需要等待运营通过。',
     recruiting: '活动正在开放报名，可确认成局或取消活动。',
     published: '历史已发布状态按报名中处理，可确认成局或取消活动。',

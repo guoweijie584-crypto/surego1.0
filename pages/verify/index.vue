@@ -3,7 +3,7 @@
     <view class="verify__nav" :style="navStyle">
       <view class="verify__nav-row" :style="navRowStyle">
         <view class="floating-back" @tap="goBackOrFallback('/pages/user/profile')">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
           <text>返回</text>
         </view>
       </view>
@@ -12,21 +12,18 @@
     <scroll-view scroll-y class="verify__scroll" :style="contentTopStyle">
       <view class="page-head">
         <text>学生认证</text>
-        <text>认证后，更容易约到靠谱同学</text>
       </view>
 
       <view class="verify-hero">
-        <uni-icons type="auth-filled" size="42" color="#2388ff" />
+        <SuIcon name="shield" size="84" glyph-size="42" variant="inline" color="#2388ff" />
         <view>
           <text class="pill">天津大学</text>
-          <text>可以先逛，报名和发布前再认证</text>
-          <text>同校身份、到场记录和活动规则一起，让陌生搭子第一次见面也更安心。</text>
         </view>
       </view>
 
       <view class="verify-options">
         <view v-for="item in options" :key="item.title" class="verify-card">
-          <uni-icons :type="item.icon" size="24" color="#2388ff" />
+          <SuIcon :name="item.icon" size="48" glyph-size="24" variant="inline" color="#2388ff" />
           <view>
             <text>{{ item.title }}</text>
             <text>{{ item.desc }}</text>
@@ -51,6 +48,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback } from '@/common/utils/route.js'
 
 const navStyle = getMiniProgramNavStyle()
@@ -78,8 +76,8 @@ function completeVerify() {
 .floating-back { display: inline-flex; align-items: center; gap: 6rpx; color: #102033; font-size: 23rpx; font-weight: 900; }
 .verify__scroll { height: 100vh; box-sizing: border-box; padding: 0 34rpx 120rpx; }
 .page-head text { display: block; }
-.page-head text:first-child { color: #94a3b8; font-size: 22rpx; font-weight: 950; }
-.page-head text:last-child { margin-top: 12rpx; color: #102033; font-size: 54rpx; font-weight: 950; line-height: 1.12; }
+.page-head text:first-child { color: #102033; font-size: 54rpx; font-weight: 950; line-height: 1.12; }
+.page-head text:nth-child(2) { margin-top: 12rpx; color: #102033; font-size: 54rpx; font-weight: 950; line-height: 1.12; }
 .verify-hero { display: grid; grid-template-columns: 78rpx 1fr; gap: 22rpx; margin-top: 28rpx; padding: 34rpx; border-radius: 38rpx; background: #fff; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
 .verify-hero view text { display: block; }
 .pill { display: inline-flex !important; width: fit-content; padding: 10rpx 16rpx; border-radius: 999rpx; background: #dcfce7; color: #16a34a; font-size: 20rpx; font-weight: 950; }
@@ -91,7 +89,7 @@ function completeVerify() {
 .verify-card view text:last-child { display: block; margin-top: 6rpx; color: #64748b; font-size: 21rpx; font-weight: 800; line-height: 1.4; }
 .verify-card__pill { padding: 8rpx 14rpx; border-radius: 999rpx; background: #dbeafe; color: #2563eb; font-size: 19rpx; font-weight: 950; }
 .info-card { margin-top: 24rpx; padding: 30rpx; border-radius: 32rpx; background: #fff; box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.05); }
-.card-title { display: block; color: #102033; font-size: 31rpx; font-style: italic; font-weight: 950; }
+.card-title { display: block; color: #102033; font-size: 31rpx; font-weight: 950; }
 .question-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 18rpx; }
 .question-list text { padding: 12rpx 18rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 22rpx; font-weight: 900; }
 .bottom-cta { display: flex; flex-direction: column; gap: 16rpx; margin-top: 28rpx; }

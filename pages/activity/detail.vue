@@ -11,10 +11,10 @@
           <view class="floating-back" @tap="goBackOrFallback('/pages/home/index')">返回</view>
           <view class="detail-cover__actions">
             <view @tap="showShare = true">
-              <uni-icons type="redo" size="20" color="#fff" />
+              <SuIcon name="redo" size="40" glyph-size="20" variant="inline" color="#fff" />
             </view>
             <view @tap="showMore = true">
-              <uni-icons type="more-filled" size="20" color="#fff" />
+              <SuIcon name="more-filled" size="40" glyph-size="20" variant="inline" color="#fff" />
             </view>
           </view>
         </view>
@@ -26,20 +26,26 @@
 
       <view class="detail__body">
         <view class="info-card priority">
-          <view>
-            <uni-icons type="calendar" size="18" color="#2388ff" />
-            <text>{{ activity.date }} {{ activity.time }}</text>
-            <text>{{ countdownText }}</text>
+          <view class="priority-row">
+            <SuIcon name="calendar" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <view class="priority-row__content">
+              <text class="priority-row__primary">{{ activity.date }} {{ activity.time }}</text>
+              <text class="priority-row__secondary">{{ countdownText }}</text>
+            </view>
           </view>
-          <view @tap="openLocation">
-            <uni-icons type="location" size="18" color="#2388ff" />
-            <text>{{ activity.location }}</text>
-            <text>{{ activity.distance ? `${activity.distance}km` : '查看集合地点' }}</text>
+          <view class="priority-row" @tap="openLocation">
+            <SuIcon name="location" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <view class="priority-row__content">
+              <text class="priority-row__primary">{{ activity.location }}</text>
+              <text class="priority-row__secondary">{{ activity.distance ? `${activity.distance}km` : '查看集合地点' }}</text>
+            </view>
           </view>
-          <view>
-            <uni-icons type="personadd" size="18" color="#2388ff" />
-            <text>{{ participantText }}</text>
-            <text>{{ seatsLeftText }}</text>
+          <view class="priority-row">
+            <SuIcon name="people" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <view class="priority-row__content">
+              <text class="priority-row__primary">{{ participantText }}</text>
+              <text class="priority-row__secondary">{{ seatsLeftText }}</text>
+            </view>
           </view>
         </view>
 
@@ -54,14 +60,14 @@
 
         <view class="info-card">
           <view class="section-title">
-            <text>详细碰头说明</text>
+          <text>碰头安排</text>
           </view>
           <text class="card-copy">{{ meetupText }}</text>
         </view>
 
         <view class="rule-card">
           <view>
-            <text>报名与费用规则</text>
+          <text>报名与费用</text>
             <text>{{ mode.label }}</text>
           </view>
           <text>{{ refundRuleText }}</text>
@@ -69,9 +75,9 @@
         </view>
 
         <view class="credit-card">
-          <uni-icons type="auth-filled" size="30" color="#2388ff" />
+          <SuIcon name="shield" size="60" glyph-size="30" variant="inline" color="#2388ff" />
           <view>
-            <text>信用与安全提示</text>
+          <text>信用与安全</text>
             <text>报名成功后请按时到场，核销记录会影响后续活动和搭子匹配。</text>
           </view>
         </view>
@@ -110,7 +116,7 @@
             <text>{{ activity.organizer }}</text>
             <text>{{ organizerSubText }}</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
       </view>
     </scroll-view>
@@ -149,6 +155,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
@@ -202,7 +209,7 @@ const detailQuestions = computed(() => {
 })
 const faqList = computed(() => [
   { q: '临时有事可以退出吗？', a: activity.value.partyMode === 'free' ? '请尽早联系发起人，避免影响成行。' : '按费用规则处理，具体以活动说明为准。' },
-  { q: '通过后怎么联系？', a: '通过后可在我的页或通知中心查看联系入口。' }
+  { q: '怎么联系？', a: '通知中心查看联系入口。' }
 ])
 const meetupText = computed(() => activity.value.meetup || activity.value.description || '发起人会在报名通过后同步集合点和注意事项。')
 const refundRuleText = computed(() => {
@@ -243,43 +250,31 @@ async function loadData(id = activity.value.id || '101') {
   isPageLoading.value = true
   try {
     const detail = await getActivityDetail(id)
-    const application = await getApplicationForActivity(detail.id || id)
+    const [application, memberGroups] = await Promise.all([
+      getApplicationForActivity(detail.id),
+      listActivityMembers(detail.id)
+    ])
     activity.value = {
       ...detail,
       ...(application ? {
-        application,
-        applicationStatus: application.status || detail.applicationStatus,
-        reviewNote: application.reviewNote || detail.reviewNote || '',
-        rejectReason: application.rejectReason || detail.rejectReason || ''
-      } : {})
+        applicationId: application.id,
+        applicationStatus: application.status,
+        reviewNote: application.reviewNote,
+        rejectReason: application.rejectReason,
+        paidAt: application.paidAt,
+        orderId: application.orderId
+      } : {}),
+      memberCount: memberGroups.members.length,
+      pendingCount: memberGroups.pending.length
     }
   } finally {
     isPageLoading.value = false
   }
 }
 
-onPullDownRefresh(makeRefreshHandler(() => loadData(activity.value.id || '101')))
+onPullDownRefresh(makeRefreshHandler(() => loadData()))
 onShareAppMessage(() => buildActivitySharePayload(activity.value))
 onShareTimeline(() => buildActivitySharePayload(activity.value))
-
-function openLocation() {
-  const latitude = Number(activity.value.latitude || 0)
-  const longitude = Number(activity.value.longitude || 0)
-  if (!latitude || !longitude) {
-    uni.showToast({ title: activity.value.location || '暂无地图坐标', icon: 'none' })
-    return
-  }
-  uni.openLocation({
-    latitude,
-    longitude,
-    name: activity.value.location,
-    address: activity.value.address || activity.value.location
-  })
-}
-
-function openOrganizerProfile() {
-  goUserDetail(activity.value.creatorId || activity.value.creator_id, { activityId: activity.value.id })
-}
 
 function handlePrimaryAction() {
   if (primaryDisabled.value) return
@@ -287,20 +282,33 @@ function handlePrimaryAction() {
     goManageDashboard(activity.value.id)
     return
   }
-  if (isJoined.value) {
+  if (isJoined.value || ['pending', 'rejected'].includes(activity.value.applicationStatus)) {
     goParticipantDashboard(activity.value.id)
     return
   }
   goActivityRegister(activity.value.id)
 }
 
+function openLocation() {
+  if (activity.value.latitude && activity.value.longitude) {
+    uni.openLocation({
+      latitude: Number(activity.value.latitude),
+      longitude: Number(activity.value.longitude),
+      name: activity.value.location || activity.value.title,
+      address: activity.value.address || activity.value.location || ''
+    })
+    return
+  }
+  uni.showToast({ title: activity.value.location || '暂无地图坐标', icon: 'none' })
+}
+
+function openOrganizerProfile() {
+  goUserDetail(activity.value.creatorId || activity.value.creator_id, { activityId: activity.value.id })
+}
+
 function copySharePath() {
-  uni.setClipboardData({
-    data: buildActivitySharePath(activity.value),
-    success() {
-      showShare.value = false
-    }
-  })
+  const path = buildActivitySharePath(activity.value)
+  uni.setClipboardData({ data: path })
 }
 
 function openPoster() {
@@ -309,16 +317,14 @@ function openPoster() {
 }
 
 async function submitActivityReport() {
-  const note = reportReason.value.trim()
-  if (!note) {
+  if (!reportReason.value.trim()) {
     uni.showToast({ title: '请填写举报理由', icon: 'none' })
     return
   }
   await createReport({
-    activityId: activity.value.id,
-    activityTitle: activity.value.title,
-    reason: 'content',
-    note
+    targetType: 'activity',
+    targetId: activity.value.id,
+    reason: reportReason.value.trim()
   })
   reportReason.value = ''
   showMore.value = false
@@ -326,65 +332,70 @@ async function submitActivityReport() {
 }
 
 function toastAndClose(title) {
-  uni.showToast({ title, icon: 'none' })
   showMore.value = false
+  uni.showToast({ title, icon: 'none' })
 }
 </script>
 
 <style scoped>
-.detail { min-height: 100vh; padding-bottom: 170rpx; background: #f8f9f9; }
+.detail { min-height: 100vh; padding-bottom: 180rpx; background: #f8f9f9; }
 .detail__scroll { height: 100vh; }
-.detail-cover { position: relative; min-height: 620rpx; overflow: hidden; background: #102033; }
+.detail-cover { position: relative; min-height: 560rpx; overflow: hidden; background: #102033; color: #fff; }
 .detail-cover__image, .detail-cover__shade { position: absolute; inset: 0; width: 100%; height: 100%; }
-.detail-cover__shade { background: linear-gradient(180deg, rgba(16, 32, 51, 0.2), rgba(16, 32, 51, 0.84)); }
+.detail-cover__shade { background: linear-gradient(180deg, rgba(15, 23, 42, 0.1), rgba(15, 23, 42, 0.82)); }
 .detail-cover__top { position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
-.floating-back { display: flex; height: 68rpx; align-items: center; padding: 0 22rpx; border-radius: 999rpx; background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 23rpx; font-weight: 950; backdrop-filter: blur(12px); }
-.detail-cover__actions { display: flex; gap: 12rpx; }
-.detail-cover__actions view { display: flex; width: 68rpx; height: 68rpx; align-items: center; justify-content: center; border-radius: 50%; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(12px); }
-.detail-cover__body { position: absolute; right: 34rpx; bottom: 46rpx; left: 34rpx; z-index: 2; display: flex; flex-direction: column; gap: 18rpx; }
-.detail-cover__title { color: #fff; font-size: 56rpx; font-weight: 950; line-height: 1.12; }
-.pill { align-self: flex-start; padding: 11rpx 18rpx; border-radius: 999rpx; background: #dcfce7; color: #16a34a; font-size: 21rpx; font-weight: 950; }
-.pill--amber { background: #fef3c7; color: #d97706; }
-.pill--blue { margin-top: 20rpx; background: #dbeafe; color: #2563eb; }
-.detail__body { display: flex; flex-direction: column; gap: 22rpx; padding: 24rpx 34rpx 40rpx; }
-.info-card, .rule-card, .credit-card, .organizer-card { border: 1rpx solid rgba(24, 24, 27, 0.08); border-radius: 34rpx; background: #fff; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
-.info-card, .rule-card, .credit-card { padding: 30rpx; }
-.priority { display: grid; gap: 18rpx; }
-.priority view { display: grid; grid-template-columns: 40rpx 1fr; align-items: center; column-gap: 12rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #f1f5f9; }
-.priority view:last-child { padding-bottom: 0; border-bottom: 0; }
-.priority view text:nth-child(2) { color: #102033; font-size: 25rpx; font-weight: 950; }
-.priority view text:nth-child(3) { grid-column: 2; margin-top: 6rpx; color: #94a3b8; font-size: 21rpx; font-weight: 850; }
+.floating-back, .detail-cover__actions view { display: flex; align-items: center; justify-content: center; border-radius: 999rpx; background: rgba(255, 255, 255, 0.18); backdrop-filter: blur(14px); }
+.floating-back { height: 70rpx; padding: 0 22rpx; font-size: 23rpx; font-weight: 950; }
+.detail-cover__actions { display: flex; gap: 14rpx; }
+.detail-cover__actions view { width: 70rpx; height: 70rpx; }
+.detail-cover__body { position: absolute; right: 34rpx; bottom: 44rpx; left: 34rpx; z-index: 2; }
+.pill { display: inline-flex; align-self: flex-start; padding: 11rpx 18rpx; border-radius: 999rpx; background: #dcfce7; color: #047857; font-size: 22rpx; font-weight: 950; }
+.pill--amber { background: #fef3c7; color: #b45309; }
+.pill--blue { background: #eff6ff; color: #2388ff; }
+.detail-cover__title { display: block; margin-top: 22rpx; color: #fff; font-size: 54rpx; font-weight: 950; line-height: 1.12; }
+.detail__body { display: flex; flex-direction: column; gap: 22rpx; padding: 22rpx 20rpx 140rpx; }
+.info-card, .rule-card, .credit-card, .organizer-card { border: 1rpx solid rgba(24, 24, 27, 0.08); border-radius: 32rpx; background: #fff; box-shadow: 0 12rpx 28rpx rgba(15, 23, 42, 0.04); }
+.info-card { padding: 30rpx; }
+.priority { display: flex; flex-direction: column; gap: 0; padding: 0 30rpx; }
+.priority-row { display: flex; align-items: flex-start; gap: 14rpx; padding: 28rpx 0; border-bottom: 1rpx solid #eef2f7; }
+.priority-row:last-child { border-bottom: 0; }
+.priority-row__content { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 8rpx; }
+.priority-row__primary { display: block; min-width: 0; color: #102033; font-size: 25rpx; font-weight: 950; line-height: 1.35; word-break: normal; overflow-wrap: break-word; }
+.priority-row__secondary { display: block; min-width: 0; color: #94a3b8; font-size: 21rpx; font-weight: 850; line-height: 1.35; word-break: normal; overflow-wrap: break-word; }
 .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18rpx; }
-.section-title text:first-child { color: #102033; font-size: 31rpx; font-style: italic; font-weight: 950; }
-.section-title--inline text:last-child { color: #2388ff; font-size: 23rpx; font-weight: 950; }
+.section-title text:first-child { color: #102033; font-size: 31rpx; font-weight: 950; }
+.section-title text:last-child { color: #2388ff; font-size: 22rpx; font-weight: 950; }
 .question-list { display: flex; flex-wrap: wrap; gap: 12rpx; }
-.question-list text { padding: 12rpx 18rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 22rpx; font-weight: 900; }
-.card-copy, .rule-card > text:nth-child(2) { display: block; color: #64748b; font-size: 25rpx; font-weight: 800; line-height: 1.62; }
-.rule-card { background: #eef7ff; }
+.question-list text { padding: 11rpx 18rpx; border-radius: 999rpx; background: #f1f5f9; color: #64748b; font-size: 22rpx; font-weight: 850; }
+.card-copy { display: block; color: #64748b; font-size: 25rpx; font-weight: 850; line-height: 1.68; }
+.rule-card { display: flex; flex-direction: column; gap: 18rpx; padding: 30rpx; }
 .rule-card view text { display: block; }
-.rule-card view text:first-child { color: #64748b; font-size: 21rpx; font-weight: 950; }
-.rule-card view text:last-child { margin-top: 8rpx; color: #102033; font-size: 34rpx; font-style: italic; font-weight: 950; }
-.rule-card > text:nth-child(2) { margin-top: 18rpx; }
-.credit-card { display: grid; grid-template-columns: 58rpx 1fr; gap: 18rpx; align-items: flex-start; background: #fff; }
-.credit-card text:first-child { display: block; color: #102033; font-size: 28rpx; font-weight: 950; }
-.credit-card text:last-child { display: block; margin-top: 8rpx; color: #64748b; font-size: 22rpx; font-weight: 800; line-height: 1.5; }
+.rule-card view text:first-child { color: #64748b; font-size: 22rpx; font-weight: 900; }
+.rule-card view text:last-child { margin-top: 8rpx; color: #102033; font-size: 34rpx; font-weight: 950; }
+.rule-card > text:nth-child(2) { color: #64748b; font-size: 24rpx; font-weight: 850; line-height: 1.6; }
+.credit-card, .organizer-card { display: flex; align-items: center; gap: 18rpx; padding: 30rpx; }
+.credit-card text { display: block; }
+.credit-card text:first-child { color: #102033; font-size: 29rpx; font-weight: 950; }
+.credit-card text:last-child { margin-top: 8rpx; color: #64748b; font-size: 23rpx; font-weight: 850; line-height: 1.55; }
 .faq-item { padding: 20rpx 0; border-top: 1rpx solid #f1f5f9; }
-.faq-item text:first-child { display: block; color: #102033; font-size: 24rpx; font-weight: 950; }
-.faq-item text:last-child { display: block; margin-top: 8rpx; color: #64748b; font-size: 22rpx; font-weight: 800; line-height: 1.5; }
-.organizer-card { display: grid; grid-template-columns: 94rpx 1fr 30rpx; gap: 20rpx; align-items: center; padding: 26rpx; }
-.organizer-card__avatar { width: 94rpx; height: 94rpx; border-radius: 28rpx; background: #f1f5f9; }
-.organizer-card view text:first-child { display: block; color: #102033; font-size: 30rpx; font-weight: 950; }
-.organizer-card view text:last-child { display: block; margin-top: 8rpx; color: #94a3b8; font-size: 21rpx; font-weight: 850; }
-.bottom-cta { position: fixed; right: 0; bottom: 0; left: 0; z-index: 40; display: grid; grid-template-columns: 1fr 190rpx; gap: 16rpx; padding: 22rpx 34rpx; background: rgba(255, 255, 255, 0.92); box-shadow: 0 -12rpx 36rpx rgba(15, 23, 42, 0.08); backdrop-filter: blur(18px); }
-.primary-button, .secondary-button { display: flex; height: 88rpx; align-items: center; justify-content: center; border-radius: 999rpx; font-size: 25rpx; font-weight: 950; }
-.primary-button { background: #2388ff; color: #fff; box-shadow: 0 16rpx 34rpx rgba(35, 136, 255, 0.28); }
+.faq-item text { display: block; }
+.faq-item text:first-child { color: #102033; font-size: 25rpx; font-weight: 950; }
+.faq-item text:last-child { margin-top: 8rpx; color: #64748b; font-size: 23rpx; font-weight: 850; line-height: 1.55; }
+.organizer-card__avatar { width: 86rpx; height: 86rpx; flex: 0 0 86rpx; border-radius: 50%; background: #e2e8f0; }
+.organizer-card > view { flex: 1; min-width: 0; }
+.organizer-card text { display: block; }
+.organizer-card text:first-child { color: #102033; font-size: 27rpx; font-weight: 950; }
+.organizer-card text:last-child { margin-top: 7rpx; color: #94a3b8; font-size: 22rpx; font-weight: 850; }
+.bottom-cta { position: fixed; right: 0; bottom: 0; left: 0; z-index: 20; display: grid; grid-template-columns: 1fr 0.45fr; gap: 16rpx; padding: 22rpx 24rpx; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(18px); box-shadow: 0 -12rpx 34rpx rgba(15, 23, 42, 0.08); }
+.primary-button, .secondary-button { display: flex; height: 86rpx; align-items: center; justify-content: center; border-radius: 999rpx; font-size: 25rpx; font-weight: 950; }
+.primary-button { background: #2388ff; color: #fff; box-shadow: 0 16rpx 32rpx rgba(35, 136, 255, 0.26); }
 .primary-button--disabled { background: #94a3b8; box-shadow: none; }
-.secondary-button { border: 1rpx solid #e2e8f0; background: #fff; color: #102033; }
-.sheet-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16rpx; }
-.sheet-item { display: flex; min-height: 80rpx; align-items: center; justify-content: center; border-radius: 24rpx; background: #f3f6fa; color: #102033; font-size: 22rpx; font-weight: 950; }
-.more-list { display: flex; flex-direction: column; gap: 18rpx; }
-.more-list__item { min-height: 74rpx; color: #102033; font-size: 25rpx; font-weight: 950; }
-.more-list__item--danger { color: #ef4444; }
-.more-report__textarea { width: 100%; min-height: 160rpx; box-sizing: border-box; padding: 22rpx; border: 1rpx solid #e2e8f0; border-radius: 24rpx; background: #f8fafc; color: #102033; font-size: 24rpx; line-height: 1.5; }
-.more-report__placeholder { color: #cbd5e1; }
+.secondary-button { border: 1rpx solid #dbeafe; background: #fff; color: #102033; }
+.sheet-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16rpx; padding: 0 4rpx; }
+.sheet-item { display: flex; height: 90rpx; align-items: center; justify-content: center; border: 1rpx solid #eef2f7; border-radius: 26rpx; background: #f8fafc; color: #102033; font-size: 25rpx; font-weight: 900; }
+.more-list { display: flex; flex-direction: column; gap: 14rpx; }
+.more-list__item { padding: 26rpx; border-radius: 26rpx; background: #f8fafc; color: #102033; font-size: 25rpx; font-weight: 900; }
+.more-list__item--danger { background: #fee2e2; color: #dc2626; }
+.more-report__textarea { width: 100%; min-height: 140rpx; box-sizing: border-box; padding: 22rpx; border-radius: 24rpx; background: #f8fafc; color: #102033; font-size: 24rpx; font-weight: 800; line-height: 1.5; }
+.more-report__placeholder { color: #94a3b8; }
 </style>

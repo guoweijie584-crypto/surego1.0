@@ -1,13 +1,14 @@
 <template>
   <view class="su-page-loading" :style="style">
     <view class="su-page-loading__card">
-      <uni-icons type="spinner-cycle" size="26" color="#64748b" />
+      <SuIcon name="spinner-cycle" size="52" glyph-size="26" variant="inline" color="#64748b" />
       <text class="su-page-loading__text">{{ text }}</text>
     </view>
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 const props = defineProps({
   text: {
     type: String,

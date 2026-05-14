@@ -3,7 +3,7 @@
     <view class="subpage-topbar" :style="navStyle">
       <view class="subpage-topbar__row" :style="navRowStyle">
         <view class="floating-back" @tap="goBackOrFallback('/pages/hackathon/index')">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
           <text>返回</text>
         </view>
         <text>队伍详情</text>
@@ -49,14 +49,15 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goMessages } from '@/common/utils/route.js'
 
 const teams = [
-  { id: 'surego-labs', name: 'SureGo Labs', role: '缺算法/后端', tags: ['组队搭子', '推荐算法', '可远程协作'], intro: '想做活动匹配和到场信用模型，需要能快速搭接口的人。' },
-  { id: 'campus-ai', name: 'Campus AI Toolkit', role: '缺前端/设计', tags: ['AI 工具', '小程序', '路演'], intro: '做一个校园 AI 助手 Demo，需要能把交互和页面快速做出来的队友。' },
-  { id: 'creator-map', name: 'Creator Map', role: '缺产品/运营', tags: ['校园地图', '内容运营', '增长'], intro: '想把校园活动和创作者做成地图，需要能拆需求和做冷启动的人。' }
+  { id: 'surego-labs', name: 'SureGo Labs', role: '缺算法 / 后端', tags: ['组队搭子', '推荐算法', '可远程协作'], intro: '想做活动匹配和到场信用模型，需要能快速搭接口的人。' },
+  { id: 'campus-ai', name: 'Campus AI Toolkit', role: '缺前端 / 设计', tags: ['AI 工具', '小程序', '路演'], intro: '做一个校园 AI 助手 Demo，需要能把交互和页面快速做出来的队友。' },
+  { id: 'creator-map', name: 'Creator Map', role: '缺产品 / 运营', tags: ['校园地图', '内容运营', '增长'], intro: '想把校园活动和创作者做成地图，需要能拆需求和做冷启动的人。' }
 ]
 
 const team = ref(teams[0])
@@ -89,12 +90,12 @@ function handleSubmit() {
 .hackathon-hero { display: flex; flex-direction: column; gap: 18rpx; background: linear-gradient(135deg, #ffffff, #edf6ff); }
 .pill { align-self: flex-start; padding: 12rpx 18rpx; border-radius: 999rpx; font-size: 21rpx; font-weight: 950; }
 .pill--blue { background: #dbeafe; color: #2563eb; }
-.hero-title { color: #102033; font-size: 52rpx; font-style: italic; font-weight: 950; line-height: 1.1; }
+.hero-title { color: #102033; font-size: 52rpx; font-weight: 950; line-height: 1.1; }
 .hero-desc, .card-copy { color: #64748b; font-size: 25rpx; font-weight: 850; line-height: 1.55; }
 .question-list { display: flex; flex-wrap: wrap; gap: 10rpx; }
 .question-list text { padding: 10rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
 .info-card, .form-card { margin-top: 24rpx; }
-.card-title { display: block; color: #102033; font-size: 31rpx; font-style: italic; font-weight: 950; }
+.card-title { display: block; color: #102033; font-size: 31rpx; font-weight: 950; }
 .card-copy { display: block; margin-top: 14rpx; }
 .form-card label { display: flex; flex-direction: column; gap: 12rpx; margin-top: 22rpx; color: #94a3b8; font-size: 21rpx; font-weight: 900; }
 .form-card input, .form-card textarea { width: 100%; box-sizing: border-box; border: 0; border-radius: 24rpx; background: #f3f6fa; color: #102033; font-size: 24rpx; font-weight: 850; }

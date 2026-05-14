@@ -22,20 +22,17 @@
       <text class="activity-card__title su-line-2">{{ activity.title }}</text>
 
       <view class="activity-card__meta">
-        <uni-icons type="calendar" size="14" color="#64748b" />
+        <SuIcon name="calendar" size="30" glyph-size="14" variant="inline" color="#64748b" />
         <text class="su-line-1">{{ activity.date }} {{ activity.time }}</text>
       </view>
       <view class="activity-card__meta">
-        <uni-icons type="location" size="14" color="#64748b" />
+        <SuIcon name="location" size="30" glyph-size="14" variant="inline" color="#64748b" />
         <text class="su-line-1">{{ displayLocation }}</text>
         <text v-if="distanceText" class="activity-card__distance">{{ distanceText }}</text>
       </view>
 
       <view class="activity-card__signal" :class="signalClass">
-        <view>
-          <text>{{ seatSignal }}</text>
-          <text>{{ heatSignal }}</text>
-        </view>
+        <text class="activity-card__signal-label">{{ heatSignal }}</text>
         <text>{{ seatCountText }}</text>
       </view>
 
@@ -51,6 +48,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { goActivityDetail, goUserDetail, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
@@ -99,15 +97,9 @@ const slotsLeft = computed(() => {
   return Math.max(0, Number(props.activity.maxParticipants || 0) - Number(props.activity.participantCount || 0))
 })
 
-const seatSignal = computed(() => {
-  if (!props.activity.hasParticipantLimit && !props.activity.maxParticipants) return '开放报名'
-  if (slotsLeft.value <= 0) return '已满，可候补'
-  return `还差 ${slotsLeft.value} 人成行`
-})
-
 const heatSignal = computed(() => {
   if (slotsLeft.value <= 0) return '候补热'
-  if (slotsLeft.value <= 2) return '快成行'
+  if (slotsLeft.value <= 2) return '接近成行'
   if (Number(props.activity.viewCount || 0) > 50 || Number(props.activity.likeCount || 0) > 10) return '升温中'
   return '新局'
 })
@@ -295,49 +287,61 @@ function openUser() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18rpx;
-  margin-top: 22rpx;
-  padding: 18rpx 20rpx;
-  border-radius: 28rpx;
-}
-
-.activity-card__signal view text {
-  display: block;
-}
-
-.activity-card__signal view text:first-child {
-  color: #102033;
-  font-size: 28rpx;
-  font-weight: 950;
-}
-
-.activity-card__signal view text:last-child {
-  margin-top: 6rpx;
-  color: #64748b;
-  font-size: 20rpx;
-  font-weight: 900;
+  gap: 12rpx;
+  margin-top: 18rpx;
+  padding: 0 0 2rpx;
 }
 
 .activity-card__signal > text {
   flex: 0 0 auto;
-  padding: 11rpx 15rpx;
+  padding: 10rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.7);
+  border: 1rpx solid #eef2f7;
+  background: #f8fafc;
   color: #102033;
   font-size: 20rpx;
   font-weight: 950;
 }
 
+.activity-card__signal-label {
+  min-width: 0;
+  flex: 1 1 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #94a3b8 !important;
+  font-size: 20rpx !important;
+  font-weight: 900 !important;
+}
+
 .activity-card__signal--urgent {
-  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .activity-card__signal--waitlist {
-  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
 }
 
 .activity-card__signal--fresh {
-  background: rgba(16, 185, 129, 0.1);
+  color: #16a34a;
+}
+
+.activity-card__signal--urgent > text:last-child {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.activity-card__signal--waitlist > text:last-child {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.activity-card__signal--fresh > text:last-child {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .activity-card__footer {

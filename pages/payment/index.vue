@@ -6,11 +6,11 @@
     <view class="ref-topbar" :style="navStyle">
       <view class="ref-topbar__row" :style="navRowStyle">
         <view class="ref-back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
         <text class="ref-topbar__title">确认占位</text>
         <view class="ref-icon-button">
-          <uni-icons type="wallet-filled" size="20" color="#2388ff" />
+          <SuIcon name="wallet" size="40" glyph-size="20" variant="inline" color="#2388ff" />
         </view>
       </view>
     </view>
@@ -23,7 +23,7 @@
 
       <view class="ref-payment-card ref-card payment-card">
         <view class="payment-card__icon">
-          <uni-icons :type="activity.partyMode === 'ticket' ? 'paperplane-filled' : 'wallet-filled'" size="32" color="#2388ff" />
+          <SuIcon :name="activity.partyMode === 'ticket' ? 'paperplane-filled' : 'wallet-filled'" size="64" glyph-size="32" variant="inline" color="#2388ff" />
         </view>
         <text class="payment-card__label">{{ modeTitle }}</text>
         <text class="payment-card__amount">{{ feeText }}</text>
@@ -60,6 +60,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'

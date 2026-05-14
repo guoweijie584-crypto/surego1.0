@@ -1,16 +1,16 @@
-﻿<template>
+<template>
   <view class="ops su-page">
     <view class="ops__nav" :style="navStyle">
       <view class="ops__nav-row" :style="navRowStyle">
         <view class="ops__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view>
           <text class="ops__title">运营控制台</text>
           <text class="ops__sub">SureGo Trial Ops</text>
         </view>
         <view class="ops__report" @tap="goOpsReports('pending')">
-          <uni-icons type="flag" size="20" color="#ef4444" />
+          <SuIcon name="flag" size="40" glyph-size="20" variant="inline" color="#ef4444" />
         </view>
       </view>
     </view>
@@ -29,13 +29,13 @@
       <view class="ops-tools">
         <view class="ops-tool" @tap="goOpsUsers">
           <view class="ops-tool__icon">
-            <uni-icons type="staff-filled" size="22" color="#fff" />
+            <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#fff" />
           </view>
           <view class="ops-tool__copy">
             <text class="ops-tool__title">用户与权限</text>
             <text class="ops-tool__desc">管理员设置用户、运营人员和管理员角色</text>
           </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
       </view>
 
@@ -80,6 +80,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getOpsStats, listOpsActivities, moderateActivity } from '@/common/api/moderation.js'
@@ -324,9 +325,7 @@ async function handleModerate(item, moderationStatus) {
 
 .metric-card__value {
   color: #0f172a;
-  font-size: 38rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 38rpx; font-weight: 900;
 }
 
 .metric-card__label {

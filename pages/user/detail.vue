@@ -3,11 +3,11 @@
     <view class="ref-topbar" :style="navStyle">
       <view class="ref-topbar__row" :style="navRowStyle">
         <view class="ref-back" @tap="goBackOrFallback('/pages/partners/index')">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
         <text class="ref-topbar__title">搭子主页</text>
         <view class="ref-icon-button">
-          <uni-icons type="auth-filled" size="20" color="#2388ff" />
+          <SuIcon name="shield" size="40" glyph-size="20" variant="inline" color="#2388ff" />
         </view>
       </view>
     </view>
@@ -20,11 +20,11 @@
             <text class="ref-pill ref-pill--blue">天津大学 · 学信网增强认证</text>
             <text class="ref-profile-card__name">{{ profile.nickname }}</text>
             <text class="ref-profile-card__bio">
-              {{ profile.bio || '硬核推理 / AI 黑客松 / 周末 Citywalk。活动说明会提前写清楚。' }}
+              {{ profile.bio || '硬核推理 / AI 黑客松 / 周末 Citywalk。' }}
             </text>
             <view class="ref-account-row">
               <view v-for="account in socialAccounts" :key="account.label" class="ref-account" :class="{ 'ref-account--active': account.active }">
-                <uni-icons :type="account.icon" size="16" :color="account.active ? '#1d4ed8' : '#94a3b8'" />
+                <SuIcon :name="account.icon" size="32" glyph-size="16" variant="inline" :color="account.active ? '#1d4ed8' : '#94a3b8'" />
                 <text>{{ account.label }}</text>
               </view>
             </view>
@@ -71,7 +71,7 @@
       <view class="ref-info-card ref-card">
         <text class="ref-info-card__title">履历记录</text>
         <view v-if="recentActivities.length === 0" class="ref-empty">
-          <uni-icons type="calendar" size="36" color="#cbd5e1" />
+          <SuIcon name="calendar" size="72" glyph-size="36" variant="inline" color="#cbd5e1" />
           <text>暂无公开活动</text>
         </view>
         <view v-for="item in recentActivities" :key="item.id" class="ref-record-row" @tap="openActivity(item)">
@@ -103,6 +103,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { DEFAULT_USER_AVATAR } from '@/common/api/auth.js'
@@ -147,7 +148,7 @@ const reviews = [
   {
     author: '吴同学',
     source: '来自剧本杀局 · 3 天前',
-    content: '发起人规则写得很清楚，集合点、费用和迟到规则都提前说明了。'
+    content: '集合点、费用和迟到规则都清楚。'
   },
   {
     author: '小周',

@@ -1,9 +1,9 @@
-﻿<template>
+<template>
   <view class="city su-page">
     <view class="city__nav" :style="navStyle">
       <view class="city__nav-row" :style="navRowStyle">
         <view class="city__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view>
           <text class="city__eyebrow">CITY</text>
@@ -20,7 +20,7 @@
           <text class="city__located">手动选择，暂不使用实时定位</text>
         </view>
         <view class="city__locate" @tap="openCitySelector">
-          <uni-icons type="location-filled" size="18" color="#fff" />
+          <SuIcon name="location" size="36" glyph-size="18" variant="inline" color="#fff" />
           <text>选择</text>
         </view>
       </view>
@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
@@ -156,9 +157,7 @@ function handlePluginSelect(city = {}) {
   display: block;
   margin-top: 4rpx;
   color: #111827;
-  font-size: 48rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 48rpx; font-weight: 900;
 }
 
 .city__scroll {
@@ -182,9 +181,7 @@ function handlePluginSelect(city = {}) {
   display: block;
   margin-top: 8rpx;
   color: #fff;
-  font-size: 42rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 42rpx; font-weight: 900;
 }
 
 .city__located {
@@ -220,9 +217,7 @@ function handlePluginSelect(city = {}) {
 
 .city__section-head text:first-child {
   color: #111827;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 34rpx; font-weight: 900;
 }
 
 .city__grid {
@@ -251,9 +246,7 @@ function handlePluginSelect(city = {}) {
 .city-card__name {
   display: block;
   color: #111827;
-  font-size: 32rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 32rpx; font-weight: 900;
 }
 
 .city-card__desc {

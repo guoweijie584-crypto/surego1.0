@@ -3,7 +3,7 @@
     <view class="subpage-topbar" :style="navStyle">
       <view class="subpage-topbar__row" :style="navRowStyle">
         <view class="floating-back" @tap="goBackOrFallback('/pages/home/index')">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
           <text>返回</text>
         </view>
         <text>天大毕业季</text>
@@ -16,9 +16,9 @@
         <text class="hero-title">毕业前，再和同校同学约一次</text>
         <text class="hero-desc">约拍、散伙饭、自习收尾和小聚都放在这里。看到合适的活动，可以直接报名或加入候补。</text>
         <view class="hackathon-stats">
-          <view><text>{{ graduationActivities.length }}</text><text>本校活动</text></view>
-          <view><text>{{ soonCount }}</text><text>今晚/明天</text></view>
-          <view><text>{{ openCount }}</text><text>可报名/候补</text></view>
+          <view><text>{{ graduationActivities.length }}</text><text>毕业活动</text></view>
+          <view><text>{{ soonCount }}</text><text>最近开始</text></view>
+          <view><text>{{ openCount }}</text><text>仍可加入</text></view>
         </view>
       </view>
 
@@ -28,13 +28,14 @@
 
       <view class="stack">
         <SuActivityCard v-for="item in graduationActivities" :key="item.id" :activity="item" />
-        <view v-if="graduationActivities.length === 0" class="empty-card">暂无毕业季活动。</view>
+        <view v-if="graduationActivities.length === 0" class="empty-card">暂无毕业季活动</view>
       </view>
     </scroll-view>
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
@@ -48,10 +49,15 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPadd
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
 const graduationActivities = computed(() => {
-  const preferred = activities.value.filter((item) => ['展览', '美食', '学习', '户外'].includes(item.category))
+  const preferred = activities.value.filter((item) => ['约拍', '聚餐', '展览', '运动'].includes(item.category))
   return (preferred.length ? preferred : activities.value).slice(0, 4)
 })
-const soonCount = computed(() => graduationActivities.value.filter((item) => ['今晚', '明天'].some((word) => `${item.date}${item.dayOfWeek}`.includes(word))).length || Math.min(2, graduationActivities.value.length))
+
+const soonCount = computed(() => {
+  const count = graduationActivities.value.filter((item) => ['今天', '明天', '本周'].some((word) => `${item.date}${item.dayOfWeek}`.includes(word))).length
+  return count || Math.min(2, graduationActivities.value.length)
+})
+
 const openCount = computed(() => graduationActivities.value.filter((item) => !item.hasParticipantLimit || Number(item.participantCount || 0) < Number(item.maxParticipants || 0)).length)
 
 async function loadData() {
@@ -77,7 +83,7 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 .hackathon-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 8rpx; }
 .hackathon-stats view { padding: 20rpx 16rpx; border-radius: 24rpx; background: #f3f6fa; }
 .hackathon-stats text { display: block; }
-.hackathon-stats text:first-child { color: #102033; font-size: 36rpx; font-style: italic; font-weight: 950; }
+.hackathon-stats text:first-child { color: #102033; font-size: 36rpx; font-weight: 950; }
 .hackathon-stats text:last-child { margin-top: 4rpx; color: #94a3b8; font-size: 19rpx; font-weight: 900; }
 .section-title { margin: 40rpx 0 22rpx; color: #102033; font-size: 34rpx; font-weight: 950; }
 .stack { display: flex; flex-direction: column; gap: 24rpx; padding-bottom: 60rpx; }

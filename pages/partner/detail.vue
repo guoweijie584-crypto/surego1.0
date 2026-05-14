@@ -3,10 +3,10 @@
     <view class="detail__nav" :style="navStyle">
       <view class="detail__nav-row" :style="navRowStyle">
         <view class="detail__back" @tap="goBackOrFallback('/pages/partners/index')">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view v-if="partner.isCreator" class="detail__manage" @tap="goPartnerWorkbench(partner.id)">
-          <uni-icons type="gear-filled" size="17" color="#111827" />
+          <SuIcon name="settings" size="34" glyph-size="17" variant="inline" color="#111827" />
           <text>管理</text>
         </view>
       </view>
@@ -14,51 +14,54 @@
 
     <scroll-view scroll-y class="detail__scroll" :style="contentTopStyle">
       <view v-if="!partner.id" class="detail__empty">
-        <uni-icons type="info" size="42" color="#cbd5e1" />
-        <text>搭子帖不存在或已下线</text>
+        <SuIcon name="info" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
+        <text>搭子需求不存在或已下线</text>
       </view>
       <view v-else>
         <view class="detail__hero">
           <view class="detail__author">
             <image class="detail__avatar" :src="partner.avatar" mode="aspectFill" />
             <view>
-              <text class="detail__name">{{ partner.creator }}</text>
-              <text class="detail__meta">{{ partner.city }} · {{ partner.typeLabel }}</text>
+              <text class="detail__name">{{ partner.author || partner.creator }}</text>
+              <text class="detail__meta">{{ partner.school || `${partner.city} · 学生认证` }}</text>
             </view>
           </view>
           <text class="detail__title">{{ partner.title }}</text>
-          <text class="detail__bio">{{ partner.description || partner.expectation }}</text>
+          <text class="detail__bio">{{ partner.detail || partner.description }}</text>
           <view class="detail__tags">
-            <text v-for="tag in partner.fitTags" :key="tag">{{ tag }}</text>
+            <text v-for="tag in displayTags" :key="tag">{{ tag }}</text>
           </view>
         </view>
 
         <view class="detail__panel detail__panel--priority">
           <view>
-            <uni-icons type="calendar" size="18" color="#2388ff" />
-            <text>{{ partner.schedule }}</text>
+            <SuIcon name="calendar" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <text>{{ partner.available || partner.schedule }}</text>
             <text>可约时间</text>
           </view>
           <view>
-            <uni-icons type="location" size="18" color="#2388ff" />
-            <text>{{ partner.location }}</text>
+            <SuIcon name="location" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <text>{{ partner.locationRange || partner.location }}</text>
             <text>地点范围</text>
           </view>
           <view>
-            <uni-icons type="personadd" size="18" color="#2388ff" />
-            <text>{{ partner.intentCount }} 人感兴趣</text>
+            <SuIcon name="people" size="36" glyph-size="18" variant="inline" color="#2388ff" />
+            <text>{{ partner.interested || partner.intentCount }} 人感兴趣</text>
             <text>对方会先看申请，再决定是否联系</text>
           </view>
         </view>
 
         <view class="detail__panel">
-          <text class="detail__panel-title">想找什么搭子</text>
-          <text class="detail__copy">{{ partner.description }}</text>
+          <text class="detail__panel-title">需求详情</text>
+          <text class="detail__copy">{{ partner.detail || partner.description }}</text>
         </view>
 
         <view class="detail__panel">
-          <text class="detail__panel-title">适合什么人</text>
+          <text class="detail__panel-title">希望对方</text>
           <text class="detail__copy">{{ partner.expectation }}</text>
+          <view v-if="displayWants.length" class="detail__tags detail__tags--inline">
+            <text v-for="tag in displayWants" :key="tag">{{ tag }}</text>
+          </view>
         </view>
 
         <view class="rule-card">
@@ -66,21 +69,21 @@
             <text>怎么联系</text>
             <text>{{ connectionHelp }}</text>
           </view>
-          <text>{{ partner.connectionMode }}</text>
+          <text>{{ partner.connectionRule || partner.connectionMode }}</text>
           <text class="rule-card__pill">聊清楚后再一起约时间</text>
         </view>
 
         <view class="partner-action-grid">
           <view class="partner-action partner-action--primary" @tap="handleFollow">
-            <uni-icons type="star-filled" size="17" color="#fff" />
+            <SuIcon name="sceneAll" size="34" glyph-size="17" variant="inline" color="#fff" />
             <text>关注</text>
           </view>
           <view class="partner-action" @tap="handlePrivateChat">
-            <uni-icons type="chat" size="17" color="#102033" />
+            <SuIcon name="chat" size="34" glyph-size="17" variant="inline" color="#102033" />
             <text>私聊</text>
           </view>
           <view class="partner-action" @tap="handleGroupChat">
-            <uni-icons type="staff" size="17" color="#102033" />
+            <SuIcon name="people" size="34" glyph-size="17" variant="inline" color="#102033" />
             <text>群聊</text>
           </view>
           <view class="partner-action partner-action--primary" @tap="partner.isCreator ? goPartnerWorkbench(partner.id) : handleIntent()">
@@ -92,7 +95,7 @@
 
     <view v-if="partner.id" class="detail__bar su-safe-bottom">
       <view class="detail__secondary" @tap="handleFollow">
-        <uni-icons type="heart" size="20" color="#111827" />
+        <SuIcon name="heart" size="40" glyph-size="20" variant="inline" color="#111827" />
         <text>关注</text>
       </view>
       <view class="detail__primary" @tap="partner.isCreator ? goPartnerWorkbench(partner.id) : handleIntent()">
@@ -103,6 +106,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { createPartnerIntent, followPartnerPost, getPartnerPostDetail } from '@/common/api/partner.js'
@@ -114,12 +118,26 @@ const currentId = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
+const displayTags = computed(() => {
+  const tags = Array.isArray(partner.value.fitTags) && partner.value.fitTags.length
+    ? partner.value.fitTags
+    : partner.value.tags || []
+  return (Array.isArray(tags) ? tags : []).filter(Boolean).slice(0, 4)
+})
+const displayWants = computed(() => (
+  (Array.isArray(partner.value.wants) ? partner.value.wants : []).filter(Boolean).slice(0, 4)
+))
 const connectionHelp = computed(() => {
   if (partner.value.type === 'long_term') return '先申请认识，合适后稳定约'
   if (partner.value.type === 'project') return '先看角色和投入时间，再确认组队'
   return '先约一次，确认合适再继续'
 })
-const primaryActionText = computed(() => (partner.value.isCreator ? '进入工作台' : '发送意向'))
+const primaryActionText = computed(() => {
+  if (partner.value.isCreator) return '进入工作台'
+  if (partner.value.type === 'long_term') return '申请认识'
+  if (partner.value.type === 'project') return '申请加入'
+  return '提交意向'
+})
 
 async function loadData() {
   partner.value = await getPartnerPostDetail(currentId.value) || {}
@@ -177,9 +195,10 @@ function handleGroupChat() {
 .detail__avatar { width: 78rpx; height: 78rpx; border: 4rpx solid rgba(255, 255, 255, 0.28); border-radius: 50%; background: #f1f5f9; }
 .detail__name { display: block; color: #102033; font-size: 26rpx; font-weight: 900; }
 .detail__meta { display: block; margin-top: 6rpx; color: #64748b; font-size: 20rpx; font-weight: 800; }
-.detail__title { display: block; margin-top: 34rpx; color: #102033; font-size: 45rpx; font-style: italic; font-weight: 900; line-height: 1.24; }
+.detail__title { display: block; margin-top: 34rpx; color: #102033; font-size: 45rpx; font-weight: 900; line-height: 1.24; }
 .detail__bio { display: block; margin-top: 18rpx; color: #64748b; font-size: 24rpx; font-weight: 800; line-height: 1.52; }
 .detail__tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 28rpx; }
+.detail__tags--inline { margin-top: 20rpx; }
 .detail__tags text { padding: 9rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
 .detail__panel { margin: 0 34rpx 22rpx; padding: 30rpx; border: 1rpx solid #eef2f7; border-radius: 34rpx; background: #fff; box-shadow: 0 16rpx 42rpx rgba(15, 23, 42, 0.05); }
 .detail__panel--priority { display: grid; gap: 18rpx; }
@@ -187,7 +206,7 @@ function handleGroupChat() {
 .detail__panel--priority view:last-child { padding-bottom: 0; border-bottom: 0; }
 .detail__panel--priority view text:nth-child(2) { color: #102033; font-size: 25rpx; font-weight: 900; }
 .detail__panel--priority view text:nth-child(3) { grid-column: 2; margin-top: 5rpx; color: #94a3b8; font-size: 21rpx; font-weight: 800; line-height: 1.35; }
-.detail__panel-title { display: block; color: #111827; font-size: 29rpx; font-style: italic; font-weight: 900; }
+.detail__panel-title { display: block; color: #111827; font-size: 29rpx; font-weight: 900; }
 .detail__copy { display: block; margin-top: 16rpx; color: #64748b; font-size: 25rpx; font-weight: 800; line-height: 1.6; }
 .detail__grid { display: grid; gap: 18rpx; margin-top: 20rpx; }
 .detail__grid-item { display: flex; justify-content: space-between; gap: 24rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #f1f5f9; }
@@ -198,7 +217,7 @@ function handleGroupChat() {
 .rule-card { margin: 0 34rpx 22rpx; padding: 30rpx; border: 1rpx solid rgba(35, 136, 255, 0.18); border-radius: 34rpx; background: #eef7ff; box-shadow: 0 16rpx 42rpx rgba(35, 136, 255, 0.08); }
 .rule-card view { display: flex; flex-direction: column; gap: 8rpx; }
 .rule-card view text:first-child { color: #64748b; font-size: 21rpx; font-weight: 900; }
-.rule-card view text:last-child { color: #102033; font-size: 30rpx; font-style: italic; font-weight: 900; line-height: 1.3; }
+.rule-card view text:last-child { color: #102033; font-size: 30rpx; font-weight: 900; line-height: 1.3; }
 .rule-card > text:nth-child(2) { display: block; margin-top: 18rpx; color: #64748b; font-size: 24rpx; font-weight: 800; line-height: 1.55; }
 .rule-card__pill { display: inline-flex !important; margin-top: 20rpx !important; padding: 10rpx 18rpx; border-radius: 999rpx; background: #2388ff; color: #fff !important; font-size: 21rpx !important; font-weight: 900 !important; }
 .partner-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin: 0 34rpx 40rpx; }

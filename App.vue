@@ -43,6 +43,7 @@ button {
   border: 0;
   line-height: 1;
   background: transparent;
+  white-space: nowrap;
 }
 
 button::after {
@@ -303,6 +304,7 @@ button::after {
   display: inline-flex;
   width: fit-content;
   max-width: 100%;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8rpx;
   border-radius: 999rpx;
@@ -312,6 +314,7 @@ button::after {
   font-size: 21rpx;
   font-weight: 950;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .ref-pill--blue {
@@ -359,6 +362,7 @@ button::after {
 .ref-secondary {
   display: flex;
   min-height: 88rpx;
+  min-width: 0;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
@@ -367,6 +371,48 @@ button::after {
   font-size: 26rpx;
   font-weight: 950;
   line-height: 1.15;
+  white-space: nowrap;
+}
+
+.ref-primary > text,
+.ref-secondary > text,
+.primary-button > text,
+.secondary-button > text,
+.detail__primary > text,
+.detail__secondary > text,
+.partner-action > text,
+.create__button > text,
+.publish-btn > text,
+.save-btn > text,
+button > text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-top-action,
+.ref-filter-row text,
+.activity-card__action,
+.partner-post-card__kind,
+.partner-post-card__wants text,
+.rule-card__pill,
+.primary-button,
+.secondary-button,
+.detail__primary,
+.detail__secondary,
+.partner-action,
+.convert-button,
+.create__button,
+.publish-btn,
+.save-btn,
+.sheet-item,
+.more-list__item,
+.member-modal__button,
+.login-card__button,
+.complete-card__button,
+.filter-row__button {
+  white-space: nowrap;
 }
 
 .ref-primary {

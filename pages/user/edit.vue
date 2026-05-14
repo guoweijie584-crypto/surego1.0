@@ -1,12 +1,12 @@
 ﻿<template>
   <view v-if="isPageLoading" class="edit-profile su-page">
-    <SuPageLoading :style="contentTopStyle" text="?????..." />
+    <SuPageLoading :style="contentTopStyle" text="资料加载中..." />
   </view>
   <view v-else class="edit-profile su-page">
     <view class="edit-profile__nav" :style="navStyle">
       <view class="edit-profile__nav-row" :style="navRowStyle">
         <view class="edit-profile__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <text>编辑资料</text>
         <view class="edit-profile__back" />
@@ -18,7 +18,7 @@
         <button class="avatar-box" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
           <image class="avatar-box__image" :src="form.avatar" mode="aspectFill" />
           <view class="avatar-box__mask">
-            <uni-icons type="camera-filled" size="22" color="#fff" />
+            <SuIcon name="camera-filled" size="44" glyph-size="22" variant="inline" color="#fff" />
           </view>
         </button>
 
@@ -53,6 +53,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, updateCurrentUser } from '@/common/api/user.js'

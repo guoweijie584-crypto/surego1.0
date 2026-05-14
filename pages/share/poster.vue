@@ -1,16 +1,16 @@
 <template>
   <view v-if="isPageLoading" class="poster su-page">
-    <SuPageLoading :style="contentTopStyle" text="?????..." />
+    <SuPageLoading :style="contentTopStyle" text="海报生成中..." />
   </view>
   <view v-else class="poster su-page">
     <view class="poster__nav" :style="navStyle">
       <view class="poster__nav-row" :style="navRowStyle">
       <view class="poster__nav-btn" @tap="handleBack">
-        <uni-icons type="left" size="24" color="#0f172a" />
+        <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#0f172a" />
       </view>
       <text class="poster__nav-title">活动海报</text>
       <view class="poster__nav-btn" @tap="copySharePath">
-        <uni-icons type="link" size="20" color="#0f172a" />
+        <SuIcon name="link" size="40" glyph-size="20" variant="inline" color="#0f172a" />
       </view>
       </view>
     </view>
@@ -32,11 +32,11 @@
         <view class="poster-card__body">
           <text class="poster-card__title">{{ activity.title }}</text>
           <view class="poster-card__meta">
-            <uni-icons type="calendar" size="17" color="#94a3b8" />
+            <SuIcon name="calendar" size="34" glyph-size="17" variant="inline" color="#94a3b8" />
             <text>{{ activity.date }} {{ activity.time }} - {{ activity.endTime }}</text>
           </view>
           <view class="poster-card__meta">
-            <uni-icons type="location" size="17" color="#94a3b8" />
+            <SuIcon name="location" size="34" glyph-size="17" variant="inline" color="#94a3b8" />
             <text class="su-line-1">{{ activity.location }}</text>
           </view>
 
@@ -61,7 +61,7 @@
 
           <view class="poster-card__footer">
             <view class="poster-card__qr">
-              <uni-icons type="weixin" size="34" color="#0f172a" />
+              <SuIcon name="wechat" size="68" glyph-size="34" variant="inline" color="#0f172a" />
             </view>
             <view class="poster-card__footer-copy">
               <text>微信扫码或搜索 SureGo</text>
@@ -73,15 +73,15 @@
 
       <view class="action-panel">
         <button class="action-panel__button action-panel__button--primary" open-type="share">
-          <uni-icons type="weixin" size="20" color="#fff" />
+          <SuIcon name="wechat" size="40" glyph-size="20" variant="inline" color="#fff" />
           <text>转发给微信好友</text>
         </button>
         <view class="action-panel__button" @tap="copySharePath">
-          <uni-icons type="link" size="20" color="#0f172a" />
+          <SuIcon name="link" size="40" glyph-size="20" variant="inline" color="#0f172a" />
           <text>复制分享路径</text>
         </view>
         <view class="action-panel__button" @tap="savePosterPreview">
-          <uni-icons type="download" size="20" color="#0f172a" />
+          <SuIcon name="download" size="40" glyph-size="20" variant="inline" color="#0f172a" />
           <text>{{ isGenerating ? '生成中...' : '保存海报图片' }}</text>
         </view>
       </view>
@@ -92,6 +92,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, nextTick, ref } from 'vue'
 import { onLoad, onShareAppMessage, onShareTimeline } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
@@ -451,9 +452,7 @@ async function savePosterPreview() {
 .poster-card__stats text:first-child {
   display: block;
   color: #0f172a;
-  font-size: 32rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 32rpx; font-weight: 900;
 }
 
 .poster-card__stats text:last-child {

@@ -20,26 +20,35 @@
     </view>
 
     <view class="partner-meta-grid">
-      <view>
-        <text class="su-line-1">{{ partner.available || partner.schedule }}</text>
-        <text>可约时间</text>
+      <view class="partner-meta-grid__item">
+        <SuIcon name="calendar" size="40" glyph-size="18" variant="soft" />
+        <view class="partner-meta-grid__copy">
+          <text class="partner-meta-grid__value su-line-1">{{ partner.available || partner.schedule }}</text>
+          <text class="partner-meta-grid__label">可约时间</text>
+        </view>
       </view>
-      <view>
-        <text class="su-line-1">{{ partner.locationRange || partner.location }}</text>
-        <text>地点范围</text>
+      <view class="partner-meta-grid__item">
+        <SuIcon name="location" size="40" glyph-size="18" variant="soft" />
+        <view class="partner-meta-grid__copy">
+          <text class="partner-meta-grid__value su-line-1">{{ partner.locationRange || partner.location }}</text>
+          <text class="partner-meta-grid__label">地点范围</text>
+        </view>
       </view>
     </view>
 
     <view class="contract-row">
-      <text>{{ partner.interested || partner.intentCount || 0 }} 人感兴趣</text>
-      <text>{{ partner.connectionRule || partner.connectionMode }}</text>
-      <text>{{ actionLabel }}</text>
+      <view class="contract-row__copy">
+        <text>{{ partner.interested || partner.intentCount || 0 }} 人感兴趣</text>
+        <text>{{ partner.connectionRule || partner.connectionMode }}</text>
+      </view>
+      <text class="contract-row__action">{{ actionLabel }}</text>
     </view>
   </view>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { goPartnerDetail } from '@/common/utils/route.js'
 
 const props = defineProps({
@@ -185,18 +194,25 @@ function openDetail() {
   gap: 16rpx;
 }
 
-.partner-meta-grid view {
+.partner-meta-grid__item {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
   min-width: 0;
   padding: 20rpx;
   border-radius: 32rpx;
   background: #edf6ff;
 }
 
-.partner-meta-grid text {
+.partner-meta-grid__copy {
+  min-width: 0;
+}
+
+.partner-meta-grid__copy text {
   display: block;
 }
 
-.partner-meta-grid text:first-child {
+.partner-meta-grid__value {
   overflow: hidden;
   color: #102033;
   font-size: 24rpx;
@@ -205,7 +221,7 @@ function openDetail() {
   white-space: nowrap;
 }
 
-.partner-meta-grid text:last-child {
+.partner-meta-grid__label {
   margin-top: 8rpx;
   color: #64748b;
   font-size: 20rpx;
@@ -232,39 +248,52 @@ function openDetail() {
 }
 
 .contract-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: start;
-  gap: 8rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18rpx;
   padding-top: 20rpx;
   border-top: 1rpx solid #dbeafe;
 }
 
-.contract-row > text {
+.contract-row__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.contract-row__copy text {
   display: block;
 }
 
-.contract-row > text:first-child {
+.contract-row__copy text:first-child {
   color: #102033;
   font-size: 25rpx;
   font-weight: 950;
 }
 
-.contract-row > text:nth-child(2) {
+.contract-row__copy text:last-child {
+  margin-top: 7rpx;
   color: #64748b;
   font-size: 20rpx;
   font-weight: 850;
   line-height: 1.45;
 }
 
-.contract-row > text:last-child {
-  width: 120rpx;
-  margin-top: 10rpx;
+.contract-row__action {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 152rpx;
+  max-width: 210rpx;
   padding: 16rpx 22rpx;
   border-radius: 999rpx;
   background: #2388ff;
   color: #fff;
   font-size: 21rpx;
   font-weight: 950;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

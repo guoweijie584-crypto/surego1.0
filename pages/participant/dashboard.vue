@@ -6,11 +6,11 @@
     <view class="ref-topbar" :style="navStyle">
       <view class="ref-topbar__row" :style="navRowStyle">
         <view class="ref-back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
         <text class="ref-topbar__title">到场凭证</text>
         <view class="ref-icon-button pass-message" @tap="goMessages">
-          <uni-icons type="notification-filled" size="20" color="#102033" />
+          <SuIcon name="bell" size="40" glyph-size="20" variant="inline" color="#102033" />
           <view v-if="unreadCount > 0" class="message-badge">
             <text>{{ unreadCount > 99 ? '99+' : unreadCount }}</text>
           </view>
@@ -35,7 +35,7 @@
       <view class="ref-qr-card ref-card pass-gap">
         <SuQrCode v-if="showEntryQr" class="code-box__qr" :value="entryCode" :size="184" />
         <view v-else class="locked-qr">
-          <uni-icons :type="primaryIcon" size="46" color="#94a3b8" />
+          <SuIcon :name="primaryIcon" size="92" glyph-size="46" variant="inline" color="#94a3b8" />
         </view>
         <text class="ref-qr-card__code">{{ entryCode || '等待审核通过后生成' }}</text>
         <text class="ref-qr-card__hint">{{ entryHint }}</text>
@@ -61,22 +61,22 @@
 
       <view class="ref-action-grid pass-gap">
         <view class="ref-action-grid__item" @tap="showToast('导航能力正在接入')">
-          <uni-icons type="map-pin-ellipse" size="20" color="#2388ff" />
+          <SuIcon name="location" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>打开导航</text>
           <text>{{ activity.location }}</text>
         </view>
         <view class="ref-action-grid__item" @tap="showToast(paymentState.desc)">
-          <uni-icons type="auth-filled" size="20" color="#2388ff" />
+          <SuIcon name="shield" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>退出规则</text>
           <text>{{ paymentState.label }}</text>
         </view>
         <view class="ref-action-grid__item" @tap="showToast('申诉入口正在接入')">
-          <uni-icons type="help" size="20" color="#2388ff" />
+          <SuIcon name="help" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>发起申诉</text>
           <text>核销或订单异常</text>
         </view>
         <view class="ref-action-grid__item" @tap="handlePrimaryAction">
-          <uni-icons :type="primaryIcon" size="20" color="#2388ff" />
+          <SuIcon :name="primaryIcon" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>{{ primaryActionText }}</text>
           <text>{{ entryLabel }}</text>
         </view>
@@ -91,7 +91,7 @@
         <text class="ref-info-card__title">核销后继续联系</text>
         <text class="ref-info-card__text">到场确认后可查看发起人放置的二维码或群二维码，由你自己决定是否继续联系。</text>
         <view class="contact-lock">
-          <uni-icons type="scan" size="26" color="#2388ff" />
+          <SuIcon name="scan" size="52" glyph-size="26" variant="inline" color="#2388ff" />
           <text>核销后可看</text>
         </view>
       </view>
@@ -102,7 +102,7 @@
           <text @tap="goMessages">进入通知</text>
         </view>
         <view v-if="relatedMessages.length === 0" class="ref-empty">
-          <uni-icons type="notification-filled" size="38" color="#cbd5e1" />
+          <SuIcon name="bell" size="76" glyph-size="38" variant="inline" color="#cbd5e1" />
           <text>暂无活动相关消息</text>
         </view>
         <view v-for="item in relatedMessages" :key="item.id" class="pass-message-card" @tap="handleMessageTap(item)">
@@ -117,6 +117,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'

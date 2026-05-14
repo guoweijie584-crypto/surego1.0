@@ -4,7 +4,7 @@
       <view class="ref-topbar__row" :style="navRowStyle">
         <text class="ref-topbar__title">通知</text>
         <view class="ref-top-action" @tap="handleMarkAllRead">
-          <uni-icons type="checkmarkempty" size="14" color="#2388ff" />
+          <SuIcon name="check" size="30" glyph-size="14" variant="inline" color="#2388ff" />
           <text>{{ allRead ? '已全部读' : '全部已读' }}</text>
         </view>
       </view>
@@ -24,7 +24,7 @@
 
       <view class="ref-stack">
         <view v-if="filteredMessages.length === 0" class="ref-empty ref-card">
-          <uni-icons type="info" size="40" color="#cbd5e1" />
+          <SuIcon name="info" size="80" glyph-size="40" variant="inline" color="#cbd5e1" />
           <text>暂无相关通知</text>
         </view>
 
@@ -48,6 +48,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'

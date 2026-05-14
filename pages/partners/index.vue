@@ -4,14 +4,14 @@
       <view class="partners__top-row" :style="navRowStyle">
         <view class="brand-lockup" @tap="goUserProfile">
           <text>搭子</text>
-          <text>{{ selectedCity || '本校' }}</text>
+          <text>{{ selectedSchool }}</text>
         </view>
         <view class="top-search" @tap="showComingSoon('搭子搜索正在接入')">
-          <uni-icons type="search" size="17" color="#64748b" />
+          <SuIcon name="search" size="34" glyph-size="17" variant="inline" color="#64748b" />
           <input disabled placeholder="搜饭搭子 / 项目组队" placeholder-class="top-search__placeholder" />
         </view>
         <view class="top-icon" :style="navActionsStyle" @tap="goMessages">
-          <uni-icons type="notification-filled" size="20" color="#102033" />
+          <SuIcon name="bell" size="50" glyph-size="22" variant="soft" />
           <view v-if="unreadCount > 0" class="top-icon__badge">
             <text>{{ unreadLabel }}</text>
           </view>
@@ -21,41 +21,21 @@
 
     <scroll-view scroll-y class="partners__scroll">
       <view class="partners__content" :style="contentTopStyle">
-        <view class="featured-card" @tap="goHackathon">
-          <image class="featured-card__image" src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=82&w=900" mode="aspectFill" />
-          <view class="featured-card__shade" />
-          <view class="featured-card__content">
-            <text class="featured-card__eyebrow">主题推荐</text>
-            <view class="featured-card__copy">
-              <text class="featured-card__title">天津高校 AI 黑客松组队中</text>
-              <text class="featured-card__desc">找产品、前端、算法、设计、路演队友。按方向和角色快速上车。</text>
+        <view class="feature-card" @tap="goHackathon">
+          <image class="feature-card__image" src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=82&w=900" mode="aspectFill" />
+          <view class="feature-card__shade" />
+          <view class="feature-card__content">
+            <text class="feature-card__pill">主题推荐</text>
+            <view class="feature-card__title-group">
+              <text class="feature-card__title-line">天津高校 AI 黑客松</text>
+              <text class="feature-card__title-line feature-card__title-line--strong">组队中</text>
             </view>
-            <view class="hero-live-row">
-              <text>12 支队伍</text>
-              <text>缺 28 位队友</text>
-              <text>周末开赛</text>
+            <text class="feature-card__desc">找产品、前端、算法、设计、路演队友。按方向和角色快速上车。</text>
+            <view class="feature-card__stats-bar">
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">12</text> 支队伍</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">28</text> 缺队友</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text">周末开赛</text></view>
             </view>
-          </view>
-          <view class="featured-card__badge">
-            <uni-icons type="star-filled" size="22" color="#fff" />
-            <text>Hackathon</text>
-          </view>
-        </view>
-
-        <view class="quick-post-card" @tap="goPartnerCreate">
-          <view class="quick-post-card__icon">
-            <uni-icons type="plusempty" size="23" color="#fff" />
-          </view>
-          <view>
-            <text>你想找什么搭子？</text>
-            <text>约个时间、长期搭子、项目组队都从这里发。</text>
-          </view>
-          <uni-icons type="right" size="18" color="#94a3b8" />
-        </view>
-
-        <view class="section-title">
-          <view>
-            <text class="section-title__title">场景分类</text>
           </view>
         </view>
 
@@ -68,6 +48,12 @@
               :class="{ active: activeScene === item.key }"
               @tap="activeScene = item.key"
             >
+              <SuIcon
+                :name="item.icon"
+                size="34"
+                glyph-size="16"
+                :variant="activeScene === item.key ? 'solid' : 'soft'"
+              />
               <text>{{ item.label }}</text>
             </view>
           </view>
@@ -76,14 +62,13 @@
         <view class="section-title section-title--inline">
           <view>
             <text class="section-title__eyebrow">正在找</text>
-            <text class="section-title__title">本校同学想找这些搭子</text>
           </view>
         </view>
 
         <view class="partners__list">
           <SuPartnerCard v-for="item in filteredPosts" :key="item.id" :partner="item" />
           <view v-if="filteredPosts.length === 0" class="empty-card">
-            <uni-icons type="personadd" size="42" color="#cbd5e1" />
+            <SuIcon name="emptyPartner" size="88" glyph-size="42" variant="soft" color="#94a3b8" />
             <text>这个分类暂时还没人发布。</text>
           </view>
         </view>
@@ -98,14 +83,14 @@
 import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
+import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goPartnerCreate, goUserProfile, showComingSoon } from '@/common/utils/route.js'
 
-const CITY_KEY = 'surego_selected_city'
-const selectedCity = ref('天津大学')
+const selectedSchool = '天津大学'
 const posts = ref([])
 const unreadCount = ref(0)
 const activeScene = ref('all')
@@ -116,14 +101,14 @@ const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 620 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 const sceneFilters = [
-  { key: 'all', label: '全部' },
-  { key: 'food', label: '饭搭子' },
-  { key: 'sport', label: '运动' },
-  { key: 'study', label: '学习' },
-  { key: 'game', label: '游戏' },
-  { key: 'fun', label: '娱乐' },
-  { key: 'project', label: '项目组队' },
-  { key: 'longterm', label: '长期搭子' }
+  { key: 'all', label: '全部', icon: 'sceneAll' },
+  { key: 'food', label: '饭搭子', icon: 'sceneFood' },
+  { key: 'sport', label: '运动', icon: 'sceneSport' },
+  { key: 'study', label: '学习', icon: 'sceneStudy' },
+  { key: 'game', label: '游戏', icon: 'sceneGame' },
+  { key: 'fun', label: '娱乐', icon: 'sceneFun' },
+  { key: 'project', label: '项目组队', icon: 'sceneProject' },
+  { key: 'longterm', label: '长期搭子', icon: 'sceneLongterm' }
 ]
 
 const filteredPosts = computed(() => {
@@ -134,7 +119,6 @@ const filteredPosts = computed(() => {
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 async function loadData() {
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津大学'
   const [items, unread] = await Promise.all([
     listPartnerPosts(),
     getUnreadMessageCount()
@@ -286,153 +270,114 @@ function matchesScene(item = {}, scene = 'all') {
   padding-left: 34rpx;
 }
 
-.featured-card {
+.feature-card {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 172rpx;
-  gap: 28rpx;
+  min-height: 386rpx;
   overflow: hidden;
-  min-height: 440rpx;
-  padding: 40rpx;
-  border-radius: 56rpx;
-  color: #fff;
-  box-shadow: 0 28rpx 60rpx rgba(37, 99, 235, 0.2);
-  box-sizing: border-box;
+  border-radius: 44rpx;
+  background: #dbeafe;
+  box-shadow: 0 20rpx 44rpx rgba(35, 136, 255, 0.14);
 }
 
-.featured-card__image,
-.featured-card__shade {
+.feature-card__image,
+.feature-card__shade {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
 
-.featured-card__shade {
-  background: linear-gradient(135deg, rgba(24, 24, 27, 0.72), rgba(37, 99, 235, 0.54));
+.feature-card__shade {
+  background:
+    linear-gradient(180deg, rgba(13, 45, 92, 0.64), rgba(13, 45, 92, 0.3) 42%, rgba(9, 37, 90, 0.24) 100%),
+    linear-gradient(135deg, rgba(35, 136, 255, 0.28), rgba(37, 99, 235, 0.1));
 }
 
-.featured-card__content {
+.feature-card__content {
   position: relative;
-  z-index: 1;
-  display: grid;
-  align-content: space-between;
-  gap: 20rpx;
-  min-width: 0;
+  z-index: 2;
+  display: flex;
+  min-height: 386rpx;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 32rpx 30rpx 28rpx;
+  color: #fff;
 }
 
-.featured-card__eyebrow {
-  display: flex;
-  width: 112rpx;
-  align-items: center;
-  justify-content: center;
-  padding: 14rpx 20rpx;
+.feature-card__pill {
+  align-self: flex-start;
+  padding: 10rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.18);
-  font-size: 22rpx;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  font-size: 18rpx;
   font-weight: 950;
   backdrop-filter: blur(12px);
 }
 
-.featured-card__copy {
+.feature-card__title-group {
   display: grid;
-  gap: 14rpx;
+  gap: 2rpx;
+  margin-top: 14rpx;
+  max-width: 560rpx;
 }
 
-.featured-card__title {
+.feature-card__title-line {
   display: block;
-  font-size: 56rpx;
+  font-size: 37rpx;
   font-weight: 950;
   line-height: 1.08;
+  text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.24);
 }
 
-.featured-card__desc {
+.feature-card__title-line--strong {
+  font-size: 46rpx;
+}
+
+.feature-card__desc {
   display: block;
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 26rpx;
+  margin-top: 12rpx;
+  max-width: 560rpx;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 20rpx;
   font-weight: 850;
   line-height: 1.45;
+  text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.18);
 }
 
-.hero-live-row {
+.feature-card__stats-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: 10rpx;
+  margin-top: 18rpx;
 }
 
-.hero-live-row text {
+.feature-card__stat-chip {
+  display: inline-flex;
+  min-height: 52rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 16rpx 20rpx;
-  color: #12342e;
-  font-size: 22rpx;
-  font-weight: 950;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8rpx 20rpx rgba(11, 51, 122, 0.14);
+}
+
+.feature-card__stat-chip-text {
+  color: #274d8f;
+  font-size: 18rpx;
+  font-weight: 900;
   line-height: 1;
 }
 
-.featured-card__badge {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  align-self: end;
-  justify-items: center;
-  gap: 14rpx;
-  padding: 28rpx 16rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.18);
-  border-radius: 44rpx;
-  background: rgba(255, 255, 255, 0.16);
-  text-align: center;
-  backdrop-filter: blur(16px);
-}
-
-.featured-card__badge text {
-  color: #fff;
-  font-size: 22rpx;
-  font-weight: 950;
-}
-
-.quick-post-card {
-  display: grid;
-  grid-template-columns: 72rpx minmax(0, 1fr) 24rpx;
-  align-items: center;
-  gap: 20rpx;
-  margin-top: 28rpx;
-  padding: 28rpx;
-  border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 36rpx;
-  background: #fff;
-  box-shadow: 0 18rpx 46rpx rgba(30, 88, 156, 0.08);
-}
-
-.quick-post-card__icon {
-  display: flex;
-  width: 72rpx;
-  height: 72rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24rpx;
-  background: #2388ff;
-}
-
-.quick-post-card text {
-  display: block;
-}
-
-.quick-post-card text:first-child {
+.feature-card__stat-chip-num {
   color: #102033;
-  font-size: 28rpx;
+  font-size: 21rpx;
   font-weight: 950;
-}
-
-.quick-post-card text:last-child {
-  margin-top: 7rpx;
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 850;
-  line-height: 1.4;
+  line-height: 1;
+  vertical-align: baseline;
 }
 
 .section-title {
@@ -483,7 +428,12 @@ function matchesScene(item = {}, scene = 'all') {
   margin-top: 7rpx;
 }
 
+.section-title--inline {
+  margin-bottom: 18rpx;
+}
+
 .scene-scroll-row {
+  margin-top: 28rpx;
   margin-right: -34rpx;
   margin-left: -34rpx;
   white-space: nowrap;

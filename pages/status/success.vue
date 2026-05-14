@@ -6,10 +6,10 @@
     <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab success-scroll" :style="contentTopStyle">
       <view class="ref-success-card ref-card">
         <view class="ref-success-card__mark">
-          <uni-icons type="checkmarkempty" size="40" color="#fff" />
+          <SuIcon name="check" size="80" glyph-size="40" variant="inline" color="#fff" />
         </view>
         <text class="ref-success-card__title">{{ title }}</text>
-        <text class="ref-success-card__text">{{ description }}</text>
+        <text v-if="description" class="ref-success-card__text">{{ description }}</text>
       </view>
 
       <view v-if="isCreate && activity" class="poster-preview ref-card">
@@ -19,7 +19,7 @@
           <text class="poster-preview__meta">{{ activity.date }} {{ activity.time }} · {{ activity.location }}</text>
         </view>
         <view class="poster-preview__qr">
-          <uni-icons type="scan" size="36" color="#102033" />
+          <SuIcon name="scan" size="72" glyph-size="36" variant="inline" color="#102033" />
         </view>
       </view>
 
@@ -41,6 +41,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
@@ -70,21 +71,10 @@ const title = computed(() => {
   if (isTeam.value) return '组队申请已提交'
   if (isPartner.value) return '申请已提交'
   if (isPayment.value) return requireApproval.value ? '申请已提交' : '报名成功'
-  return requireApproval.value ? '申请已发送' : '报名成功'
+  return requireApproval.value ? '申请已提交' : '报名成功'
 })
 
-const description = computed(() => {
-  if (isCreate.value) return '活动已提交审核，审核通过后会展示给大家。分享海报已经准备好，可以先发到班群或朋友圈。'
-  if (isWaitlist.value) return '有席位释放时，会按顺序通知你完成占位。你可以在我的页查看候补进度。'
-  if (isTeam.value) return '队长确认后会在通知里提醒你继续完善参赛准备。'
-  if (isPartner.value) return '已把你的申请发给搭子帖发起人，通过后会开放私聊或群聊。'
-  if (isPayment.value) {
-    return requireApproval.value
-      ? '申请已传达给发起人，请耐心等待审核；通过后可在到场凭证页确认订单与入场信息。'
-      : '试运营订单已记录状态，不会发生真实扣款。你可以查看到场凭证。'
-  }
-  return requireApproval.value ? '申请已传达给发起人，请耐心等待审核。' : '你可以在我的页查看凭证、导航、核销码和退出规则。'
-})
+const description = computed(() => '')
 
 const primaryLabel = computed(() => {
   if (isCreate.value) return '进入活动管理'

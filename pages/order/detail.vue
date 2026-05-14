@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view v-if="isPageLoading" class="order-detail su-page">
     <SuPageLoading :style="contentTopStyle" text="订单详情加载中..." />
   </view>
@@ -6,18 +6,18 @@
     <view class="order-nav" :style="navStyle">
       <view class="order-nav__row" :style="navRowStyle">
       <view class="order-nav__btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="22" color="#0f172a" />
+        <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#0f172a" />
       </view>
       <text>订单详情</text>
       <view class="order-nav__btn" @tap="reloadOrder">
-        <uni-icons type="refresh" size="18" color="#0f172a" />
+        <SuIcon name="refresh" size="36" glyph-size="18" variant="inline" color="#0f172a" />
       </view>
       </view>
     </view>
 
     <scroll-view scroll-y class="order-scroll" :style="contentTopStyle">
       <view v-if="!order" class="empty">
-        <uni-icons type="wallet-filled" size="44" color="#cbd5e1" />
+        <SuIcon name="wallet" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
         <text>订单不存在或已被清理</text>
       </view>
 
@@ -68,7 +68,7 @@
             </view>
           </view>
           <view v-for="item in rules" :key="item" class="rule">
-            <uni-icons type="checkmarkempty" size="16" color="#22c55e" />
+            <SuIcon name="check" size="32" glyph-size="16" variant="inline" color="#22c55e" />
             <text>{{ item }}</text>
           </view>
           <text v-if="order.refundNote" class="result-note">{{ order.refundNote }}</text>
@@ -95,6 +95,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
@@ -326,9 +327,7 @@ async function handleClose() {
   display: block;
   margin-top: 10rpx;
   color: #0f172a;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 34rpx; font-weight: 900;
 }
 
 .panel {

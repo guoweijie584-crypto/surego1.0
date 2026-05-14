@@ -3,7 +3,7 @@
     <view class="create__nav" :style="navStyle">
       <view class="create__nav-row" :style="navRowStyle">
         <view class="create__back" @tap="goBackOrFallback('/pages/publish/index')">
-          <uni-icons type="left" size="24" color="#102033" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#102033" />
         </view>
         <text>搭子</text>
       </view>
@@ -12,25 +12,22 @@
     <scroll-view scroll-y class="create__scroll" :style="contentTopStyle">
       <view class="create__hero">
         <text class="create__eyebrow">找搭子</text>
-        <text class="create__title">先说清楚想找谁，再决定怎么约</text>
-        <text class="create__desc">约个时间、长期搭子、项目组队都从这里发。收到意向后，再私聊或拉群确认。</text>
+        <text class="create__title">说清楚你的搭子需求</text>
       </view>
 
       <view class="voice-launch-button" @tap="showComingSoon('语音找搭子正在接入')">
-        <uni-icons type="mic-filled" size="22" color="#2388ff" />
+        <SuIcon name="mic" size="44" glyph-size="22" variant="inline" color="#2388ff" />
         <view>
           <text>语音找搭子</text>
-          <text>说一句生成需求草稿</text>
         </view>
       </view>
 
       <view class="voice-card">
         <view class="voice-card__button">
-          <uni-icons type="mic-filled" size="28" color="#fff" />
+          <SuIcon name="mic" size="56" glyph-size="28" variant="inline" color="#fff" />
         </view>
         <view>
           <text>说：“今晚北洋园二食堂，想找 1-2 个饭搭子”</text>
-          <text>系统会先整理标题、时间地点、希望对方和确认方式，你再修改发布。</text>
         </view>
       </view>
 
@@ -97,7 +94,7 @@
             <text>{{ fieldLabels.time }}</text>
             <input
               v-model="form.schedule"
-              placeholder="例如：今天 18:30 / 每周五"
+              placeholder="例如：今天 18:30 / 每周二"
               adjust-position="false"
               cursor-spacing="80"
             />
@@ -164,10 +161,10 @@
         </label>
 
         <view class="composer-preview">
-          <uni-icons type="star-filled" size="26" color="#2388ff" />
+          <SuIcon name="sceneAll" size="52" glyph-size="26" variant="inline" color="#2388ff" />
           <view>
             <text>{{ selectedType.label }} · 等合适的人来</text>
-            <text>收到申请后再私聊或拉群</text>
+            <text>私聊或拉群沟通</text>
           </view>
         </view>
       </view>
@@ -182,10 +179,12 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { createPartnerPost, PARTNER_POST_TYPES } from '@/common/api/partner.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail, showComingSoon } from '@/common/utils/route.js'
 
+const CAMPUS_NAME = '天津大学'
 const sceneFilters = [
   { key: 'food', label: '饭搭子' },
   { key: 'sport', label: '运动' },
@@ -196,9 +195,9 @@ const sceneFilters = [
   { key: 'longterm', label: '长期搭子' }
 ]
 const connectionModes = [
-  { key: 'intent', label: '先收意向', value: '提交意向后再决定是否联系' },
-  { key: 'private', label: '先私聊', value: '通过意向后先一对一私聊确认' },
-  { key: 'group', label: '临时群', value: '人数合适后拉临时群确认细节' }
+  { key: 'intent', label: '收意向', value: '收集意向' },
+  { key: 'private', label: '私聊', value: '一对一私聊' },
+  { key: 'group', label: '临时群', value: '临时群沟通' }
 ]
 const typeDescriptions = {
   time_box: '今晚/这周先见一次',
@@ -223,7 +222,7 @@ const templates = {
     location: '学校体育馆 / 附近球馆',
     connectionMode: connectionModes[1].value,
     description: '想找能长期固定约球的搭子，新手友好，先试约一次，合适再稳定约。',
-    expectation: '能提前确认时间，不临时鸽，同校优先，新手也可以。',
+    expectation: '准时、AA、稳定，同校优先。',
     tags: '长期搭子 羽毛球 固定频率'
   },
   project: {
@@ -245,7 +244,7 @@ const typeOptions = PARTNER_POST_TYPES.map((item) => ({
 
 const form = reactive({
   type: 'time_box',
-  city: '天津',
+  city: CAMPUS_NAME,
   title: templates.time_box.title,
   schedule: templates.time_box.schedule,
   location: templates.time_box.location,
@@ -366,9 +365,7 @@ async function handleSubmit() {
   align-items: center;
   gap: 22rpx;
   color: #102033;
-  font-size: 32rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 32rpx; font-weight: 900;
 }
 
 .create__back {
@@ -403,9 +400,7 @@ async function handleSubmit() {
   display: block;
   margin-top: 10rpx;
   color: #102033;
-  font-size: 50rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 50rpx; font-weight: 900;
   line-height: 1.12;
 }
 
@@ -450,7 +445,7 @@ async function handleSubmit() {
   font-weight: 900;
 }
 
-.voice-launch-button text:last-child {
+.voice-launch-button text:nth-child(2) {
   color: #64748b;
   font-size: 22rpx;
   font-weight: 800;
@@ -493,7 +488,7 @@ async function handleSubmit() {
   line-height: 1.42;
 }
 
-.voice-card text:last-child {
+.voice-card text:nth-child(2) {
   color: rgba(255, 255, 255, 0.68);
   font-size: 22rpx;
   font-weight: 800;

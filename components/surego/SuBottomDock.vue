@@ -8,10 +8,16 @@
       @tap="handleTap(item)"
     >
       <view v-if="item.key === 'publish'" class="su-dock__create">
-        <uni-icons type="plusempty" size="31" color="#fff" />
+        <SuIcon name="navPublish" size="82" glyph-size="34" variant="create" />
       </view>
       <template v-else>
-        <uni-icons :type="item.icon" size="23" :color="active === item.key ? '#111827' : '#94a3b8'" />
+        <SuIcon
+          :name="item.icon"
+          size="48"
+          glyph-size="23"
+          :variant="active === item.key ? 'dockActive' : 'dock'"
+          :color="active === item.key ? '' : '#94a3b8'"
+        />
         <text>{{ item.label }}</text>
       </template>
     </view>
@@ -19,6 +25,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { goHomeRoot, goMessages, goPartnersRoot, goPublishCenter, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
@@ -29,11 +36,11 @@ const props = defineProps({
 })
 
 const navItems = [
-  { key: 'home', label: '成行', icon: 'home-filled', action: goHomeRoot },
-  { key: 'partners', label: '找搭子', icon: 'staff-filled', action: goPartnersRoot },
-  { key: 'publish', label: '发布', icon: 'plusempty', action: goPublishCenter },
-  { key: 'messages', label: '通知', icon: 'notification-filled', action: () => goMessages({ root: true }) },
-  { key: 'profile', label: '我的', icon: 'person-filled', action: () => goUserProfile({ root: true }) }
+  { key: 'home', label: '成行', icon: 'navJourney', action: goHomeRoot },
+  { key: 'partners', label: '搭子', icon: 'navPartners', action: goPartnersRoot },
+  { key: 'publish', label: '发布', icon: 'navPublish', action: goPublishCenter },
+  { key: 'messages', label: '通知', icon: 'navMessages', action: () => goMessages({ root: true }) },
+  { key: 'profile', label: '我的', icon: 'navProfile', action: () => goUserProfile({ root: true }) }
 ]
 
 function handleTap(item) {
@@ -90,7 +97,7 @@ function handleTap(item) {
   margin-top: -46rpx;
   border: 10rpx solid #f8f9f9;
   border-radius: 50%;
-  background: #ff6b6b;
-  box-shadow: 0 18rpx 42rpx rgba(255, 107, 107, 0.38);
+  background: #2388ff;
+  box-shadow: 0 18rpx 42rpx rgba(35, 136, 255, 0.34);
 }
 </style>

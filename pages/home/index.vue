@@ -4,14 +4,14 @@
       <view class="home__top-row" :style="navRowStyle">
         <view class="brand-lockup" @tap="goUserProfile">
           <text>成行</text>
-          <text>{{ selectedCity || '本校' }}</text>
+          <text>{{ selectedSchool }}</text>
         </view>
         <view class="top-search" @tap="goSearch()">
-          <uni-icons type="search" size="17" color="#64748b" />
+          <SuIcon name="search" size="34" glyph-size="17" variant="inline" color="#64748b" />
           <input disabled placeholder="搜活动 / 饭搭子 / 地点" placeholder-class="top-search__placeholder" />
         </view>
         <view class="top-icon" :style="navActionsStyle" @tap="goMessages">
-          <uni-icons type="notification-filled" size="20" color="#102033" />
+          <SuIcon name="bell" size="50" glyph-size="22" variant="soft" />
           <view v-if="unreadCount > 0" class="top-icon__badge">
             <text>{{ unreadLabel }}</text>
           </view>
@@ -22,24 +22,20 @@
     <scroll-view scroll-y class="home__scroll">
       <view class="home__content" :style="contentTopStyle">
         <view class="feature-card" @tap="openGraduationFeature">
-          <image class="feature-card__image" src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&q=82&w=900" mode="aspectFill" />
+          <image class="feature-card__image" src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/AUN_Students_in_Graduation_Gowns.jpg/1280px-AUN_Students_in_Graduation_Gowns.jpg" mode="aspectFill" />
           <view class="feature-card__shade" />
           <view class="feature-card__content">
             <text class="feature-card__pill">毕业季正在成行</text>
-            <text class="feature-card__title">最后一段校园时间，找同学一起认真告别</text>
-            <text class="feature-card__desc">拍照、聚餐、看展、运动和自习局，先看谁在约，再决定要不要加入。</text>
-            <view class="feature-card__stats">
-              <view><text>{{ activities.length }}</text><text>本校活动</text></view>
-              <view><text>{{ visibleMyActivities.length }}</text><text>我的进行中</text></view>
-              <view><text>{{ quickStartCount }}</text><text>快成行</text></view>
+            <view class="feature-card__title-group">
+              <text class="feature-card__title-line">最后一段校园时间</text>
+              <text class="feature-card__title-line feature-card__title-line--strong">找同学一起认真告别</text>
             </view>
-          </view>
-        </view>
-
-        <view class="section-title">
-          <view>
-            <text>找活动</text>
-            <text>按场景快速判断有没有想加入的局</text>
+            <text class="feature-card__desc">学位服、海河夜景、校园草坪和宿舍楼前都有人在约。</text>
+            <view class="feature-card__stats-bar">
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">4</text> 场约拍</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">23</text> 人想拍</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">6</text> 位摄影同学</text></view>
+            </view>
           </view>
         </view>
 
@@ -52,7 +48,12 @@
               :class="{ 'scene-chip--active': activeScene === item.key }"
               @tap="activeScene = item.key"
             >
-              <uni-icons :type="item.icon" size="16" :color="activeScene === item.key ? '#fff' : '#2388ff'" />
+              <SuIcon
+                :name="item.icon"
+                size="34"
+                glyph-size="16"
+                :variant="activeScene === item.key ? 'solid' : 'soft'"
+              />
               <text>{{ item.label }}</text>
             </view>
           </view>
@@ -73,7 +74,6 @@
         <view class="section-title section-title--inline">
           <view>
             <text>本校正在约</text>
-            <text>{{ sortedActivities.length }} 个活动</text>
           </view>
           <text class="section-title__action" @tap="resetFilters">看全部</text>
         </view>
@@ -81,7 +81,7 @@
         <view class="home__list">
           <SuActivityCard v-for="item in sortedActivities" :key="item.id" :activity="item" />
           <view v-if="sortedActivities.length === 0" class="empty-card">
-            <uni-icons type="calendar" size="42" color="#cbd5e1" />
+            <SuIcon name="emptyCalendar" size="88" glyph-size="42" variant="soft" color="#94a3b8" />
             <text>暂时没有符合条件的活动，换个场景看看。</text>
           </view>
         </view>
@@ -97,6 +97,7 @@ import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
@@ -104,9 +105,8 @@ import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goGraduation, goMessages, goParticipantDashboard, goSearch, goUserProfile } from '@/common/utils/route.js'
 
 const DEFAULT_AVATAR = '/static/userImg/user.png'
-const CITY_KEY = 'surego_selected_city'
 const currentAvatar = ref(DEFAULT_AVATAR)
-const selectedCity = ref('天津大学')
+const selectedSchool = '天津大学'
 const unreadCount = ref(0)
 const activities = ref([])
 const myGroups = ref({ hosting: [], joined: [], pending: [] })
@@ -118,12 +118,12 @@ const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 620 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 const sceneFilters = [
-  { key: 'all', label: '全部', icon: 'star-filled' },
-  { key: '剧本杀/桌游', label: '剧本杀/桌游', icon: 'calendar' },
-  { key: '饭搭子/探店', label: '饭搭子/探店', icon: 'shop' },
-  { key: '运动', label: '运动', icon: 'staff' },
-  { key: '学习/自习', label: '学习/自习', icon: 'compose' },
-  { key: '约拍/展览/微醺', label: '约拍/展览/微醺', icon: 'image' }
+  { key: 'all', label: '全部', icon: 'sceneAll' },
+  { key: '剧本杀/桌游', label: '剧本杀/桌游', icon: 'sceneBoard' },
+  { key: '饭搭子/探店', label: '饭搭子/探店', icon: 'sceneFood' },
+  { key: '运动', label: '运动', icon: 'sceneSport' },
+  { key: '学习/自习', label: '学习/自习', icon: 'sceneStudy' },
+  { key: '约拍/展览/微醺', label: '约拍/展览/微醺', icon: 'scenePhoto' }
 ]
 
 const sortOptions = [
@@ -158,12 +158,10 @@ const sortedActivities = computed(() => {
   return items
 })
 
-const quickStartCount = computed(() => activities.value.filter((item) => getSlotsLeft(item) > 0 && getSlotsLeft(item) <= 2).length)
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 async function loadData() {
   refreshCurrentAvatar()
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津大学'
   const [activityItems, groups, unread] = await Promise.all([
     listActivities(),
     listMyActivities(),
@@ -320,11 +318,11 @@ function openUserActivity(item = {}) {
 
 .feature-card {
   position: relative;
-  min-height: 468rpx;
+  min-height: 386rpx;
   overflow: hidden;
-  border-radius: 52rpx;
+  border-radius: 44rpx;
   background: #dbeafe;
-  box-shadow: 0 28rpx 60rpx rgba(35, 136, 255, 0.18);
+  box-shadow: 0 20rpx 44rpx rgba(35, 136, 255, 0.14);
 }
 
 .feature-card__image,
@@ -336,77 +334,96 @@ function openUserActivity(item = {}) {
 }
 
 .feature-card__shade {
-  background: linear-gradient(145deg, rgba(35, 136, 255, 0.92), rgba(37, 99, 235, 0.45));
+  background:
+    linear-gradient(180deg, rgba(31, 94, 205, 0.54), rgba(31, 94, 205, 0.24) 42%, rgba(9, 37, 90, 0.2) 100%),
+    linear-gradient(135deg, rgba(35, 136, 255, 0.36), rgba(37, 99, 235, 0.12));
 }
 
 .feature-card__content {
   position: relative;
   z-index: 2;
   display: flex;
-  min-height: 468rpx;
+  min-height: 386rpx;
   flex-direction: column;
   justify-content: space-between;
-  padding: 42rpx 36rpx;
+  padding: 32rpx 30rpx 28rpx;
   color: #fff;
 }
 
 .feature-card__pill {
   align-self: flex-start;
-  padding: 14rpx 20rpx;
+  padding: 10rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.18);
-  font-size: 22rpx;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  font-size: 18rpx;
   font-weight: 950;
   backdrop-filter: blur(12px);
 }
 
-.feature-card__title {
+.feature-card__title-group {
+  display: grid;
+  gap: 2rpx;
+  margin-top: 14rpx;
+  max-width: 560rpx;
+}
+
+.feature-card__title-line {
   display: block;
-  max-width: 590rpx;
-  margin-top: 20rpx;
-  font-size: 58rpx;
+  font-size: 37rpx;
   font-weight: 950;
   line-height: 1.08;
+  text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.24);
+}
+
+.feature-card__title-line--strong {
+  font-size: 46rpx;
 }
 
 .feature-card__desc {
   display: block;
-  max-width: 590rpx;
+  margin-top: 12rpx;
+  max-width: 560rpx;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 20rpx;
+  font-weight: 850;
+  line-height: 1.45;
+  text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.18);
+}
+
+.feature-card__stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
   margin-top: 18rpx;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 25rpx;
-  font-weight: 850;
-  line-height: 1.5;
 }
 
-.feature-card__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14rpx;
-  margin-top: 32rpx;
+.feature-card__stat-chip {
+  display: inline-flex;
+  min-height: 52rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8rpx 20rpx rgba(11, 51, 122, 0.14);
 }
 
-.feature-card__stats view {
-  padding: 20rpx 18rpx;
-  border-radius: 28rpx;
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(14px);
+.feature-card__stat-chip-text {
+  color: #274d8f;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
 }
 
-.feature-card__stats text {
-  display: block;
-}
-
-.feature-card__stats text:first-child {
-  font-size: 38rpx;
+.feature-card__stat-chip-num {
+  color: #102033;
+  font-size: 21rpx;
   font-weight: 950;
-}
-
-.feature-card__stats text:last-child {
-  margin-top: 5rpx;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 19rpx;
-  font-weight: 850;
+  line-height: 1;
+  vertical-align: baseline;
 }
 
 .section-title {
@@ -441,6 +458,7 @@ function openUserActivity(item = {}) {
 }
 
 .scene-row {
+  margin-top: 24rpx;
   margin-right: -34rpx;
   margin-left: -34rpx;
   white-space: nowrap;
@@ -449,7 +467,7 @@ function openUserActivity(item = {}) {
 .scene-row__inner {
   display: inline-flex;
   gap: 16rpx;
-  padding: 0 34rpx 8rpx;
+  padding: 4rpx 34rpx 8rpx;
 }
 
 .scene-chip {

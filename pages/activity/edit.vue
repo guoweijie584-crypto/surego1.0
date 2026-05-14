@@ -3,7 +3,7 @@
     <view class="edit-activity__nav" :style="navStyle">
       <view class="edit-activity__nav-row" :style="navRowStyle">
         <view class="edit-activity__nav-btn" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#0f172a" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#0f172a" />
         </view>
         <text>编辑活动</text>
         <view class="edit-activity__nav-btn" />
@@ -12,15 +12,15 @@
 
     <scroll-view scroll-y class="edit-activity__scroll" :style="contentTopStyle">
       <view v-if="!isEditable" class="readonly">
-        <uni-icons type="info-filled" size="20" color="#d97706" />
-        <text>这是参考示例活动，当前保持只读。你创建的新活动可以在这里保存修改。</text>
+        <SuIcon name="info-filled" size="40" glyph-size="20" variant="inline" color="#d97706" />
+        <text>只读活动</text>
       </view>
 
       <view class="form-card">
         <view class="cover" @tap="openCoverPicker">
           <image class="cover__image" :src="form.image" mode="aspectFill" @error="handleCoverImageError" />
           <view class="cover__mask">
-            <uni-icons type="image" size="26" color="#fff" />
+            <SuIcon name="image" size="52" glyph-size="26" variant="inline" color="#fff" />
             <text>更换封面</text>
           </view>
         </view>
@@ -75,22 +75,11 @@
         </view>
 
         <view class="field">
-          <text class="label">活动城市</text>
-          <view class="input input--picker city-select" @tap="openCitySelector">
-            <text>{{ form.city }}</text>
-            <uni-icons type="right" size="16" color="#94a3b8" />
-          </view>
-          <view class="field-helper field-helper--muted">
-            <text>选择地图地点后自动同步，可手动修正</text>
-          </view>
-        </view>
-
-        <view class="field">
           <text class="label">地点 *</text>
           <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" placeholder="活动地点" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
-            <uni-icons type="location" size="16" color="#3b82f6" />
-            <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
+            <SuIcon name="location" size="32" glyph-size="16" variant="inline" color="#3b82f6" />
+            <text>地图选点</text>
           </view>
         </view>
 
@@ -104,7 +93,7 @@
               :class="{ 'mode--active': form.partyMode === item.value }"
               @tap="form.partyMode = item.value"
             >
-              <uni-icons :type="item.icon" size="22" :color="form.partyMode === item.value ? '#fff' : item.color" />
+              <SuIcon :name="item.icon" size="44" glyph-size="22" variant="inline" :color="form.partyMode === item.value ? '#fff' : item.color" />
               <text>{{ item.label }}</text>
               <text>{{ item.desc }}</text>
             </view>
@@ -125,14 +114,14 @@
           <view class="label-row">
             <text class="label">局长问题</text>
             <view class="add-question" @tap="addQuestion">
-              <uni-icons type="plusempty" size="16" color="#3b82f6" />
+              <SuIcon name="navPublish" size="32" glyph-size="16" variant="inline" color="#3b82f6" />
               <text>添加</text>
             </view>
           </view>
           <view v-for="(question, index) in form.questions" :key="index" class="question-row">
             <input class="input question-row__input" v-model="form.questions[index]" adjust-position="false" cursor-spacing="80" placeholder="给申请者的问题" placeholder-class="placeholder" />
             <view class="question-row__remove" @tap="removeQuestion(index)">
-              <uni-icons type="trash" size="18" color="#ef4444" />
+              <SuIcon name="trash" size="36" glyph-size="18" variant="inline" color="#ef4444" />
             </view>
           </view>
         </view>
@@ -160,7 +149,7 @@
             </view>
           </scroll-view>
           <view class="cover-picker__random" @tap.stop="useRandomCover">
-            <uni-icons type="refresh" size="16" color="#0f172a" />
+            <SuIcon name="refresh" size="32" glyph-size="16" variant="inline" color="#0f172a" />
             <text>换一张</text>
           </view>
         </view>
@@ -184,25 +173,22 @@
         </button>
       </view>
     </SuActionSheet>
-
-    <unicloud-city-select ref="citySelectRef" :location="false" :hot-city="hotCities" @select="handleCitySelect" />
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, updateActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
-import { DEFAULT_CITY, DEFAULT_CITY_CODE, HOT_CITY_OPTIONS, findCityOption, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
-const CITY_KEY = 'surego_selected_city'
-const CITY_CODE_KEY = 'surego_selected_city_code'
-const hotCities = HOT_CITY_OPTIONS
+const CAMPUS_NAME = '天津大学'
+const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
   { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
   { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
@@ -212,12 +198,10 @@ const partyModes = [
 const activityId = ref('')
 const sourceActivity = ref(null)
 const categoryIndex = ref(0)
-const citySelectRef = ref(null)
 const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
 const isSaving = ref(false)
 const isEditable = computed(() => Boolean(sourceActivity.value?.isCreator))
-const initialCity = findCityOption(uni.getStorageSync(CITY_KEY), uni.getStorageSync(CITY_CODE_KEY)) || { name: DEFAULT_CITY, code: DEFAULT_CITY_CODE }
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -232,9 +216,9 @@ const form = reactive({
   address: '',
   latitude: '',
   longitude: '',
-  city: normalizeCityName(uni.getStorageSync(CITY_KEY) || initialCity.name),
-  cityCode: normalizeCityCode(uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
-  district: '',
+  city: CAMPUS_NAME,
+  cityCode: CAMPUS_CITY_CODE,
+  district: '北洋园',
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
@@ -269,9 +253,9 @@ onLoad(async (query = {}) => {
     address: activity.address || activity.location || '',
     latitude: activity.latitude || '',
     longitude: activity.longitude || '',
-    city: normalizeCityName(activity.city || uni.getStorageSync(CITY_KEY) || initialCity.name),
-    cityCode: normalizeCityCode(activity.cityCode || activity.city_code || uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
-    district: activity.district || '',
+    city: CAMPUS_NAME,
+    cityCode: CAMPUS_CITY_CODE,
+    district: activity.district || '北洋园',
     maxParticipants: String(activity.maxParticipants || 10),
     hasParticipantLimit: Boolean(activity.hasParticipantLimit),
     requireApproval: Boolean(activity.requireApproval),
@@ -293,22 +277,6 @@ function handleCategoryChange(event) {
   if (isPresetCover(previousImage)) {
     selectCoverPreset(getDefaultCoverPreset(form.category), { keepSheetOpen: true })
   }
-}
-
-function openCitySelector() {
-  if (!isEditable.value) {
-    uni.showToast({ title: '示例活动暂不支持修改', icon: 'none' })
-    return
-  }
-  citySelectRef.value?.open()
-}
-
-function handleCitySelect(city = {}) {
-  if (!isEditable.value) return
-  const cityName = normalizeCityName(city.name || form.city)
-  form.city = cityName || DEFAULT_CITY
-  form.cityCode = normalizeCityCode(city.code || findCityOption(cityName)?.code || form.cityCode)
-  form.district = ''
 }
 
 function handleDateChange(event) {
@@ -374,26 +342,14 @@ function chooseLocation() {
       form.address = result.address || result.name || form.location
       form.latitude = result.latitude
       form.longitude = result.longitude
-      syncCityFromLocation(result)
+      form.city = CAMPUS_NAME
+      form.cityCode = CAMPUS_CITY_CODE
+      form.district = '北洋园'
     },
     fail() {
       uni.showToast({ title: '未选择地图地点，可继续手动填写', icon: 'none' })
     }
   })
-}
-
-function syncCityFromLocation(result = {}) {
-  const inferred = inferCityFromLocation(`${result.address || ''} ${result.name || ''}`, {
-    city: form.city,
-    cityCode: form.cityCode,
-    district: form.district
-  })
-  form.city = inferred.city
-  form.cityCode = inferred.cityCode
-  form.district = inferred.district
-  if (!inferred.cityCode) {
-    uni.showToast({ title: '已保留当前城市，可手动修正', icon: 'none' })
-  }
 }
 
 function addQuestion() {
@@ -683,10 +639,6 @@ async function handleSave() {
 .switch-pill {
   display: flex;
   align-items: center;
-}
-
-.city-select {
-  justify-content: space-between;
 }
 
 .switch-pill {

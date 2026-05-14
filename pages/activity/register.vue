@@ -6,23 +6,16 @@
     <view class="ref-topbar" :style="navStyle">
       <view class="ref-topbar__row" :style="navRowStyle">
         <view class="ref-back" @tap="goBackOrFallback(`/pages/activity/detail?id=${activity.id}`)">
-          <uni-icons type="left" size="22" color="#102033" />
+          <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
         <text class="ref-topbar__title">报名申请</text>
         <view class="ref-icon-button">
-          <uni-icons type="auth-filled" size="20" color="#2388ff" />
+          <SuIcon name="shield" size="40" glyph-size="20" variant="inline" color="#2388ff" />
         </view>
       </view>
     </view>
 
     <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab register__scroll" :style="contentTopStyle">
-      <view class="ref-page-head">
-        <text class="ref-page-head__eyebrow">报名申请</text>
-        <text class="ref-page-head__title">
-          {{ activity.requireApproval ? '先提交问卷，发起人确认后占位' : '确认规则后即可占位' }}
-        </text>
-      </view>
-
       <view class="ref-summary-card ref-card">
         <image :src="activity.image" mode="aspectFill" />
         <view>
@@ -67,14 +60,13 @@
         <text class="ref-form-card__title">规则确认</text>
         <text class="ref-info-card__text">{{ noticeText }}</text>
         <view class="ref-check-line" :class="{ 'ref-check-line--active': agreed }" @tap="agreed = !agreed">
-          <uni-icons :type="agreed ? 'checkmarkempty' : 'circle'" size="18" :color="agreed ? '#047857' : '#94a3b8'" />
+          <SuIcon :name="agreed ? 'checkmarkempty' : 'circle'" size="36" glyph-size="18" variant="inline" :color="agreed ? '#047857' : '#94a3b8'" />
           <text>我已阅读报名、退款、结算和爽约规则</text>
         </view>
       </view>
 
       <view class="ref-info-card ref-card register-gap">
         <text class="ref-info-card__title">手机号授权</text>
-        <text class="ref-info-card__text">仅用于行前提醒、候补通知和核销凭证。申请通过后会在通知里同步状态。</text>
         <text class="ref-pill ref-pill--blue register-pill">已授权：138****9021</text>
       </view>
 
@@ -88,6 +80,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'

@@ -4,10 +4,9 @@
       <view class="publish__nav-row" :style="navRowStyle">
         <view class="publish__title-group">
           <text>发布</text>
-          <text>选一种发布方式</text>
         </view>
         <view class="publish__profile" @tap="goUserProfile">
-          <uni-icons type="person-filled" size="19" color="#102033" />
+          <SuIcon name="navProfile" size="38" glyph-size="19" variant="inline" color="#102033" />
         </view>
       </view>
     </view>
@@ -16,39 +15,32 @@
       <view class="create-hub-hero">
         <text class="pill">发布</text>
         <text class="create-hub-hero__title">今天想约什么？</text>
-        <text class="create-hub-hero__desc">时间地点已经定了，就发活动；还想先找合适的人，就发搭子需求。</text>
       </view>
 
       <view class="create-choice-grid">
         <view class="create-choice-card" @tap="goActivityCreate">
           <view class="create-choice-card__icon create-choice-card__icon--activity">
-            <uni-icons type="calendar" size="29" color="#2388ff" />
+            <SuIcon name="calendar" size="58" glyph-size="29" variant="inline" color="#2388ff" />
           </view>
           <view>
             <text>发活动</text>
-            <text>时间、地点、人数和费用已经说得清。</text>
+            <text>确定时间地点</text>
           </view>
           <text class="choice-pill choice-pill--green">马上约</text>
         </view>
 
         <view class="create-choice-card" @tap="goPartnerCreate">
           <view class="create-choice-card__icon create-choice-card__icon--partner">
-            <uni-icons type="staff" size="29" color="#6d28d9" />
+            <SuIcon name="people" size="58" glyph-size="29" variant="inline" color="#6d28d9" />
           </view>
           <view>
             <text>搭子</text>
-            <text>先看看谁合适，再私聊、拉群或一起约时间。</text>
+            <text>找同行的人</text>
           </view>
           <text class="choice-pill choice-pill--purple">先认识</text>
         </view>
       </view>
 
-      <view class="info-card">
-        <view class="info-card__head">
-          <text>还没定下来？</text>
-          <text>先发搭子需求，收到申请后再约时间、定地点。</text>
-        </view>
-      </view>
     </scroll-view>
 
     <SuBottomDock active="publish" />
@@ -56,6 +48,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
 
@@ -114,7 +107,7 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
   line-height: 1.1;
 }
 
-.publish__title-group text:last-child {
+.publish__title-group text:nth-child(2) {
   margin-top: 6rpx;
   color: #64748b;
   font-size: 21rpx;
@@ -215,7 +208,7 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
   font-weight: 950;
 }
 
-.create-choice-card view:nth-child(2) text:last-child {
+.create-choice-card view:nth-child(2) text:nth-child(2) {
   margin-top: 9rpx;
   color: #64748b;
   font-size: 24rpx;
@@ -236,30 +229,6 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 .choice-pill--purple {
   background: rgba(139, 92, 246, 0.12);
   color: #6d28d9;
-}
-
-.info-card {
-  display: grid;
-  margin-top: 24rpx;
-  padding: 30rpx;
-}
-
-.info-card__head text {
-  display: block;
-}
-
-.info-card__head text:first-child {
-  color: #102033;
-  font-size: 31rpx;
-  font-weight: 950;
-}
-
-.info-card__head text:last-child {
-  margin-top: 12rpx;
-  color: #64748b;
-  font-size: 24rpx;
-  font-weight: 850;
-  line-height: 1.5;
 }
 
 </style>

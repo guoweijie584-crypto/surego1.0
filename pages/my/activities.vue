@@ -7,7 +7,7 @@
         <text class="my__title">我的活动</text>
       </view>
       <view class="my__create" @tap="goActivityCreate">
-        <uni-icons type="plusempty" size="22" color="#fff" />
+        <SuIcon name="navPublish" size="44" glyph-size="22" variant="inline" color="#fff" />
       </view>
       </view>
     </view>
@@ -28,7 +28,7 @@
 
     <scroll-view scroll-y class="my__scroll">
       <view v-if="currentList.length === 0" class="empty">
-        <uni-icons type="calendar" size="44" color="#cbd5e1" />
+        <SuIcon name="calendar" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
         <text>这里还没有活动</text>
       </view>
       <view v-for="item in currentList" :key="item.id" class="activity" @tap="openActivity(item)">
@@ -50,6 +50,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
@@ -147,9 +148,7 @@ function openActivity(item) {
   display: block;
   margin-top: 8rpx;
   color: #0f172a;
-  font-size: 48rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 48rpx; font-weight: 900;
 }
 
 .my__create {
