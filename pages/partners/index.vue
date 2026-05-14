@@ -21,18 +21,24 @@
 
     <scroll-view scroll-y class="partners__scroll">
       <view class="partners__content" :style="contentTopStyle">
-        <view class="hackathon-card" @tap="goHackathon">
-          <image class="hackathon-card__image" src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=82&w=900" mode="aspectFill" />
-          <view class="hackathon-card__shade" />
-          <view class="hackathon-card__content">
-            <text class="hackathon-card__pill">精选推荐</text>
-            <text class="hackathon-card__title">AI 黑客松选手组队专区</text>
-            <text class="hackathon-card__desc">按项目方向、还缺什么人和比赛时间找队友。先提交意向，队长确认后再继续准备参赛。</text>
-            <view class="hackathon-card__stats">
-              <view><text>{{ projectCount }}</text><text>组队帖</text></view>
-              <view><text>{{ totalInterest }}</text><text>感兴趣</text></view>
-              <view><text>48h</text><text>比赛周期</text></view>
+        <view class="featured-card" @tap="goHackathon">
+          <image class="featured-card__image" src="https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=82&w=900" mode="aspectFill" />
+          <view class="featured-card__shade" />
+          <view class="featured-card__content">
+            <text class="featured-card__eyebrow">主题推荐</text>
+            <view class="featured-card__copy">
+              <text class="featured-card__title">天津高校 AI 黑客松组队中</text>
+              <text class="featured-card__desc">找产品、前端、算法、设计、路演队友。按方向和角色快速上车。</text>
             </view>
+            <view class="hero-live-row">
+              <text>12 支队伍</text>
+              <text>缺 28 位队友</text>
+              <text>周末开赛</text>
+            </view>
+          </view>
+          <view class="featured-card__badge">
+            <uni-icons type="star-filled" size="22" color="#fff" />
+            <text>Hackathon</text>
           </view>
         </view>
 
@@ -49,18 +55,17 @@
 
         <view class="section-title">
           <view>
-            <text>场景分类</text>
-            <text>快速判断这个人想找谁、是否适合你</text>
+            <text class="section-title__title">场景分类</text>
           </view>
         </view>
 
-        <scroll-view scroll-x class="scene-row" :show-scrollbar="false">
-          <view class="scene-row__inner">
+        <scroll-view scroll-x class="scene-scroll-row" :show-scrollbar="false">
+          <view class="scene-scroll-row__inner">
             <view
               v-for="item in sceneFilters"
               :key="item.key"
-              class="scene-chip"
-              :class="{ 'scene-chip--active': activeScene === item.key }"
+              class="scene-filter-chip"
+              :class="{ active: activeScene === item.key }"
               @tap="activeScene = item.key"
             >
               <text>{{ item.label }}</text>
@@ -70,10 +75,9 @@
 
         <view class="section-title section-title--inline">
           <view>
-            <text>本校同学想找这些搭子</text>
-            <text>{{ filteredPosts.length }} 个帖子</text>
+            <text class="section-title__eyebrow">正在找</text>
+            <text class="section-title__title">本校同学想找这些搭子</text>
           </view>
-          <text class="section-title__action" @tap="activeScene = 'all'">看全部</text>
         </view>
 
         <view class="partners__list">
@@ -127,8 +131,6 @@ const filteredPosts = computed(() => {
   return posts.value.filter((item) => matchesScene(item, activeScene.value))
 })
 
-const projectCount = computed(() => posts.value.filter((item) => item.type === 'project').length)
-const totalInterest = computed(() => posts.value.reduce((sum, item) => sum + Number(item.intentCount || 0), 0))
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
 
 async function loadData() {
@@ -284,35 +286,49 @@ function matchesScene(item = {}, scene = 'all') {
   padding-left: 34rpx;
 }
 
-.hackathon-card {
+.featured-card {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 172rpx;
+  gap: 28rpx;
   overflow: hidden;
-  border-radius: 52rpx;
-  background: #2563eb;
+  min-height: 440rpx;
+  padding: 40rpx;
+  border-radius: 56rpx;
+  color: #fff;
   box-shadow: 0 28rpx 60rpx rgba(37, 99, 235, 0.2);
+  box-sizing: border-box;
 }
 
-.hackathon-card__image,
-.hackathon-card__shade {
+.featured-card__image,
+.featured-card__shade {
   position: absolute;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   width: 100%;
   height: 100%;
 }
 
-.hackathon-card__shade {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(109, 91, 208, 0.72));
+.featured-card__shade {
+  background: linear-gradient(135deg, rgba(24, 24, 27, 0.72), rgba(37, 99, 235, 0.54));
 }
 
-.hackathon-card__content {
+.featured-card__content {
   position: relative;
   z-index: 1;
-  padding: 42rpx 36rpx;
-  color: #fff;
+  display: grid;
+  align-content: space-between;
+  gap: 20rpx;
+  min-width: 0;
 }
 
-.hackathon-card__pill {
-  display: inline-flex;
+.featured-card__eyebrow {
+  display: flex;
+  width: 112rpx;
+  align-items: center;
+  justify-content: center;
   padding: 14rpx 20rpx;
   border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.18);
@@ -321,51 +337,61 @@ function matchesScene(item = {}, scene = 'all') {
   backdrop-filter: blur(12px);
 }
 
-.hackathon-card__title {
+.featured-card__copy {
+  display: grid;
+  gap: 14rpx;
+}
+
+.featured-card__title {
   display: block;
-  margin-top: 28rpx;
   font-size: 56rpx;
   font-weight: 950;
   line-height: 1.08;
 }
 
-.hackathon-card__desc {
+.featured-card__desc {
   display: block;
-  margin-top: 18rpx;
   color: rgba(255, 255, 255, 0.84);
-  font-size: 25rpx;
+  font-size: 26rpx;
   font-weight: 850;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
-.hackathon-card__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14rpx;
-  margin-top: 28rpx;
+.hero-live-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
 }
 
-.hackathon-card__stats view {
-  padding: 20rpx 18rpx;
-  border-radius: 28rpx;
-  background: rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(14px);
-}
-
-.hackathon-card__stats text {
-  display: block;
-}
-
-.hackathon-card__stats text:first-child {
-  font-size: 38rpx;
+.hero-live-row text {
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 16rpx 20rpx;
+  color: #12342e;
+  font-size: 22rpx;
   font-weight: 950;
+  line-height: 1;
 }
 
-.hackathon-card__stats text:last-child {
-  margin-top: 5rpx;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 19rpx;
-  font-weight: 850;
+.featured-card__badge {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-self: end;
+  justify-items: center;
+  gap: 14rpx;
+  padding: 28rpx 16rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.18);
+  border-radius: 44rpx;
+  background: rgba(255, 255, 255, 0.16);
+  text-align: center;
+  backdrop-filter: blur(16px);
+}
+
+.featured-card__badge text {
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 950;
 }
 
 .quick-post-card {
@@ -440,33 +466,51 @@ function matchesScene(item = {}, scene = 'all') {
   font-weight: 950;
 }
 
-.scene-row {
+.section-title view .section-title__eyebrow {
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.section-title view .section-title__title {
+  margin-top: 0;
+  color: #102033;
+  font-size: 35rpx;
+  font-weight: 950;
+}
+
+.section-title view .section-title__eyebrow + .section-title__title {
+  margin-top: 7rpx;
+}
+
+.scene-scroll-row {
   margin-right: -34rpx;
   margin-left: -34rpx;
   white-space: nowrap;
 }
 
-.scene-row__inner {
+.scene-scroll-row__inner {
   display: inline-flex;
   gap: 16rpx;
   padding: 0 34rpx 8rpx;
 }
 
-.scene-chip {
+.scene-filter-chip {
   display: inline-flex;
   align-items: center;
-  padding: 18rpx 28rpx;
-  border: 1rpx solid #dbeafe;
+  gap: 12rpx;
+  padding: 22rpx 26rpx;
+  border: 1rpx solid rgba(24, 24, 27, 0.08);
   border-radius: 999rpx;
   background: #fff;
-  color: #2388ff;
+  color: #64748b;
   font-size: 23rpx;
   font-weight: 950;
   box-shadow: 0 10rpx 24rpx rgba(30, 88, 156, 0.05);
 }
 
-.scene-chip--active {
-  border-color: #2388ff;
+.scene-filter-chip.active {
+  border-color: rgba(35, 136, 255, 0.34);
   background: #2388ff;
   color: #fff;
 }

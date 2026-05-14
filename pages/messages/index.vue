@@ -2,9 +2,6 @@
   <view class="messages ref-page">
     <view class="ref-topbar" :style="navStyle">
       <view class="ref-topbar__row" :style="navRowStyle">
-        <view class="ref-back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="22" color="#102033" />
-        </view>
         <text class="ref-topbar__title">通知</text>
         <view class="ref-top-action" @tap="handleMarkAllRead">
           <uni-icons type="checkmarkempty" size="14" color="#2388ff" />
@@ -58,7 +55,7 @@ import { getActivityDetail } from '@/common/api/activity.js'
 import { listMessages, markAllMessagesRead, markMessageRead } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { formatMessageTime } from '@/common/utils/time-format.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard, goParticipantDashboard, goPartnerConversation, goPartnerDetail } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goManageDashboard, goParticipantDashboard, goPartnerConversation, goPartnerDetail } from '@/common/utils/route.js'
 
 const tabs = ['全部', '活动审核', '候补', '搭子申请', '私聊', '群聊', '已成局']
 const activeTab = ref('全部')
@@ -151,22 +148,27 @@ async function openMessage(item) {
   padding-bottom: 180rpx;
 }
 
+.messages .ref-topbar__title {
+  text-align: left;
+  font-size: 34rpx;
+}
+
 .notice-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14rpx;
-  padding: 30rpx;
+  gap: 18rpx;
+  padding: 32rpx;
 }
 
 .notice-card--unread::before {
   position: absolute;
-  top: 30rpx;
-  right: 30rpx;
-  width: 16rpx;
-  height: 16rpx;
+  top: 36rpx;
+  right: 36rpx;
+  width: 18rpx;
+  height: 18rpx;
   border-radius: 50%;
-  background: #ef4444;
+  background: #2388ff;
   content: "";
 }
 

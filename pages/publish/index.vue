@@ -2,10 +2,10 @@
   <view class="publish su-page">
     <view class="publish__nav" :style="navStyle">
       <view class="publish__nav-row" :style="navRowStyle">
-        <view class="publish__back" @tap="goBackOrFallback('/pages/home/index')">
-          <uni-icons type="left" size="24" color="#102033" />
+        <view class="publish__title-group">
+          <text>发布</text>
+          <text>选一种发布方式</text>
         </view>
-        <text>发布</text>
         <view class="publish__profile" @tap="goUserProfile">
           <uni-icons type="person-filled" size="19" color="#102033" />
         </view>
@@ -36,7 +36,7 @@
             <uni-icons type="staff" size="29" color="#6d28d9" />
           </view>
           <view>
-            <text>发搭子帖</text>
+            <text>搭子</text>
             <text>先看看谁合适，再私聊、拉群或一起约时间。</text>
           </view>
           <text class="choice-pill choice-pill--purple">先认识</text>
@@ -48,10 +48,6 @@
           <text>还没定下来？</text>
           <text>先发搭子需求，收到申请后再约时间、定地点。</text>
         </view>
-        <view class="info-card__action" @tap="goPartnerCreate">
-          <text>先找人</text>
-          <uni-icons type="right" size="16" color="#2388ff" />
-        </view>
       </view>
     </scroll-view>
 
@@ -61,7 +57,7 @@
 
 <script setup>
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goBackOrFallback, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
 
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
@@ -87,7 +83,7 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 .publish__nav-row {
   display: grid;
-  grid-template-columns: 76rpx minmax(0, 1fr) 76rpx;
+  grid-template-columns: minmax(0, 1fr) 76rpx;
   align-items: center;
   gap: 16rpx;
   color: #102033;
@@ -95,7 +91,6 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
   font-weight: 950;
 }
 
-.publish__back,
 .publish__profile {
   display: flex;
   width: 76rpx;
@@ -108,8 +103,22 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
   box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.06);
 }
 
-.publish__nav-row > text {
-  text-align: center;
+.publish__title-group text {
+  display: block;
+}
+
+.publish__title-group text:first-child {
+  color: #102033;
+  font-size: 34rpx;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.publish__title-group text:last-child {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 900;
 }
 
 .publish__scroll {
@@ -123,15 +132,15 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 .create-choice-card,
 .info-card {
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 42rpx;
+  border-radius: 48rpx;
   background: #fff;
-  box-shadow: 0 18rpx 46rpx rgba(30, 88, 156, 0.08);
+  box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.055);
 }
 
 .create-hub-hero {
   display: grid;
-  gap: 20rpx;
-  padding: 36rpx;
+  gap: 26rpx;
+  padding: 40rpx;
   background: linear-gradient(135deg, #f8fbff, #ffffff);
 }
 
@@ -167,22 +176,22 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 .create-choice-grid {
   display: grid;
-  gap: 22rpx;
+  gap: 24rpx;
   margin-top: 24rpx;
 }
 
 .create-choice-card {
   display: grid;
-  grid-template-columns: 70rpx minmax(0, 1fr);
+  grid-template-columns: 68rpx minmax(0, 1fr);
   align-items: start;
-  gap: 20rpx;
-  padding: 30rpx;
+  gap: 24rpx;
+  padding: 32rpx;
 }
 
 .create-choice-card__icon {
   display: flex;
-  width: 70rpx;
-  height: 70rpx;
+  width: 68rpx;
+  height: 68rpx;
   align-items: center;
   justify-content: center;
   border-radius: 24rpx;
@@ -231,7 +240,6 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 
 .info-card {
   display: grid;
-  gap: 18rpx;
   margin-top: 24rpx;
   padding: 30rpx;
 }
@@ -254,13 +262,4 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
   line-height: 1.5;
 }
 
-.info-card__action {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  gap: 8rpx;
-  color: #2388ff;
-  font-size: 24rpx;
-  font-weight: 950;
-}
 </style>

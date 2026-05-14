@@ -4,37 +4,35 @@
       <view class="organizer-line">
         <image class="organizer-line__avatar" :src="partner.avatar" mode="aspectFill" />
         <view>
-          <text class="organizer-line__name su-line-1">{{ partner.creator }}</text>
-          <text class="organizer-line__meta su-line-1">{{ partner.city }} · 学生认证</text>
+          <text class="organizer-line__name su-line-1">{{ partner.author || partner.creator }}</text>
+          <text class="organizer-line__meta su-line-1">{{ partner.school || `${partner.city || '天津大学'} · 学生认证` }}</text>
         </view>
       </view>
       <text class="partner-post-card__kind" :class="`partner-post-card__kind--${kindTone}`">{{ partner.typeLabel }}</text>
     </view>
 
     <text class="partner-post-card__title su-line-2">{{ partner.title }}</text>
-    <text class="partner-post-card__desc su-line-2">{{ partner.description }}</text>
-
-    <view class="partner-meta-grid">
-      <view>
-        <text>可约时间</text>
-        <text class="su-line-1">{{ partner.schedule }}</text>
-      </view>
-      <view>
-        <text>地点范围</text>
-        <text class="su-line-1">{{ partner.location }}</text>
-      </view>
-    </view>
+    <text class="partner-post-card__desc su-line-2">{{ partner.detail || partner.description }}</text>
 
     <view class="partner-post-card__wants">
       <text v-for="tag in displayTags" :key="tag">{{ tag }}</text>
-      <text v-if="partner.expectation" class="partner-post-card__want-main su-line-1">{{ partner.expectation }}</text>
+      <text v-if="displayExpectation" class="partner-post-card__want-main su-line-1">{{ displayExpectation }}</text>
+    </view>
+
+    <view class="partner-meta-grid">
+      <view>
+        <text class="su-line-1">{{ partner.available || partner.schedule }}</text>
+        <text>可约时间</text>
+      </view>
+      <view>
+        <text class="su-line-1">{{ partner.locationRange || partner.location }}</text>
+        <text>地点范围</text>
+      </view>
     </view>
 
     <view class="contract-row">
-      <view>
-        <text>{{ partner.intentCount }} 人感兴趣</text>
-        <text>{{ partner.connectionMode }}</text>
-      </view>
+      <text>{{ partner.interested || partner.intentCount || 0 }} 人感兴趣</text>
+      <text>{{ partner.connectionRule || partner.connectionMode }}</text>
       <text>{{ actionLabel }}</text>
     </view>
   </view>
@@ -58,11 +56,20 @@ const kindTone = computed(() => {
 })
 
 const displayTags = computed(() => {
-  const tags = Array.isArray(props.partner.fitTags) ? props.partner.fitTags : []
-  return tags.filter(Boolean).slice(0, 4)
+  const tags = Array.isArray(props.partner.wants) && props.partner.wants.length
+    ? props.partner.wants
+    : props.partner.fitTags
+  return (Array.isArray(tags) ? tags : []).filter(Boolean).slice(0, 3)
+})
+
+const displayExpectation = computed(() => {
+  const value = props.partner.expectation || ''
+  if (!value || displayTags.value.includes(value)) return ''
+  return value
 })
 
 const actionLabel = computed(() => {
+  if (props.partner.actionLabel) return props.partner.actionLabel
   if (props.partner.type === 'project') return '申请加入'
   if (props.partner.type === 'long_term') return '申请认识'
   return '提交意向'
@@ -76,12 +83,12 @@ function openDetail() {
 <style scoped>
 .partner-post-card {
   display: grid;
-  gap: 22rpx;
-  padding: 30rpx;
+  gap: 24rpx;
+  padding: 32rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 42rpx;
+  border-radius: 48rpx;
   background: #fff;
-  box-shadow: 0 18rpx 48rpx rgba(30, 88, 156, 0.08);
+  box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.055);
   transition: transform 0.18s ease;
 }
 
@@ -159,9 +166,9 @@ function openDetail() {
 .partner-post-card__title {
   display: block;
   color: #102033;
-  font-size: 37rpx;
+  font-size: 40rpx;
   font-weight: 950;
-  line-height: 1.24;
+  line-height: 1.22;
 }
 
 .partner-post-card__desc {
@@ -175,13 +182,13 @@ function openDetail() {
 .partner-meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
 .partner-meta-grid view {
   min-width: 0;
-  padding: 18rpx;
-  border-radius: 28rpx;
+  padding: 20rpx;
+  border-radius: 32rpx;
   background: #edf6ff;
 }
 
@@ -190,15 +197,18 @@ function openDetail() {
 }
 
 .partner-meta-grid text:first-child {
-  color: #64748b;
-  font-size: 19rpx;
+  overflow: hidden;
+  color: #102033;
+  font-size: 24rpx;
   font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .partner-meta-grid text:last-child {
-  margin-top: 7rpx;
-  color: #102033;
-  font-size: 22rpx;
+  margin-top: 8rpx;
+  color: #64748b;
+  font-size: 20rpx;
   font-weight: 950;
 }
 
@@ -223,32 +233,34 @@ function openDetail() {
 
 .contract-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 16rpx;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 8rpx;
   padding-top: 20rpx;
   border-top: 1rpx solid #dbeafe;
 }
 
-.contract-row view text {
+.contract-row > text {
   display: block;
 }
 
-.contract-row view text:first-child {
+.contract-row > text:first-child {
   color: #102033;
   font-size: 25rpx;
   font-weight: 950;
 }
 
-.contract-row view text:last-child {
-  margin-top: 6rpx;
+.contract-row > text:nth-child(2) {
   color: #64748b;
   font-size: 20rpx;
   font-weight: 850;
+  line-height: 1.45;
 }
 
-.contract-row > text {
-  padding: 15rpx 20rpx;
+.contract-row > text:last-child {
+  width: 120rpx;
+  margin-top: 10rpx;
+  padding: 16rpx 22rpx;
   border-radius: 999rpx;
   background: #2388ff;
   color: #fff;

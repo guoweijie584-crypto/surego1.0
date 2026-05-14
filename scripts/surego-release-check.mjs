@@ -616,7 +616,7 @@ for (const token of ['listPartnerIntents', 'updatePartnerIntentStatus', 'goPartn
 }
 
 const publishSource = read('pages/publish/index.vue')
-for (const token of ['goActivityCreate', 'goPartnerCreate', '发活动', '发搭子帖']) {
+for (const token of ['goActivityCreate', 'goPartnerCreate', '发活动', '搭子']) {
   if (!publishSource.includes(token)) {
     errors.push(`pages/publish/index.vue is missing release publish hub token: ${token}`)
   }
