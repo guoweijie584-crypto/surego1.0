@@ -1,5 +1,5 @@
 export const APP_MODE = 'trial'
-export const USE_UNICLOUD = true
+export const USE_UNICLOUD = false
 export const ALLOW_MOCK_FALLBACK = APP_MODE !== 'trial'
 export const REFERENCE_MOCK_PREVIEW = true
 
