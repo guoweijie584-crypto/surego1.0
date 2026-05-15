@@ -233,6 +233,7 @@ const primaryButtonText = computed(() => {
   if (isLeader.value) return '进入活动管理'
   if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (isJoined.value) return '查看到场凭证'
+  if (activity.value.applicationStatus === 'invited') return '确认加入'
   if (activity.value.applicationStatus === 'pending') return '审核中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
   if (isFull.value) return '加入候补'

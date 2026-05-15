@@ -52,7 +52,7 @@
 <script setup>
 import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
@@ -63,19 +63,29 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const lists = ref({
   hosting: [],
   joined: [],
+  invited: [],
   pending: []
 })
 
 const tabs = [
   { key: 'hosting', label: '主办' },
   { key: 'joined', label: '参加' },
+  { key: 'invited', label: '邀请' },
   { key: 'pending', label: '申请中' }
 ]
+
+onLoad((options = {}) => {
+  const targetTab = options.tab || ''
+  if (tabs.some((item) => item.key === targetTab)) {
+    activeTab.value = targetTab
+  }
+})
 
 const currentList = computed(() => sortActivitiesByStatusPriority(lists.value[activeTab.value] || []))
 const counts = computed(() => ({
   hosting: lists.value.hosting.length,
   joined: lists.value.joined.length,
+  invited: lists.value.invited?.length || 0,
   pending: lists.value.pending.length
 }))
 
@@ -86,6 +96,7 @@ onShow(async () => {
 function getBadge(item) {
   if (item.isCreator) return '局长'
   if (item.applicationStatus === 'approved') return '已加入'
+  if (item.applicationStatus === 'invited') return '待确认'
   return '审核中'
 }
 
@@ -164,7 +175,7 @@ function openActivity(item) {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14rpx;
   padding: 0 40rpx 24rpx;
 }

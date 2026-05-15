@@ -8,7 +8,6 @@ const follows = db.collection('surego-follows');
 const conversations = db.collection('surego-conversations');
 const messages = db.collection('surego-messages');
 const activities = db.collection('surego-activities');
-const activityApplications = db.collection('surego-applications');
 const uniIdUsers = db.collection('uni-id-users');
 
 const postTypes = ['time_box', 'long_term', 'project'];
@@ -157,6 +156,20 @@ function buildParticipantIds(post = {}, participantIds = []) {
   return Array.from(new Set([creatorId, ...(Array.isArray(participantIds) ? participantIds : []).map(String).filter(Boolean)].filter(Boolean)));
 }
 
+function normalizeIdList(ids = []) {
+  return Array.from(new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean)));
+}
+
+function buildInvitedUserIds(post = {}, payload = {}) {
+  const creatorId = String(post.creator_id || post.creatorId || '');
+  return normalizeIdList(payload.invitedUserIds || payload.invited_user_ids || payload.participantIds || payload.participant_ids || [])
+    .filter((userId) => String(userId) !== creatorId);
+}
+
+function buildSourcePartnerIntentIds(payload = {}) {
+  return normalizeIdList(payload.sourcePartnerIntentIds || payload.source_partner_intent_ids || []);
+}
+
 function mapPartnerSceneToActivityCategory(scene = '', type = 'time_box') {
   if (scene === 'sport') return '运动';
   if (scene === 'study') return '学习/自习';
@@ -167,11 +180,15 @@ function mapPartnerSceneToActivityCategory(scene = '', type = 'time_box') {
 
 function buildConvertedActivityRecord(post = {}, payload = {}) {
   const visibility = payload.visibility === 'members_only' ? 'members_only' : 'public';
-  const participant_ids = buildParticipantIds(post, payload.participantIds || payload.participant_ids || []);
+  const participant_ids = buildParticipantIds(post, payload.confirmedParticipantIds || payload.confirmed_participant_ids || []);
+  const invited_user_ids = buildInvitedUserIds(post, payload);
+  const source_partner_intent_ids = buildSourcePartnerIntentIds(payload);
   const participantCount = participant_ids.length;
+  const plannedCount = Math.max(participantCount + invited_user_ids.length, 1);
   const title = String(payload.title || post.title || '').trim() || '新的成行活动';
-  const available = post.available || post.schedule || '时间待定';
-  const locationRange = post.locationRange || post.location || '地点待确认';
+  const available = payload.time || post.available || post.schedule || '时间待定';
+  const locationRange = payload.location || post.locationRange || post.location || '地点待确认';
+  const maxParticipants = Number(payload.maxParticipants || payload.max_participants) || (visibility === 'public' ? Math.max(plannedCount + 2, 6) : Math.max(plannedCount, 2));
   return {
     title,
     category: mapPartnerSceneToActivityCategory(post.scene, post.type),
@@ -179,7 +196,7 @@ function buildConvertedActivityRecord(post = {}, payload = {}) {
     organizer: post.author || post.creator || 'SureGo 用户',
     organizer_avatar: post.avatar || '/static/userImg/user.png',
     cover: '/static/logo.png',
-    date: visibility === 'public' ? '本周待定' : '已与成员确认',
+    date: payload.date || (visibility === 'public' ? '本周待定' : '待邀请确认'),
     time: available,
     end_time: '',
     location: locationRange,
@@ -189,18 +206,20 @@ function buildConvertedActivityRecord(post = {}, payload = {}) {
     district: post.district || '',
     latitude: 0,
     longitude: 0,
-    max_participants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
+    max_participants: maxParticipants,
     has_participant_limit: true,
     require_approval: visibility === 'public',
     party_mode: 'free',
-    amount: 0,
-    description: post.detail || post.description || '',
+    amount: Number(payload.amount) || 0,
+    description: payload.description || post.detail || post.description || '',
     questions: [],
     status: visibility === 'public' ? 'recruiting' : 'formed',
     moderation_status: 'approved',
     visibility,
     source: payload.source || 'partner_post',
     source_partner_post_id: post._id || post.id || '',
+    source_partner_intent_ids,
+    invited_user_ids,
     participant_ids,
     created_at: now(),
     updated_at: now()
@@ -216,26 +235,15 @@ function normalizeActivityPayload(id, activity = {}) {
     visibility: activity.visibility || 'public',
     source: activity.source || 'partner_post',
     sourcePartnerPostId: activity.source_partner_post_id || '',
+    sourcePartnerIntentIds: activity.source_partner_intent_ids || [],
+    source_partner_intent_ids: activity.source_partner_intent_ids || [],
+    invitedUserIds: activity.invited_user_ids || [],
+    invited_user_ids: activity.invited_user_ids || [],
     participantIds: activity.participant_ids || [],
     createdAt: activity.created_at || '',
     updatedAt: activity.updated_at || '',
     moderationStatus: activity.moderation_status || 'approved'
   };
-}
-
-async function createApprovedApplicationsForActivity(activityId = '', participantIds = []) {
-  const ids = Array.from(new Set((participantIds || []).map(String).filter(Boolean)));
-  if (!activityId || !ids.length) return;
-  for (const userId of ids) {
-    const existing = await activityApplications.where({ activity_id: activityId, user_id: userId }).limit(1).get();
-    if ((existing.data || [])[0]) continue;
-    await activityApplications.add({
-      activity_id: activityId,
-      user_id: userId,
-      status: 'approved',
-      created_at: now()
-    });
-  }
 }
 
 async function getPost(id) {
@@ -525,26 +533,15 @@ exports.main = async (event) => {
     if (!post || (String(post.creator_id || '') !== user.uid && !user.isOps)) {
       return { code: 'FORBIDDEN', message: 'Only the creator can convert this partner post.' };
     }
-    const requestedParticipantPayload = {
-      participant_ids: payload.participantIds || payload.participant_ids || []
-    };
-    const activity = buildConvertedActivityRecord(post, {
-      ...payload,
-      ...requestedParticipantPayload
-    });
+    const activity = buildConvertedActivityRecord(post, payload);
     const addResult = await activities.add(activity);
     const activityId = addResult.id || addResult._id;
-    await createApprovedApplicationsForActivity(
-      activityId,
-      (activity.participant_ids || []).filter((userId) => String(userId) !== String(post.creator_id || ''))
-    );
     await posts.doc(partnerPostId).update({
       status: 'converted',
       source_activity_id: activityId,
       updated_at: now()
     });
-    await Promise.all((activity.participant_ids || [])
-      .filter((userId) => String(userId) !== String(post.creator_id || ''))
+    await Promise.all((activity.invited_user_ids || [])
       .map((userId) => createMessage({
         user_id: userId,
         partner_post_id: partnerPostId,

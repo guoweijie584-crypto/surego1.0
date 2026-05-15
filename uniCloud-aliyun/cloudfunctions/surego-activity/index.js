@@ -127,6 +127,18 @@ function isPubliclyVisibleActivity(item = {}) {
   return visibility === 'public' && publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
 }
 
+function normalizeIdList(ids = []) {
+  return Array.from(new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean)));
+}
+
+function isActivityParticipant(item = {}, userId = '') {
+  return Boolean(userId && normalizeIdList(item.participant_ids || item.participantIds || []).includes(String(userId)));
+}
+
+function isActivityInvitee(item = {}, userId = '') {
+  return Boolean(userId && normalizeIdList(item.invited_user_ids || item.invitedUserIds || []).includes(String(userId)));
+}
+
 function normalizeActivity(item = {}) {
   return {
     ...item,
@@ -140,6 +152,11 @@ function normalizeActivity(item = {}) {
     visibility: normalizeVisibility(item.visibility),
     source: normalizeSource(item.source),
     sourcePartnerPostId: item.source_partner_post_id || item.sourcePartnerPostId || '',
+    source_partner_post_id: item.source_partner_post_id || item.sourcePartnerPostId || '',
+    sourcePartnerIntentIds: item.source_partner_intent_ids || item.sourcePartnerIntentIds || [],
+    source_partner_intent_ids: item.source_partner_intent_ids || item.sourcePartnerIntentIds || [],
+    invitedUserIds: item.invited_user_ids || item.invitedUserIds || [],
+    invited_user_ids: item.invited_user_ids || item.invitedUserIds || [],
     participantIds: item.participant_ids || item.participantIds || [],
     createdAt: item.createdAt || item.created_at,
     updatedAt: item.updatedAt || item.updated_at
@@ -189,7 +206,8 @@ exports.main = async (event) => {
       || (user.exists && (
         user.isOps
         || String(activity.creator_id || activity.creatorId || '') === user.uid
-        || (activity.participantIds || []).map(String).includes(String(user.uid))
+        || isActivityParticipant(activity, user.uid)
+        || isActivityInvitee(activity, user.uid)
       ));
     if (!canView) {
       return { code: 'FORBIDDEN', message: 'This activity is still under review.' };
@@ -202,8 +220,9 @@ exports.main = async (event) => {
 
   if (action === 'listMine') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
-    const [createdResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
+    const [createdResult, invitedResult, snakeApplicationResult, camelApplicationResult] = await Promise.all([
       collection.where({ creator_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
+      collection.where({ invited_user_ids: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
       applications.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get(),
       applications.where({ userId: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get()
     ]);
@@ -229,13 +248,22 @@ exports.main = async (event) => {
       applicationStatus: applicationStatusByActivity[String(item._id || item.id)] || 'not_applied'
     });
     const joined = (joinedResult.data || []).map(withApplicationStatus);
+    const invited = normalizeList(invitedResult)
+      .filter((item) => String(item.creator_id || item.creatorId || '') !== user.uid)
+      .filter((item) => !applicationStatusByActivity[String(item._id || item.id)])
+      .map((item) => ({
+        ...item,
+        applicationStatus: 'invited',
+        application_status: 'invited'
+      }));
     return {
       code: 0,
       data: {
         hosting: normalizeList(createdResult),
         joined: joined.filter((item) => item.applicationStatus === 'approved'),
         pending: joined.filter((item) => item.applicationStatus === 'pending'),
-        rejected: joined.filter((item) => item.applicationStatus === 'rejected')
+        rejected: joined.filter((item) => item.applicationStatus === 'rejected'),
+        invited
       }
     };
   }
@@ -249,6 +277,8 @@ exports.main = async (event) => {
       visibility: payload.visibility || 'public',
       source: payload.source || 'direct_activity',
       source_partner_post_id: payload.sourcePartnerPostId || payload.source_partner_post_id || '',
+      source_partner_intent_ids: payload.sourcePartnerIntentIds || payload.source_partner_intent_ids || [],
+      invited_user_ids: payload.invitedUserIds || payload.invited_user_ids || [],
       participant_ids: payload.participantIds || payload.participant_ids || [],
       status: 'reviewing',
       created_at: Date.now(),
@@ -278,6 +308,8 @@ exports.main = async (event) => {
       visibility: payload.visibility || 'public',
       source: payload.source || 'direct_activity',
       source_partner_post_id: payload.sourcePartnerPostId || payload.source_partner_post_id || '',
+      source_partner_intent_ids: payload.sourcePartnerIntentIds || payload.source_partner_intent_ids || [],
+      invited_user_ids: payload.invitedUserIds || payload.invited_user_ids || [],
       participant_ids: payload.participantIds || payload.participant_ids || [],
       updated_at: Date.now()
     });

@@ -39,6 +39,8 @@
     "visibility": { "enum": ["public", "members_only"], "title": "Visibility" },
     "source": { "enum": ["direct_activity", "partner_post"], "title": "Activity source" },
     "source_partner_post_id": { "bsonType": "string", "title": "Source partner post id" },
+    "source_partner_intent_ids": { "bsonType": "array", "title": "Source partner intent ids" },
+    "invited_user_ids": { "bsonType": "array", "title": "Invited user ids" },
     "participant_ids": { "bsonType": "array", "title": "Participant ids" },
     "created_at": { "bsonType": "timestamp", "title": "Created at" },
     "updated_at": { "bsonType": "timestamp", "title": "Updated at" }

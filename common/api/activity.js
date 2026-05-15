@@ -9,9 +9,11 @@ import { CITY_OPTIONS, DEFAULT_CITY, DEFAULT_CITY_CODE, getCityCode, inferCityFr
 const STORAGE_KEY = 'surego_created_activities'
 const MODERATION_STATUS_KEY = 'surego_moderation_activity_statuses'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
+const REFERENCE_PREVIEW_OWNER_IDS = ['mock_user']
+const BADMINTON_ACTIVITY_IMAGE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Shuttlecock_on_a_badminton_court.jpg/1024px-Shuttlecock_on_a_badminton_court.jpg'
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
-export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected']
+export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected', 'invited']
 export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
 export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
 export const ACTIVITY_VISIBILITIES = ['public', 'members_only']
@@ -172,10 +174,15 @@ function isActivityParticipant(item = {}, userId = getCurrentUserId()) {
   return Boolean(userId && Array.isArray(participantIds) && participantIds.map(String).includes(String(userId)))
 }
 
+export function isActivityInvitee(item = {}, userId = getCurrentUserId()) {
+  const invitedUserIds = item.invitedUserIds || item.invited_user_ids || []
+  return Boolean(userId && Array.isArray(invitedUserIds) && invitedUserIds.map(String).includes(String(userId)))
+}
+
 function canCurrentUserViewActivity(item = {}) {
   if (isPubliclyVisibleActivity(item)) return true
   if (isCurrentUserActivityCreator(item)) return true
-  return isActivityParticipant(item)
+  return isActivityParticipant(item) || isActivityInvitee(item)
 }
 
 function readLocalApplication(activityId) {
@@ -221,6 +228,20 @@ export function isCurrentUserActivityCreator(item = {}) {
   return Boolean(currentUserId && creatorId && String(currentUserId) === String(creatorId))
 }
 
+function normalizeActivityImage(item = {}) {
+  const image = item.image || item.cover || ''
+  if (image && image !== '/static/logo.png') return image
+  const text = `${item.title || ''} ${(item.tags || []).join(' ')} ${(item.constraints || []).join(' ')}`
+  if (text.includes('羽毛球')) return BADMINTON_ACTIVITY_IMAGE
+  return image || getDefaultCoverPreset(item.category).image
+}
+
+function isReferencePreviewActivityOwner(item = {}) {
+  if (!shouldUseReferenceMockPreview()) return false
+  const creatorId = item.creatorId || item.creator_id || ''
+  return REFERENCE_PREVIEW_OWNER_IDS.includes(String(creatorId))
+}
+
 export function normalizeActivityRecord(item = {}) {
   const id = item.id || item._id
   const localApplication = readLocalApplication(id)
@@ -240,6 +261,7 @@ export function normalizeActivityRecord(item = {}) {
     moderationNote: item.moderationNote || item.moderation_note || '',
     moderatedAt: item.moderatedAt || item.moderated_at || '',
     moderatedBy: item.moderatedBy || item.moderated_by || '',
+    image: normalizeActivityImage(item),
     organizerAvatar: normalizeOrganizerAvatar(item.organizerAvatar || item.organizer_avatar),
     creatorId,
     creator_id: creatorId,
@@ -251,9 +273,13 @@ export function normalizeActivityRecord(item = {}) {
     source: normalizeActivitySource(item.source),
     sourcePartnerPostId: item.sourcePartnerPostId || item.source_partner_post_id || '',
     source_partner_post_id: item.sourcePartnerPostId || item.source_partner_post_id || '',
+    sourcePartnerIntentIds: item.sourcePartnerIntentIds || item.source_partner_intent_ids || [],
+    source_partner_intent_ids: item.sourcePartnerIntentIds || item.source_partner_intent_ids || [],
+    invitedUserIds: item.invitedUserIds || item.invited_user_ids || [],
+    invited_user_ids: item.invitedUserIds || item.invited_user_ids || [],
     participantIds: item.participantIds || item.participant_ids || [],
     participant_ids: item.participantIds || item.participant_ids || [],
-    isCreator: isCurrentUserActivityCreator({ ...item, creatorId })
+    isCreator: isCurrentUserActivityCreator({ ...item, creatorId }) || isReferencePreviewActivityOwner({ ...item, creatorId })
   }
 }
 
@@ -324,6 +350,10 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     source,
     sourcePartnerPostId: form.sourcePartnerPostId || form.source_partner_post_id || '',
     source_partner_post_id: form.sourcePartnerPostId || form.source_partner_post_id || '',
+    sourcePartnerIntentIds: form.sourcePartnerIntentIds || form.source_partner_intent_ids || [],
+    source_partner_intent_ids: form.sourcePartnerIntentIds || form.source_partner_intent_ids || [],
+    invitedUserIds: form.invitedUserIds || form.invited_user_ids || [],
+    invited_user_ids: form.invitedUserIds || form.invited_user_ids || [],
     participantIds: form.participantIds || form.participant_ids || [],
     participant_ids: form.participantIds || form.participant_ids || [],
     viewCount: Number(form.viewCount) || 0,
@@ -556,6 +586,16 @@ function updateLocalActivity(id, form) {
     image: form.image || found.image,
     status: normalizeActivityStatus(form.status || found.status),
     lifecycleStatus: normalizeActivityStatus(form.status || found.status),
+    visibility: normalizeActivityVisibility(form.visibility || found.visibility || 'public'),
+    source: normalizeActivitySource(form.source || found.source || 'direct_activity'),
+    sourcePartnerPostId: form.sourcePartnerPostId || form.source_partner_post_id || found.sourcePartnerPostId || found.source_partner_post_id || '',
+    source_partner_post_id: form.sourcePartnerPostId || form.source_partner_post_id || found.sourcePartnerPostId || found.source_partner_post_id || '',
+    sourcePartnerIntentIds: form.sourcePartnerIntentIds || form.source_partner_intent_ids || found.sourcePartnerIntentIds || found.source_partner_intent_ids || [],
+    source_partner_intent_ids: form.sourcePartnerIntentIds || form.source_partner_intent_ids || found.sourcePartnerIntentIds || found.source_partner_intent_ids || [],
+    invitedUserIds: form.invitedUserIds || form.invited_user_ids || found.invitedUserIds || found.invited_user_ids || [],
+    invited_user_ids: form.invitedUserIds || form.invited_user_ids || found.invitedUserIds || found.invited_user_ids || [],
+    participantIds: form.participantIds || form.participant_ids || found.participantIds || found.participant_ids || [],
+    participant_ids: form.participantIds || form.participant_ids || found.participantIds || found.participant_ids || [],
     tags: [form.category, form.partyMode]
   }
 
@@ -592,6 +632,7 @@ export async function listMyActivities() {
       return {
         hosting: sortActivitiesByStatusPriority((result.hosting || []).map(normalizeActivityRecord)),
         joined: sortActivitiesByStatusPriority((result.joined || []).map(normalizeActivityRecord)),
+        invited: sortActivitiesByStatusPriority((result.invited || []).map(normalizeActivityRecord)),
         pending: sortActivitiesByStatusPriority([
           ...(result.pending || []),
           ...(result.rejected || [])
@@ -643,8 +684,8 @@ async function listAppliedLocalActivities(all = []) {
   })
 
   all.forEach((activity) => {
+    const activityId = String(activity.id || activity._id || '')
     if (isActivityParticipant(activity, currentUserId) && !isCurrentUserActivityCreator(activity) && !seen.has(String(activity.id || activity._id || ''))) {
-      const activityId = String(activity.id || activity._id || '')
       if (activityId) {
         seen.add(activityId)
         applied.push(buildActivityWithApplication(activity, {
@@ -657,7 +698,19 @@ async function listAppliedLocalActivities(all = []) {
         }))
       }
     }
-    const activityId = String(activity.id || activity._id || '')
+    if (isActivityInvitee(activity, currentUserId) && !isCurrentUserActivityCreator(activity) && !seen.has(activityId)) {
+      if (activityId) {
+        seen.add(activityId)
+        applied.push(buildActivityWithApplication(activity, {
+          id: `invited_application_${activityId}`,
+          activityId,
+          activity_id: activityId,
+          userId: currentUserId,
+          user_id: currentUserId,
+          status: 'invited'
+        }))
+      }
+    }
     const embeddedStatus = normalizeApplicationStatus(activity.applicationStatus || activity.application_status)
     if (!activityId || embeddedStatus === 'not_applied' || seen.has(activityId)) return
     if (currentUserId && isCurrentUserActivityCreator(activity)) return
@@ -674,6 +727,7 @@ async function listAppliedLocalActivities(all = []) {
 
   return {
     joined: sortActivitiesByStatusPriority(applied.filter((item) => item.applicationStatus === 'approved')),
+    invited: sortActivitiesByStatusPriority(applied.filter((item) => item.applicationStatus === 'invited')),
     pending: sortActivitiesByStatusPriority(applied.filter((item) => ['pending', 'rejected'].includes(item.applicationStatus)))
   }
 }
@@ -682,8 +736,9 @@ async function listMyLocalActivities() {
   const all = await listAllActivities()
   const applied = await listAppliedLocalActivities(all)
   return Promise.resolve({
-    hosting: sortActivitiesByStatusPriority(all.filter((item) => isCurrentUserActivityCreator(item))),
+    hosting: sortActivitiesByStatusPriority(all.filter((item) => isCurrentUserActivityCreator(item) || isReferencePreviewActivityOwner(item))),
     joined: applied.joined,
+    invited: applied.invited,
     pending: applied.pending
   })
 }

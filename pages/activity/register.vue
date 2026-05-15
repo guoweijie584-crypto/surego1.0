@@ -147,6 +147,7 @@ const submitText = computed(() => {
   if (activity.value.applicationStatus === 'pending') return '已申请，等待审核'
   if (activity.value.applicationStatus === 'approved') return '已加入该活动'
   if (activity.value.applicationStatus === 'rejected') return '申请未通过'
+  if (activity.value.applicationStatus === 'invited') return '确认加入'
   if (activity.value.requireApproval) return '提交申请'
   if (activity.value.partyMode === 'free') return '报名成功'
   return '提交申请并确认订单'
@@ -196,6 +197,7 @@ async function handleSubmit() {
   if (!validateJoinEligibility()) return
 
   isSubmitting.value = true
+  const isInviteConfirmation = activity.value.applicationStatus === 'invited'
   const application = {
     activityId: activity.value.id,
     activityCreatorId: activity.value.creatorId || activity.value.creator_id,
@@ -207,7 +209,7 @@ async function handleSubmit() {
       question,
       answer: answers.value[index] || ''
     })),
-    requireApproval: activity.value.requireApproval
+    requireApproval: isInviteConfirmation ? false : activity.value.requireApproval
   }
 
   await submitApplication(application)
@@ -219,14 +221,14 @@ async function handleSubmit() {
         activityId: activity.value.id,
         type: activity.value.partyMode,
         amount: activity.value.amount,
-        requireApproval: activity.value.requireApproval ? '1' : '0'
+        requireApproval: isInviteConfirmation ? '0' : (activity.value.requireApproval ? '1' : '0')
       })
       return
     }
     goSuccess({
       type: 'JOIN',
       activityId: activity.value.id,
-      requireApproval: activity.value.requireApproval ? '1' : '0'
+      requireApproval: isInviteConfirmation ? '0' : (activity.value.requireApproval ? '1' : '0')
     })
   }, 650)
 }

@@ -9,8 +9,16 @@ const INTENTS_KEY = 'surego_partner_intents'
 const FOLLOWS_KEY = 'surego_partner_follows'
 const CONVERSATIONS_KEY = 'surego_partner_conversations'
 const ACTIVITIES_KEY = 'surego_created_activities'
-const APPLICATIONS_KEY = 'surego_applications'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
+const DEFAULT_PARTNER_ACTIVITY_IMAGES = {
+  sport: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Shuttlecock_on_a_badminton_court.jpg/1024px-Shuttlecock_on_a_badminton_court.jpg',
+  photo: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&q=80&w=900',
+  study: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&q=80&w=900',
+  project: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=900',
+  game: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&q=80&w=900',
+  food: 'https://images.unsplash.com/photo-1543352634-a1c51d9f1fa7?auto=format&fit=crop&q=80&w=900'
+}
+const REFERENCE_PREVIEW_OWNER_IDS = ['mock_user']
 const REFERENCE_CONVERSATIONS = [
   {
     id: 'conv_canteen_rice',
@@ -33,6 +41,117 @@ const REFERENCE_CONVERSATIONS = [
     lastMessage: 'Switch 派对当前 5 人，发起人正在确认最后 1 个名额。',
     createdAt: '2026-05-12T19:30:00.000Z',
     updatedAt: '2026-05-12T19:30:00.000Z'
+  },
+  {
+    id: 'conv_weekly_lina',
+    partnerPostId: 'weekly-badminton',
+    partner_post_id: 'weekly-badminton',
+    participantIds: ['mock_user', 'seed_lina'],
+    participant_ids: ['mock_user', 'seed_lina'],
+    status: 'open',
+    lastMessage: '意向已通过，可以先确认第一次练球时间。',
+    createdAt: '2026-05-14T13:35:00.000Z',
+    updatedAt: '2026-05-14T13:35:00.000Z'
+  },
+  {
+    id: 'conv_weekly_chen',
+    partnerPostId: 'weekly-badminton',
+    partner_post_id: 'weekly-badminton',
+    participantIds: ['mock_user', 'seed_chen'],
+    participant_ids: ['mock_user', 'seed_chen'],
+    status: 'open',
+    lastMessage: '双方已建立私聊，等待发起人确认是否邀请进活动。',
+    createdAt: '2026-05-14T14:15:00.000Z',
+    updatedAt: '2026-05-14T14:15:00.000Z'
+  },
+  {
+    id: 'conv_photo_xinyi',
+    partnerPostId: 'photo-graduation-owner',
+    partner_post_id: 'photo-graduation-owner',
+    participantIds: ['mock_user', 'seed_xinyi'],
+    participant_ids: ['mock_user', 'seed_xinyi'],
+    status: 'open',
+    lastMessage: '可以先确认拍摄路线，再决定是否约成毕业季活动。',
+    createdAt: '2026-05-14T17:08:00.000Z',
+    updatedAt: '2026-05-14T17:08:00.000Z'
+  }
+]
+
+const REFERENCE_INTENTS = [
+  {
+    id: 'intent_weekly_lina',
+    partnerPostId: 'weekly-badminton',
+    partner_post_id: 'weekly-badminton',
+    userId: 'seed_lina',
+    user_id: 'seed_lina',
+    nickname: '林娜',
+    avatar: '/static/userImg/user.png',
+    message: '周二和周四晚上都可以，想先试约一次再固定下来。',
+    status: 'accepted',
+    conversationId: 'conv_weekly_lina',
+    conversation_id: 'conv_weekly_lina',
+    joinedCount: 9,
+    createdAt: '2026-05-14T13:30:00.000Z'
+  },
+  {
+    id: 'intent_weekly_chen',
+    partnerPostId: 'weekly-badminton',
+    partner_post_id: 'weekly-badminton',
+    userId: 'seed_chen',
+    user_id: 'seed_chen',
+    nickname: '陈同学',
+    avatar: '/static/userImg/user.png',
+    message: '新手，能接受 AA 订场，希望找固定搭子。',
+    status: 'accepted',
+    conversationId: 'conv_weekly_chen',
+    conversation_id: 'conv_weekly_chen',
+    joinedCount: 6,
+    createdAt: '2026-05-14T14:10:00.000Z'
+  },
+  {
+    id: 'intent_weekly_yu',
+    partnerPostId: 'weekly-badminton',
+    partner_post_id: 'weekly-badminton',
+    userId: 'seed_yu',
+    user_id: 'seed_yu',
+    nickname: '于同学',
+    avatar: '/static/userImg/user.png',
+    message: '本周日可以，想先看看场地和节奏。',
+    status: 'pending',
+    conversationId: '',
+    conversation_id: '',
+    joinedCount: 4,
+    createdAt: '2026-05-14T15:00:00.000Z'
+  },
+  {
+    id: 'intent_photo_xinyi',
+    partnerPostId: 'photo-graduation-owner',
+    partner_post_id: 'photo-graduation-owner',
+    userId: 'seed_xinyi',
+    user_id: 'seed_xinyi',
+    nickname: '欣怡',
+    avatar: '/static/userImg/user.png',
+    message: '我也想拍北洋园和海河夜景，可以互拍，也能一起拼摄影师。',
+    status: 'accepted',
+    conversationId: 'conv_photo_xinyi',
+    conversation_id: 'conv_photo_xinyi',
+    joinedCount: 11,
+    createdAt: '2026-05-14T17:05:00.000Z'
+  },
+  {
+    id: 'intent_demo_qi',
+    partnerPostId: 'campus-demo-owner',
+    partner_post_id: 'campus-demo-owner',
+    userId: 'seed_qi',
+    user_id: 'seed_qi',
+    nickname: '齐同学',
+    avatar: '/static/userImg/user.png',
+    message: '会做 Figma 和讲 Demo，周末两天可以投入。',
+    status: 'pending',
+    conversationId: '',
+    conversation_id: '',
+    joinedCount: 7,
+    createdAt: '2026-05-14T12:20:00.000Z'
   }
 ]
 
@@ -96,14 +215,6 @@ function writeCreatedActivities(items) {
   uni.setStorageSync(ACTIVITIES_KEY, items)
 }
 
-function readApplications() {
-  return uni.getStorageSync(APPLICATIONS_KEY) || []
-}
-
-function writeApplications(items) {
-  uni.setStorageSync(APPLICATIONS_KEY, items)
-}
-
 function normalizeType(type = 'time_box') {
   return PARTNER_POST_TYPES.some((item) => item.key === type) ? type : 'time_box'
 }
@@ -145,6 +256,11 @@ function isCurrentUserCreator(item = {}) {
   return Boolean(currentUserId && creatorId && String(currentUserId) === String(creatorId))
 }
 
+function isReferencePreviewOwner(item = {}) {
+  const creatorId = String(item.creatorId || item.creator_id || '')
+  return shouldUseReferenceMockPreview() && REFERENCE_PREVIEW_OWNER_IDS.includes(creatorId)
+}
+
 function normalizePartnerPost(item = {}) {
   const id = item.id || item._id
   const type = normalizeType(item.type || mapKindToType(item.kind))
@@ -183,7 +299,7 @@ function normalizePartnerPost(item = {}) {
     sourceActivityId: item.sourceActivityId || item.source_activity_id || '',
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     updatedAt: item.updatedAt || item.updated_at || '',
-    isCreator: isCurrentUserCreator({ ...item, creatorId })
+    isCreator: isCurrentUserCreator({ ...item, creatorId }) || isReferencePreviewOwner({ ...item, creatorId })
   }
 }
 
@@ -325,7 +441,7 @@ export async function createPartnerPost(form = {}) {
 export async function listMyPartnerPosts() {
   if (shouldUseReferenceMockPreview()) {
     const all = await listLocalPartnerPosts()
-    return all.filter((item) => item.isCreator)
+    return all.filter((item) => item.isCreator || isReferencePreviewOwner(item))
   }
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
@@ -401,7 +517,19 @@ export async function listPartnerIntents(partnerPostId) {
       return handleSuregoCloudError(error, () => Promise.resolve(readIntents().filter((item) => String(item.partnerPostId || item.partner_post_id) === String(partnerPostId)).map(normalizeIntent)))
     }
   }
-  return Promise.resolve(readIntents().filter((item) => String(item.partnerPostId || item.partner_post_id) === String(partnerPostId)).map(normalizeIntent))
+  const source = shouldUseReferenceMockPreview()
+    ? [...readIntents(), ...REFERENCE_INTENTS]
+    : readIntents()
+  const seen = new Set()
+  const items = source
+    .filter((item) => String(item.partnerPostId || item.partner_post_id) === String(partnerPostId))
+    .filter((item) => {
+      const key = String(item.id || item._id || `${item.partner_post_id || item.partnerPostId}:${item.user_id || item.userId}`)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  return Promise.resolve(items.map(normalizeIntent))
 }
 
 export async function updatePartnerIntentStatus(id, status) {
@@ -464,10 +592,24 @@ function getLocalPartnerPostById(partnerPostId) {
   return readPosts().find((item) => String(item.id) === String(partnerPostId)) || findPartnerPostById(partnerPostId) || null
 }
 
+function normalizeIdList(ids = []) {
+  return Array.from(new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean)))
+}
+
 function buildParticipantIds(partnerPostId, participantIds = []) {
   const post = getLocalPartnerPostById(partnerPostId) || {}
   const creatorId = post.creatorId || post.creator_id || ''
-  return Array.from(new Set([creatorId, ...participantIds.map(String).filter(Boolean)].filter(Boolean)))
+  return Array.from(new Set([creatorId, ...normalizeIdList(participantIds)].filter(Boolean)))
+}
+
+function buildInvitedUserIds(post = {}, options = {}) {
+  const creatorId = String(post.creatorId || post.creator_id || getCurrentUserId() || '')
+  return normalizeIdList(options.invitedUserIds || options.invited_user_ids || options.participantIds || options.participant_ids || [])
+    .filter((userId) => String(userId) !== creatorId)
+}
+
+function buildSourcePartnerIntentIds(options = {}) {
+  return normalizeIdList(options.sourcePartnerIntentIds || options.source_partner_intent_ids || [])
 }
 
 function ensureLocalGroupConversation(partnerPostId, participantIds = []) {
@@ -503,24 +645,38 @@ function mapPartnerSceneToActivityCategory(scene = '', type = 'time_box') {
   return '饭搭子/探店'
 }
 
+function getPartnerActivityImage(post = {}) {
+  const explicitImage = post.image || post.cover || post.coverImage || post.cover_image || ''
+  if (explicitImage && explicitImage !== '/static/logo.png') return explicitImage
+  const scene = post.scene || ''
+  const text = `${post.title || ''} ${(post.tags || []).join(' ')} ${(post.fitTags || []).join(' ')}`
+  if (text.includes('羽毛球')) return DEFAULT_PARTNER_ACTIVITY_IMAGES.sport
+  return DEFAULT_PARTNER_ACTIVITY_IMAGES[scene] || DEFAULT_PARTNER_ACTIVITY_IMAGES.food
+}
+
 function buildConvertedActivity(post = {}, options = {}) {
   const visibility = options.visibility === 'members_only' ? 'members_only' : 'public'
-  const participantIds = buildParticipantIds(post.id, options.participantIds || options.participant_ids || [])
+  const creatorId = post.creatorId || post.creator_id || getCurrentUserId()
+  const participantIds = normalizeIdList(options.confirmedParticipantIds || options.confirmed_participant_ids || [creatorId])
+  const invitedUserIds = buildInvitedUserIds(post, options)
+  const sourcePartnerIntentIds = buildSourcePartnerIntentIds(options)
   const participantCount = participantIds.length
+  const plannedCount = Math.max(participantCount + invitedUserIds.length, 1)
   const title = String(options.title || post.title || '').trim() || '新的成行活动'
-  const available = post.available || post.schedule || '时间待定'
-  const locationRange = post.locationRange || post.location || '地点待确认'
+  const available = options.time || post.available || post.schedule || '时间待定'
+  const locationRange = options.location || post.locationRange || post.location || '地点待确认'
   const now = new Date().toISOString()
+  const maxParticipants = Number(options.maxParticipants || options.max_participants) || (visibility === 'public' ? Math.max(plannedCount + 2, 6) : Math.max(plannedCount, 2))
   return {
     id: `local_${Date.now()}`,
     title,
-    creatorId: post.creatorId || post.creator_id || getCurrentUserId(),
-    creator_id: post.creatorId || post.creator_id || getCurrentUserId(),
+    creatorId,
+    creator_id: creatorId,
     organizer: post.author || post.creator || 'SureGo 用户',
     organizerAvatar: post.avatar || DEFAULT_AVATAR,
-    image: '/static/logo.png',
+    image: getPartnerActivityImage(post),
     category: mapPartnerSceneToActivityCategory(post.scene, post.type),
-    date: visibility === 'public' ? '本周待定' : '已与成员确认',
+    date: options.date || (visibility === 'public' ? '本周待定' : '待邀请确认'),
     dateValue: now,
     dayOfWeek: '',
     time: available,
@@ -536,14 +692,14 @@ function buildConvertedActivity(post = {}, options = {}) {
     distance: '0.6',
     participantCount,
     participant_count: participantCount,
-    maxParticipants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
-    max_participants: visibility === 'public' ? Math.max(participantCount + 2, 6) : Math.max(participantCount, 2),
+    maxParticipants,
+    max_participants: maxParticipants,
     hasParticipantLimit: true,
     has_participant_limit: true,
     partyMode: 'free',
     party_mode: 'free',
     price: '免费',
-    amount: 0,
+    amount: Number(options.amount) || 0,
     requireApproval: visibility === 'public',
     require_approval: visibility === 'public',
     status: visibility === 'public' ? 'recruiting' : 'formed',
@@ -553,13 +709,17 @@ function buildConvertedActivity(post = {}, options = {}) {
     applicationStatus: 'not_applied',
     viewCount: 0,
     likeCount: 0,
-    description: post.detail || post.description || '',
+    description: options.description || post.detail || post.description || '',
     questions: [],
     tags: normalizeTags(post.tags || post.fitTags || post.wants),
     visibility,
     source: 'partner_post',
     sourcePartnerPostId: post.id,
     source_partner_post_id: post.id,
+    sourcePartnerIntentIds,
+    source_partner_intent_ids: sourcePartnerIntentIds,
+    invitedUserIds,
+    invited_user_ids: invitedUserIds,
     participantIds,
     participant_ids: participantIds,
     createdAt: now,
@@ -567,30 +727,6 @@ function buildConvertedActivity(post = {}, options = {}) {
     updatedAt: now,
     updated_at: now
   }
-}
-
-function writeApprovedApplications(activity = {}, participantIds = []) {
-  if (!activity?.id) return
-  const creatorId = String(activity.creatorId || activity.creator_id || '')
-  const items = readApplications()
-  const next = [...items]
-  participantIds
-    .map(String)
-    .filter((userId) => userId && userId !== creatorId)
-    .forEach((userId) => {
-      const exists = next.find((item) => String(item.activityId || item.activity_id || '') === String(activity.id) && String(item.userId || item.user_id || '') === userId)
-      if (exists) return
-      next.unshift({
-        id: `app_${activity.id}_${userId}`,
-        activityId: activity.id,
-        activity_id: activity.id,
-        userId,
-        user_id: userId,
-        status: 'approved',
-        createdAt: activity.createdAt || activity.created_at || new Date().toISOString()
-      })
-    })
-  writeApplications(next)
 }
 
 function markLocalPostConverted(partnerPostId, activity = {}) {
@@ -684,11 +820,10 @@ function convertLocalPartnerPostToActivity(payload = {}) {
   if (!post) return Promise.resolve(null)
   const activity = buildConvertedActivity(post, payload)
   writeCreatedActivities([activity, ...readCreatedActivities()])
-  writeApprovedApplications(activity, activity.participantIds || activity.participant_ids || [])
   markLocalPostConverted(post.id, activity)
   notifyConvertedActivity(
     activity,
-    (activity.participantIds || activity.participant_ids || []).filter((userId) => String(userId) !== String(post.creatorId || post.creator_id || '')),
+    activity.invitedUserIds || activity.invited_user_ids || [],
     activity.visibility
   )
   return Promise.resolve(activity)
