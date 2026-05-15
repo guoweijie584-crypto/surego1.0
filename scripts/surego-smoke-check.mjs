@@ -408,9 +408,19 @@ if (fs.existsSync(partnerApiPath)) {
       errors.push(`common/api/partner.js is missing conversation token: ${token}`);
     }
   }
-  for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId']) {
+  for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId', 'sourcePartnerIntentIds', 'invitedUserIds', 'invited_user_ids', 'source_partner_intent_ids']) {
     if (!source.includes(token)) {
       errors.push(`common/api/partner.js must expose document-aligned partner conversion token: ${token}`);
+    }
+  }
+  for (const staleToken of ['writeApprovedApplications(activity', 'writeApprovedApplications(activity,', 'APPLICATIONS_KEY']) {
+    if (source.includes(staleToken)) {
+      errors.push(`common/api/partner.js must not auto-create approved applications during partner conversion: ${staleToken}`);
+    }
+  }
+  for (const token of ['REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewOwner', 'weekly-badminton']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/partner.js must keep reference mock owner posts visible in mine with ${token}`);
     }
   }
 }
@@ -428,11 +438,35 @@ if (fs.existsSync(partnerCardPath)) {
       errors.push(`SuPartnerCard.vue action capsule must keep single-line text on real devices with ${token}`);
     }
   }
+  for (const token of ['compact-meta-row', 'compact-meta-chip', 'displayConnectionSummary']) {
+    if (!source.includes(token)) {
+      errors.push(`SuPartnerCard.vue must use compact partner list layout with ${token}`);
+    }
+  }
+  for (const staleToken of ['partner-post-card__desc', 'displayExpectation', 'partner-post-card__want-main', 'partner-meta-grid']) {
+    if (source.includes(staleToken)) {
+      errors.push(`SuPartnerCard.vue compact list card must not render tall/redundant detail block: ${staleToken}`);
+    }
+  }
   if (source.includes('grid-template-columns: 1fr;') && source.includes('.contract-row')) {
     errors.push('SuPartnerCard.vue action capsule must sit on the right of the contract row, not stretch as a full-width grid row');
   }
   if (source.includes('width: 120rpx')) {
     errors.push('SuPartnerCard.vue action capsule must not use fixed 120rpx width because four Chinese characters wrap on device');
+  }
+}
+
+const activityCardPath = path.join(root, 'components/surego/SuActivityCard.vue');
+if (fs.existsSync(activityCardPath)) {
+  const source = fs.readFileSync(activityCardPath, 'utf8');
+  for (const token of ['.activity-card--compact .activity-card__cover', 'height: 200rpx;', '.activity-card--compact .activity-card__body', 'activity-card__meta-row', '.activity-card--compact .activity-card__meta-row', 'activity-card__footer--compact', 'activity-card__status-chip', 'v-if="!compact"']) {
+    if (!source.includes(token)) {
+      errors.push(`SuActivityCard.vue must define compact home-card style token: ${token}`);
+    }
+  }
+  const compactCoverBlock = source.match(/\.activity-card--compact\s+\.activity-card__cover\s*\{[\s\S]*?\}/);
+  if (compactCoverBlock?.[0].includes('height: 308rpx')) {
+    errors.push('SuActivityCard.vue compact cover must not keep the default 308rpx height');
   }
 }
 
@@ -531,7 +565,7 @@ if (fs.existsSync(activityModerationSchemaPath)) {
       errors.push(`surego-activities schema is missing ${field}`);
     }
   }
-  for (const field of ['visibility', 'source', 'source_partner_post_id']) {
+  for (const field of ['visibility', 'source', 'source_partner_post_id', 'invited_user_ids', 'source_partner_intent_ids']) {
     if (!schema.properties?.[field]) {
       errors.push(`surego-activities schema is missing ${field}`);
     }
@@ -612,7 +646,7 @@ if (fs.existsSync(activityApiPath)) {
   if (!activitySource.includes('updateActivity(')) {
     errors.push('common/api/activity.js is missing updateActivity');
   }
-  for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus', 'isCurrentUserActivityCreator']) {
+  for (const helper of ['ACTIVITY_LIFECYCLE_STATUSES', 'normalizeActivityStatus', 'normalizeActivityRecord', 'applicationStatus', 'isCurrentUserActivityCreator', 'REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewActivityOwner']) {
     if (!activitySource.includes(helper)) {
       errors.push(`common/api/activity.js is missing ${helper}`);
     }
@@ -644,6 +678,16 @@ if (fs.existsSync(activityApiPath)) {
   }
   if (activitySource.includes('isCreator: form.isCreator') || activitySource.includes('item.isCreator)') || activitySource.includes('activity.isCreator ||')) {
     errors.push('common/api/activity.js must derive ownership from creator_id/current user instead of trusting isCreator');
+  }
+}
+
+const mockActivitiesPath = path.join(root, 'common/mock/activities.js');
+if (fs.existsSync(mockActivitiesPath)) {
+  const source = fs.readFileSync(mockActivitiesPath, 'utf8');
+  for (const token of ['graduation-photo-walk-owner', "creatorId: 'mock_user'", '毕业季草坪约拍']) {
+    if (!source.includes(token)) {
+      errors.push(`common/mock/activities.js must include my published activity mock with ${token}`);
+    }
   }
 }
 
@@ -1012,6 +1056,11 @@ if (fs.existsSync(activityCloudPath)) {
       errors.push(`surego-activity cloud function is missing conversion visibility token: ${token}`);
     }
   }
+  for (const token of ['invited_user_ids', 'source_partner_intent_ids']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-activity cloud function is missing conversion invite token: ${token}`);
+    }
+  }
 }
 
 const orderCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-order/index.js');
@@ -1078,9 +1127,14 @@ if (fs.existsSync(messageCloudPath)) {
 const partnerCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-partner/index.js');
 if (fs.existsSync(partnerCloudPath)) {
   const source = fs.readFileSync(partnerCloudPath, 'utf8');
-  for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', "participant_ids: payload.participantIds || payload.participant_ids || []"]) {
+  for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', 'invited_user_ids', 'source_partner_intent_ids']) {
     if (!source.includes(token)) {
       errors.push(`surego-partner cloud function must support partner conversion token: ${token}`);
+    }
+  }
+  for (const staleToken of ['createApprovedApplicationsForActivity', 'applications.add({']) {
+    if (source.includes(staleToken)) {
+      errors.push(`surego-partner must not auto-create approved activity applications during conversion: ${staleToken}`);
     }
   }
 }
@@ -1389,6 +1443,14 @@ const routeSource = fs.readFileSync(path.join(root, 'common/utils/route.js'), 'u
 if (!routeSource.includes('goUserDetail')) {
   errors.push('common/utils/route.js must expose goUserDetail for member/leader avatars');
 }
+
+const activityApiSource = fs.readFileSync(path.join(root, 'common/api/activity.js'), 'utf8');
+for (const token of ['invited', 'isActivityInvitee', 'invitedUserIds', 'invited_user_ids', 'sourcePartnerIntentIds', 'source_partner_intent_ids']) {
+  if (!activityApiSource.includes(token)) {
+    errors.push(`common/api/activity.js must support invited converted activity visibility with ${token}`);
+  }
+}
+
 for (const page of ['pages/activity/detail.vue', 'pages/activity/members.vue', 'pages/manage/checkin.vue', 'pages/manage/dashboard.vue']) {
   const absolute = path.join(root, page);
   if (!fs.existsSync(absolute)) continue;
@@ -1436,6 +1498,14 @@ if (fs.existsSync(homePagePath)) {
       errors.push(`pages/home/index.vue must not expose stale topic stat copy: ${bannedCopy}`);
     }
   }
+  if (!source.includes(':activity="item" compact')) {
+    errors.push('pages/home/index.vue home activity list must render SuActivityCard in compact mode');
+  }
+  for (const token of ['.scene-row {\n  margin-top: 14rpx;', '.sort-tabs {\n  display: flex;\n  gap: 12rpx;\n  margin-top: 14rpx;', 'margin: 24rpx 0 14rpx;']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/home/index.vue must keep compact spacing below the feature card with ${token}`);
+    }
+  }
 }
 
 for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
@@ -1458,6 +1528,17 @@ if (fs.existsSync(partnerPagePath)) {
   if (source.includes('找搭子')) {
     errors.push('pages/partners/index.vue must not render the stale 找搭子 label');
   }
+  for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/partners/index.vue must keep compact spacing below the feature card with ${token}`);
+    }
+  }
+  if (!source.includes('gap: 18rpx;')) {
+    errors.push('pages/partners/index.vue must tighten partner list spacing to gap: 18rpx');
+  }
+  if (source.includes('gap: 26rpx;')) {
+    errors.push('pages/partners/index.vue must not keep tall partner list spacing gap: 26rpx');
+  }
 }
 
 const partnerDetailPath = path.join(root, 'pages/partner/detail.vue');
@@ -1476,7 +1557,7 @@ if (fs.existsSync(partnerDetailPath)) {
 const partnerWorkbenchPath = path.join(root, 'pages/partner/workbench.vue');
 if (fs.existsSync(partnerWorkbenchPath)) {
   const source = fs.readFileSync(partnerWorkbenchPath, 'utf8');
-  for (const token of ['convertPartnerPostToActivity', "handleConvert({ visibility: 'public' })", "handleConvert({ visibility: 'members_only' })"]) {
+  for (const token of ['convertPartnerPostToActivity', 'openConvertSheet', 'convertSheetVisible', 'conversionForm', 'sourcePartnerIntentIds', 'invitedUserIds']) {
     if (!source.includes(token)) {
       errors.push(`pages/partner/workbench.vue must support real partner conversion flow token: ${token}`);
     }
@@ -1489,7 +1570,7 @@ if (fs.existsSync(partnerWorkbenchPath)) {
 }
 
 for (const [file, tokens] of Object.entries({
-  'pages/user/profile.vue': ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status'],
+  'pages/user/profile.vue': ['activeActivityScope', 'activePartnerScope', 'showActivityScope', 'showPartnerScope', 'currentActivityList', 'currentPartnerList', 'getActivityStatusMeta', 'profile-card__status', 'postedPartnerPosts'],
   'pages/my/activities.vue': ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'activity__status']
 })) {
   const absolute = path.join(root, file);

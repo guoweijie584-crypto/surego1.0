@@ -208,6 +208,13 @@ for (const token of ['ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUs
   }
 }
 
+const activitySchema = readJson('uniCloud-aliyun/database/surego-activities.schema.json')
+for (const field of ['visibility', 'source', 'source_partner_post_id', 'invited_user_ids', 'source_partner_intent_ids']) {
+  if (!activitySchema.properties?.[field]) {
+    errors.push(`surego-activities schema is missing ${field}`)
+  }
+}
+
 if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
   errors.push('common/js/vconsole.min.js must not be included in the trial release package')
 }
@@ -333,6 +340,14 @@ if (detailSource.includes('.priority { display: grid') || detailSource.includes(
 const profileSource = read('pages/user/profile.vue')
 if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('canUseOps.value = hasOpsRole(user.value)')) {
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
+}
+for (const token of ['postedPartnerPosts', 'activeActivityScope', 'activePartnerScope', 'showActivityScope', 'showPartnerScope', 'currentActivityList', 'currentPartnerList']) {
+  if (!profileSource.includes(token)) {
+    errors.push(`pages/user/profile.vue must route profile task cards through list views with ${token}`)
+  }
+}
+if (profileSource.includes("goMyActivities({ tab: 'hosting' })") || profileSource.includes('管理第一条申请')) {
+  errors.push('pages/user/profile.vue overview cards must switch in-page categories instead of jumping to a separate list or first item')
 }
 if (profileSource.includes('count: loggedIn.value ? 2 : 0') || profileSource.includes('靠谱、准时') || profileSource.includes('活动组织清晰')) {
   errors.push('pages/user/profile.vue must not ship hard-coded mock reviews')
@@ -474,6 +489,12 @@ const userDetailRouteSource = read('common/utils/route.js')
 if (!userDetailRouteSource.includes('goUserDetail')) {
   errors.push('common/utils/route.js must expose goUserDetail for member/leader avatars')
 }
+const activityApiSourceForInvites = read('common/api/activity.js')
+for (const token of ['invited', 'isActivityInvitee', 'invitedUserIds', 'invited_user_ids', 'sourcePartnerIntentIds', 'source_partner_intent_ids']) {
+  if (!activityApiSourceForInvites.includes(token)) {
+    errors.push(`common/api/activity.js must support invited converted activity visibility with ${token}`)
+  }
+}
 for (const page of ['pages/activity/detail.vue', 'pages/activity/members.vue', 'pages/manage/checkin.vue', 'pages/manage/dashboard.vue']) {
   const source = read(page)
   if (!source.includes('goUserDetail')) {
@@ -502,6 +523,25 @@ for (const bannedCopy of ['快成行', '我的进行中']) {
     errors.push(`pages/home/index.vue must not expose stale topic stat copy: ${bannedCopy}`)
   }
 }
+if (!homeSource.includes(':activity="item" compact')) {
+  errors.push('pages/home/index.vue home activity list must render SuActivityCard in compact mode')
+}
+for (const token of ['.scene-row {\n  margin-top: 14rpx;', '.sort-tabs {\n  display: flex;\n  gap: 12rpx;\n  margin-top: 14rpx;', 'margin: 24rpx 0 14rpx;']) {
+  if (!homeSource.includes(token)) {
+    errors.push(`pages/home/index.vue must keep compact spacing below the feature card with ${token}`)
+  }
+}
+
+const activityCardSource = read('components/surego/SuActivityCard.vue')
+for (const token of ['.activity-card--compact .activity-card__cover', 'height: 200rpx;', '.activity-card--compact .activity-card__body', 'activity-card__meta-row', '.activity-card--compact .activity-card__meta-row', 'activity-card__footer--compact', 'activity-card__status-chip', 'v-if="!compact"']) {
+  if (!activityCardSource.includes(token)) {
+    errors.push(`SuActivityCard.vue must define compact home-card style token: ${token}`)
+  }
+}
+const compactCoverBlock = activityCardSource.match(/\.activity-card--compact\s+\.activity-card__cover\s*\{[\s\S]*?\}/)
+if (compactCoverBlock?.[0].includes('height: 308rpx')) {
+  errors.push('SuActivityCard.vue compact cover must not keep the default 308rpx height')
+}
 
 for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
   const source = read(file)
@@ -528,7 +568,7 @@ for (const token of ['getActivityStatusMeta', 'isTerminalActivity']) {
 }
 
 const activitySource = read('common/api/activity.js')
-for (const token of ['isCurrentUserActivityCreator', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
+for (const token of ['isCurrentUserActivityCreator', 'REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewActivityOwner', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
   if (!activitySource.includes(token)) {
     errors.push(`common/api/activity.js is missing ownership release token: ${token}`)
   }
@@ -552,13 +592,20 @@ if (activitySource.includes('isCreator: form.isCreator') || activitySource.inclu
   errors.push('common/api/activity.js must not trust stored isCreator in release mode')
 }
 
+const mockActivitiesSource = read('common/mock/activities.js')
+for (const token of ['graduation-photo-walk-owner', "creatorId: 'mock_user'", '毕业季草坪约拍']) {
+  if (!mockActivitiesSource.includes(token)) {
+    errors.push(`common/mock/activities.js must include my published activity mock with ${token}`)
+  }
+}
+
 const profileActivitySource = read('pages/user/profile.vue')
 for (const token of ['listMyPartnerPosts', 'partnerPostList', "activeTab === 'partners'", 'goPartnerWorkbench']) {
   if (!profileActivitySource.includes(token)) {
     errors.push(`pages/user/profile.vue must manage my partner posts with ${token}`)
   }
 }
-for (const token of ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status']) {
+for (const token of ['activityScopeTabs', 'partnerScopeTabs', 'currentActivityList', 'currentPartnerList', 'getActivityStatusMeta', 'profile-card__status']) {
   if (!profileActivitySource.includes(token)) {
     errors.push(`pages/user/profile.vue must render release activity categories/status badge: ${token}`)
   }
@@ -627,9 +674,14 @@ for (const token of ['getPartnerConversation', 'listPartnerConversations', 'CONV
     errors.push(`common/api/partner.js must align conversation flow with ${token}`)
   }
 }
-for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId']) {
+for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId', 'sourcePartnerIntentIds', 'invitedUserIds', 'invited_user_ids', 'source_partner_intent_ids']) {
   if (!partnerApiSource.includes(token)) {
     errors.push(`common/api/partner.js must expose document-aligned partner conversion token: ${token}`)
+  }
+}
+for (const staleToken of ['writeApprovedApplications(activity', 'writeApprovedApplications(activity,', 'APPLICATIONS_KEY']) {
+  if (partnerApiSource.includes(staleToken)) {
+    errors.push(`common/api/partner.js must not auto-create approved applications during partner conversion: ${staleToken}`)
   }
 }
 const followHelperStart = partnerApiSource.indexOf('export async function followPartnerPost')
@@ -648,11 +700,32 @@ for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'ge
 if (partnerPageSource.includes('找搭子')) {
   errors.push('pages/partners/index.vue must not render the stale 找搭子 label')
 }
+for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
+  if (!partnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue must keep compact spacing below the feature card with ${token}`)
+  }
+}
+if (!partnerPageSource.includes('gap: 18rpx;')) {
+  errors.push('pages/partners/index.vue must tighten partner list spacing to gap: 18rpx')
+}
+if (partnerPageSource.includes('gap: 26rpx;')) {
+  errors.push('pages/partners/index.vue must not keep tall partner list spacing gap: 26rpx')
+}
 
 const partnerCardSource = read('components/surego/SuPartnerCard.vue')
 for (const token of ['contract-row__copy', 'contract-row__action', 'min-width: 152rpx', 'white-space: nowrap', 'text-overflow: ellipsis']) {
   if (!partnerCardSource.includes(token)) {
     errors.push(`SuPartnerCard.vue action capsule must keep single-line text on real devices with ${token}`)
+  }
+}
+for (const token of ['compact-meta-row', 'compact-meta-chip', 'displayConnectionSummary']) {
+  if (!partnerCardSource.includes(token)) {
+    errors.push(`SuPartnerCard.vue must use compact partner list layout with ${token}`)
+  }
+}
+for (const staleToken of ['partner-post-card__desc', 'displayExpectation', 'partner-post-card__want-main', 'partner-meta-grid']) {
+  if (partnerCardSource.includes(staleToken)) {
+    errors.push(`SuPartnerCard.vue compact list card must not render tall/redundant detail block: ${staleToken}`)
   }
 }
 if (partnerCardSource.includes('grid-template-columns: 1fr;') && partnerCardSource.includes('.contract-row')) {
@@ -697,7 +770,7 @@ for (const token of ['listPartnerIntents', 'updatePartnerIntentStatus', 'goPartn
     errors.push(`pages/partner/workbench.vue is missing release partner workbench token: ${token}`)
   }
 }
-for (const token of ['convertPartnerPostToActivity', "handleConvert({ visibility: 'public' })", "handleConvert({ visibility: 'members_only' })"]) {
+for (const token of ['convertPartnerPostToActivity', 'openConvertSheet', 'convertSheetVisible', 'conversionForm', 'sourcePartnerIntentIds', 'invitedUserIds']) {
   if (!partnerWorkbenchSource.includes(token)) {
     errors.push(`pages/partner/workbench.vue must support real partner conversion flow token: ${token}`)
   }
@@ -1054,6 +1127,11 @@ for (const token of ["visibility: payload.visibility || 'public'", 'source_partn
     errors.push(`surego-activity must support converted activity visibility/source token: ${token}`)
   }
 }
+for (const token of ['invited_user_ids', 'source_partner_intent_ids']) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must support converted activity invite token: ${token}`)
+  }
+}
 for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
   if (!activityCloudSource.includes(token)) {
     errors.push(`surego-activity must guard creator lifecycle transitions with ${token}`)
@@ -1088,14 +1166,26 @@ for (const token of ['surego-conversations', 'ensureConversationForIntent', 'par
     errors.push(`surego-partner must create/link conversations when accepting intents with ${token}`)
   }
 }
-for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', "participant_ids: payload.participantIds || payload.participant_ids || []"]) {
+for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', 'invited_user_ids', 'source_partner_intent_ids']) {
   if (!partnerCloudSource.includes(token)) {
     errors.push(`surego-partner must support partner conversion flow token: ${token}`)
+  }
+}
+for (const staleToken of ['createApprovedApplicationsForActivity', 'applications.add({']) {
+  if (partnerCloudSource.includes(staleToken)) {
+    errors.push(`surego-partner must not auto-create approved activity applications during conversion: ${staleToken}`)
   }
 }
 for (const token of ["if (!record.schedule)", "if (!record.location)", "if (!record.description)"]) {
   if (!partnerCloudSource.includes(token)) {
     errors.push(`surego-partner must validate partner post required fields with ${token}`)
+  }
+}
+
+const partnerApiSourceForMine = read('common/api/partner.js')
+for (const token of ['REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewOwner', 'weekly-badminton']) {
+  if (!partnerApiSourceForMine.includes(token)) {
+    errors.push(`common/api/partner.js must keep reference mock owner posts visible in mine with ${token}`)
   }
 }
 
