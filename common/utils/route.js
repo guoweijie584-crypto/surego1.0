@@ -321,9 +321,10 @@ export function goSharePoster(id) {
   })
 }
 
-export function goMyActivities() {
+export function goMyActivities(params = {}) {
+  const query = buildQuery(params)
   uni.navigateTo({
-    url: '/pages/my/activities'
+    url: `/pages/my/activities${query ? `?${query}` : ''}`
   })
 }
 

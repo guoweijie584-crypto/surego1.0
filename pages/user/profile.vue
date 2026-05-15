@@ -82,7 +82,7 @@
                 :key="item.key"
                 class="filter-row__button"
                 :class="{ active: activeTab === item.key }"
-                @tap="activeTab = item.key"
+                @tap="switchProfileTab(item.key)"
               >
                 <text>{{ item.label }}</text>
               </view>
@@ -90,35 +90,35 @@
           </scroll-view>
 
           <view v-if="activeTab === 'overview'" class="task-list">
-            <view class="task-card" @tap="openFirstJoinedActivity">
+            <view class="task-card" @tap="showActivityScope('joined')">
               <SuIcon name="calendar" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的报名</text>
               </view>
               <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
-            <view class="task-card" @tap="openNextActivity">
+            <view class="task-card" @tap="showActivityScope('checkin')">
               <SuIcon name="scan" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的到场 / 待核销</text>
               </view>
               <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
-            <view class="task-card" @tap="openHostingActivity">
+            <view class="task-card" @tap="showActivityScope('hosting')">
               <SuIcon name="check" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我发起的活动</text>
               </view>
               <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
-            <view class="task-card" @tap="openPrimaryPartnerPost">
+            <view class="task-card" @tap="showPartnerScope('posted')">
               <SuIcon name="people" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我发布的搭子</text>
               </view>
               <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
             </view>
-            <view class="task-card" @tap="openIntentPartnerPost">
+            <view class="task-card" @tap="showPartnerScope('intents')">
               <SuIcon name="send" size="46" glyph-size="20" variant="soft" />
               <view>
                 <text>我的意向</text>
@@ -142,11 +142,22 @@
           </view>
 
           <view v-if="activeTab === 'activities'" class="profile-stack">
-            <view class="section-title">
-              <text>我的报名</text>
+            <view class="sub-filter-row">
+              <view
+                v-for="item in activityScopeTabs"
+                :key="item.key"
+                class="sub-filter-row__item"
+                :class="{ active: activeActivityScope === item.key }"
+                @tap="activeActivityScope = item.key"
+              >
+                <text>{{ item.label }}</text>
+              </view>
             </view>
-            <view v-if="joinedActivities.length === 0" class="empty-card">暂无报名活动</view>
-            <view v-for="item in joinedActivities" :key="item.id" class="profile-card" @tap="openActivity(item)">
+            <view class="section-title">
+              <text>{{ currentActivityScope.label }}</text>
+            </view>
+            <view v-if="currentActivityList.length === 0" class="empty-card">{{ currentActivityScope.empty }}</view>
+            <view v-for="item in currentActivityList" :key="item.id" class="profile-card" @tap="openActivity(item)">
               <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
               <view class="profile-card__body">
                 <view class="profile-card__row">
@@ -156,35 +167,31 @@
                 <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
               </view>
             </view>
-
-            <view class="section-title">
-              <text>我发起的活动</text>
-            </view>
-            <view v-if="hostingActivities.length === 0" class="empty-card">暂无发起活动</view>
-            <view v-for="item in hostingActivities" :key="item.id" class="profile-card" @tap="openActivity(item)">
-              <image class="profile-card__cover" :src="item.image" mode="aspectFill" />
-              <view class="profile-card__body">
-                <view class="profile-card__row">
-                  <text class="profile-card__title su-line-1">{{ item.title }}</text>
-                  <text class="profile-card__status" :class="`profile-card__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
-                </view>
-                <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
-              </view>
-            </view>
-            <view class="primary-button" @tap="goActivityCreate">继续发活动</view>
+            <view v-if="activeActivityScope === 'hosting'" class="primary-button" @tap="goActivityCreate">继续发活动</view>
           </view>
 
           <view v-if="activeTab === 'partners'" class="profile-stack">
-            <view class="section-title">
-              <text>我发布的搭子</text>
+            <view class="sub-filter-row">
+              <view
+                v-for="item in partnerScopeTabs"
+                :key="item.key"
+                class="sub-filter-row__item"
+                :class="{ active: activePartnerScope === item.key }"
+                @tap="activePartnerScope = item.key"
+              >
+                <text>{{ item.label }}</text>
+              </view>
             </view>
-            <SuPartnerCard v-if="postedPartnerPost" :partner="postedPartnerPost" />
-            <view v-else class="empty-card">暂无发布的搭子</view>
-            <view class="primary-button" @tap="openPrimaryPartnerPost">管理申请</view>
             <view class="section-title">
-              <text>我的意向</text>
+              <text>{{ currentPartnerScope.label }}</text>
             </view>
-            <SuPartnerCard v-if="intentPartnerPost" :partner="intentPartnerPost" />
+            <view v-if="currentPartnerList.length" class="partner-list">
+              <view v-for="item in currentPartnerList" :key="item.id" class="partner-list__item">
+                <SuPartnerCard :partner="item" />
+                <view v-if="activePartnerScope === 'posted'" class="partner-list__manage" @tap.stop="goPartnerWorkbench(item.id)">管理申请</view>
+              </view>
+            </view>
+            <view v-else class="empty-card">{{ currentPartnerScope.empty }}</view>
           </view>
 
           <view v-if="activeTab === 'messages'" class="profile-stack">
@@ -264,14 +271,14 @@ import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
-import { ACTIVITY_STATUS_FILTERS, filterActivitiesByStatusGroup, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { listMyPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goAuthLogin, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goPartnerDetail, goPartnerWorkbench, goVerify } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goAuthLogin, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goPartnerWorkbench, goVerify } from '@/common/utils/route.js'
 
 const profileTabs = [
   { key: 'overview', label: '总览' },
@@ -288,12 +295,13 @@ const socialAccounts = [
 ]
 const mockProfileAvatar = 'https://images.pexels.com/photos/12603316/pexels-photo-12603316.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop'
 const activeTab = ref('overview')
-const activeActivityFilter = ref('all')
+const activeActivityScope = ref('joined')
+const activePartnerScope = ref('posted')
 const activeOrderFilter = ref('all')
 const loggedIn = ref(false)
 const canUseOps = ref(false)
 const unreadCount = ref(0)
-const myActivities = ref({ hosting: [], joined: [], pending: [] })
+const myActivities = ref({ hosting: [], joined: [], invited: [], pending: [] })
 const partnerPosts = ref([])
 const allPartnerPosts = ref([])
 const orders = ref([])
@@ -304,22 +312,43 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 500 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
-const activityFilters = ACTIVITY_STATUS_FILTERS
+const activityScopeTabs = [
+  { key: 'joined', label: '我的报名', empty: '暂无报名活动' },
+  { key: 'checkin', label: '待到场 / 核销', empty: '暂无待到场活动' },
+  { key: 'hosting', label: '我发起的活动', empty: '暂无发起活动' },
+  { key: 'invited', label: '邀请待确认', empty: '暂无待确认邀请' },
+  { key: 'pending', label: '申请中', empty: '暂无申请中的活动' }
+]
+const partnerScopeTabs = [
+  { key: 'posted', label: '我发布的搭子', empty: '暂无发布的搭子' },
+  { key: 'intents', label: '我的意向', empty: '暂无搭子意向' }
+]
 
-const activityList = computed(() => sortActivitiesByStatusPriority([
-  ...myActivities.value.hosting,
-  ...myActivities.value.joined,
-  ...myActivities.value.pending
-]))
-const filteredActivityList = computed(() => filterActivitiesByStatusGroup(activityList.value, activeActivityFilter.value))
-const hostingActivities = computed(() => myActivities.value.hosting.slice(0, 2))
-const joinedActivities = computed(() => filteredActivityList.value.filter((item) => !item.isCreator).slice(0, 2))
+const hostingActivities = computed(() => sortActivitiesByStatusPriority(myActivities.value.hosting || []))
+const joinedActivities = computed(() => sortActivitiesByStatusPriority(myActivities.value.joined || []))
+const checkinActivities = computed(() => joinedActivities.value.filter((item) => item.applicationStatus === 'approved'))
+const invitedActivities = computed(() => sortActivitiesByStatusPriority(myActivities.value.invited || []))
+const pendingActivities = computed(() => sortActivitiesByStatusPriority(myActivities.value.pending || []))
+const currentActivityScope = computed(() => activityScopeTabs.find((item) => item.key === activeActivityScope.value) || activityScopeTabs[0])
+const currentActivityList = computed(() => {
+  const map = {
+    joined: joinedActivities.value,
+    checkin: checkinActivities.value,
+    hosting: hostingActivities.value,
+    invited: invitedActivities.value,
+    pending: pendingActivities.value
+  }
+  return map[activeActivityScope.value] || joinedActivities.value
+})
 const partnerPostList = computed(() => partnerPosts.value)
-const postedPartnerPost = computed(() => (
-  partnerPostList.value.find((item) => item.id === 'weekly-badminton') || partnerPostList.value[0] || null
-))
+const postedPartnerPosts = computed(() => partnerPostList.value)
 const intentPartnerPost = computed(() => (
   allPartnerPosts.value.find((item) => item.id === 'hackathon-ai-front') || allPartnerPosts.value.find((item) => !item.isCreator) || null
+))
+const intentPartnerPosts = computed(() => (intentPartnerPost.value ? [intentPartnerPost.value] : []))
+const currentPartnerScope = computed(() => partnerScopeTabs.find((item) => item.key === activePartnerScope.value) || partnerScopeTabs[0])
+const currentPartnerList = computed(() => (
+  activePartnerScope.value === 'intents' ? intentPartnerPosts.value : postedPartnerPosts.value
 ))
 const firstOrder = computed(() => orders.value[0] || null)
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
@@ -351,7 +380,7 @@ async function loadData() {
     if (!loggedIn.value) {
       user.value = getCurrentUserProfile()
       canUseOps.value = false
-      myActivities.value = { hosting: [], joined: [], pending: [] }
+      myActivities.value = { hosting: [], joined: [], invited: [], pending: [] }
       partnerPosts.value = []
       allPartnerPosts.value = []
       orders.value = []
@@ -368,7 +397,14 @@ async function loadData() {
       listOrders(),
       getUnreadMessageCount()
     ])
-    myActivities.value = Array.isArray(activities) ? activities : { hosting: [], joined: [], pending: [] }
+    myActivities.value = Array.isArray(activities)
+      ? { hosting: [], joined: activities, invited: [], pending: [] }
+      : {
+          hosting: activities.hosting || [],
+          joined: activities.joined || [],
+          invited: activities.invited || [],
+          pending: activities.pending || []
+        }
     partnerPosts.value = Array.isArray(partnerItems) ? partnerItems : []
     allPartnerPosts.value = Array.isArray(allPartners) ? allPartners : []
     orders.value = Array.isArray(orderItems) ? orderItems : []
@@ -397,47 +433,18 @@ function openActivity(item) {
   goActivityDetail(item.id)
 }
 
-function openFirstJoinedActivity() {
-  const item = joinedActivities.value[0] || activityList.value[0]
-  if (item) {
-    openActivity(item)
-    return
-  }
-  uni.showToast({ title: '暂无报名活动', icon: 'none' })
+function switchProfileTab(key) {
+  activeTab.value = key
 }
 
-function openNextActivity() {
-  const item = joinedActivities.value[0] || activityList.value[0]
-  if (item) {
-    openActivity(item)
-    return
-  }
-  uni.showToast({ title: '暂无待核销活动', icon: 'none' })
+function showActivityScope(scope) {
+  activeTab.value = 'activities'
+  activeActivityScope.value = scope
 }
 
-function openHostingActivity() {
-  const item = hostingActivities.value[0] || activityList.value.find((activity) => activity.isCreator)
-  if (item) {
-    goManageDashboard(item.id)
-    return
-  }
-  uni.showToast({ title: '暂无发起活动', icon: 'none' })
-}
-
-function openPrimaryPartnerPost() {
-  if (postedPartnerPost.value?.id) {
-    goPartnerWorkbench(postedPartnerPost.value.id)
-    return
-  }
-  uni.showToast({ title: '暂无搭子需求', icon: 'none' })
-}
-
-function openIntentPartnerPost() {
-  if (intentPartnerPost.value?.id) {
-    goPartnerDetail(intentPartnerPost.value.id)
-    return
-  }
-  uni.showToast({ title: '暂无搭子意向', icon: 'none' })
+function showPartnerScope(scope) {
+  activeTab.value = 'partners'
+  activePartnerScope.value = scope
 }
 
 function openFirstOrder() {
@@ -726,6 +733,33 @@ function handleProfileSaved(nextUser) {
   color: #fff;
 }
 
+.sub-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.sub-filter-row__item {
+  display: inline-flex;
+  min-height: 58rpx;
+  align-items: center;
+  justify-content: center;
+  padding: 0 22rpx;
+  border: 1rpx solid rgba(24, 24, 27, 0.07);
+  border-radius: 999rpx;
+  background: #fff;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 950;
+  box-shadow: 0 8rpx 18rpx rgba(30, 88, 156, 0.045);
+}
+
+.sub-filter-row__item.active {
+  border-color: #2388ff;
+  background: #2388ff;
+  color: #fff;
+}
+
 .task-list,
 .profile-stack {
   display: grid;
@@ -871,6 +905,28 @@ function handleProfileSaved(nextUser) {
   color: #94a3b8;
   font-size: 22rpx;
   font-weight: 800;
+}
+
+.partner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.partner-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.partner-list__manage {
+  align-self: flex-end;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  background: #edf6ff;
+  color: #2388ff;
+  font-size: 22rpx;
+  font-weight: 950;
 }
 
 .primary-button {
