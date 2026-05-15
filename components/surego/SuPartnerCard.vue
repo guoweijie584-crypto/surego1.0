@@ -1,5 +1,5 @@
 <template>
-  <view class="partner-post-card" hover-class="partner-post-card--active" @tap="openDetail">
+  <view class="partner-post-card partner-post-card--compact" hover-class="partner-post-card--active" @tap="openDetail">
     <view class="partner-post-card__head">
       <view class="organizer-line">
         <image class="organizer-line__avatar" :src="partner.avatar" mode="aspectFill" />
@@ -12,34 +12,26 @@
     </view>
 
     <text class="partner-post-card__title su-line-2">{{ partner.title }}</text>
-    <text class="partner-post-card__desc su-line-2">{{ partner.detail || partner.description }}</text>
 
     <view class="partner-post-card__wants">
       <text v-for="tag in displayTags" :key="tag">{{ tag }}</text>
-      <text v-if="displayExpectation" class="partner-post-card__want-main su-line-1">{{ displayExpectation }}</text>
     </view>
 
-    <view class="partner-meta-grid">
-      <view class="partner-meta-grid__item">
-        <SuIcon name="calendar" size="40" glyph-size="18" variant="soft" />
-        <view class="partner-meta-grid__copy">
-          <text class="partner-meta-grid__value su-line-1">{{ partner.available || partner.schedule }}</text>
-          <text class="partner-meta-grid__label">可约时间</text>
-        </view>
+    <view class="compact-meta-row">
+      <view class="compact-meta-chip">
+        <SuIcon name="calendar" size="30" glyph-size="14" variant="inline" color="#2388ff" />
+        <text class="su-line-1">{{ partner.available || partner.schedule }}</text>
       </view>
-      <view class="partner-meta-grid__item">
-        <SuIcon name="location" size="40" glyph-size="18" variant="soft" />
-        <view class="partner-meta-grid__copy">
-          <text class="partner-meta-grid__value su-line-1">{{ partner.locationRange || partner.location }}</text>
-          <text class="partner-meta-grid__label">地点范围</text>
-        </view>
+      <view class="compact-meta-chip">
+        <SuIcon name="location" size="30" glyph-size="14" variant="inline" color="#2388ff" />
+        <text class="su-line-1">{{ partner.locationRange || partner.location }}</text>
       </view>
     </view>
 
     <view class="contract-row">
       <view class="contract-row__copy">
         <text>{{ partner.interested || partner.intentCount || 0 }} 人感兴趣</text>
-        <text>{{ partner.connectionRule || partner.connectionMode }}</text>
+        <text class="su-line-1">{{ displayConnectionSummary }}</text>
       </view>
       <text class="contract-row__action">{{ actionLabel }}</text>
     </view>
@@ -71,10 +63,9 @@ const displayTags = computed(() => {
   return (Array.isArray(tags) ? tags : []).filter(Boolean).slice(0, 3)
 })
 
-const displayExpectation = computed(() => {
-  const value = props.partner.expectation || ''
-  if (!value || displayTags.value.includes(value)) return ''
-  return value
+const displayConnectionSummary = computed(() => {
+  const text = String(props.partner.connectionRule || props.partner.connectionMode || '先提交意向，对方通过后联系').trim()
+  return text.split(/[；;。]/).filter(Boolean)[0] || text
 })
 
 const actionLabel = computed(() => {
@@ -92,10 +83,10 @@ function openDetail() {
 <style scoped>
 .partner-post-card {
   display: grid;
-  gap: 24rpx;
-  padding: 32rpx;
+  gap: 14rpx;
+  padding: 24rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 48rpx;
+  border-radius: 34rpx;
   background: #fff;
   box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.055);
   transition: transform 0.18s ease;
@@ -116,17 +107,17 @@ function openDetail() {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 14rpx;
+  gap: 12rpx;
 }
 
 .organizer-line__avatar {
-  width: 72rpx;
-  height: 72rpx;
-  flex: 0 0 72rpx;
-  border: 4rpx solid #fff;
+  width: 56rpx;
+  height: 56rpx;
+  flex: 0 0 56rpx;
+  border: 3rpx solid #fff;
   border-radius: 50%;
   background: #f1f5f9;
-  box-shadow: 0 10rpx 24rpx rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8rpx 18rpx rgba(15, 23, 42, 0.08);
 }
 
 .organizer-line__name,
@@ -137,22 +128,22 @@ function openDetail() {
 .organizer-line__name {
   max-width: 330rpx;
   color: #102033;
-  font-size: 25rpx;
+  font-size: 23rpx;
   font-weight: 950;
 }
 
 .organizer-line__meta {
-  margin-top: 6rpx;
+  margin-top: 3rpx;
   color: #64748b;
-  font-size: 20rpx;
+  font-size: 18rpx;
   font-weight: 850;
 }
 
 .partner-post-card__kind {
   flex: 0 0 auto;
-  padding: 10rpx 17rpx;
+  padding: 8rpx 14rpx;
   border-radius: 999rpx;
-  font-size: 19rpx;
+  font-size: 18rpx;
   font-weight: 950;
   line-height: 1;
 }
@@ -175,84 +166,56 @@ function openDetail() {
 .partner-post-card__title {
   display: block;
   color: #102033;
-  font-size: 40rpx;
+  font-size: 31rpx;
   font-weight: 950;
-  line-height: 1.22;
+  line-height: 1.24;
 }
 
-.partner-post-card__desc {
-  display: block;
-  color: #64748b;
-  font-size: 24rpx;
-  font-weight: 850;
-  line-height: 1.55;
-}
-
-.partner-meta-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16rpx;
-}
-
-.partner-meta-grid__item {
+.compact-meta-row {
   display: flex;
+  gap: 10rpx;
+}
+
+.compact-meta-chip {
+  display: flex;
+  min-width: 0;
+  flex: 1;
   align-items: center;
-  gap: 14rpx;
-  min-width: 0;
-  padding: 20rpx;
-  border-radius: 32rpx;
-  background: #edf6ff;
-}
-
-.partner-meta-grid__copy {
-  min-width: 0;
-}
-
-.partner-meta-grid__copy text {
-  display: block;
-}
-
-.partner-meta-grid__value {
+  gap: 8rpx;
+  padding: 10rpx 12rpx;
+  border-radius: 20rpx;
+  background: #f0f7ff;
   overflow: hidden;
-  color: #102033;
-  font-size: 24rpx;
-  font-weight: 950;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.partner-meta-grid__label {
-  margin-top: 8rpx;
-  color: #64748b;
+.compact-meta-chip text {
+  min-width: 0;
+  color: #395b80;
   font-size: 20rpx;
-  font-weight: 950;
+  font-weight: 900;
 }
 
 .partner-post-card__wants {
   display: flex;
   flex-wrap: wrap;
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
 .partner-post-card__wants text {
-  padding: 10rpx 15rpx;
+  padding: 8rpx 12rpx;
   border-radius: 999rpx;
   background: #f4f4f5;
   color: #52525b;
-  font-size: 20rpx;
+  font-size: 18rpx;
   font-weight: 950;
-}
-
-.partner-post-card__want-main {
-  max-width: 100%;
 }
 
 .contract-row {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 18rpx;
-  padding-top: 20rpx;
+  gap: 14rpx;
+  padding-top: 14rpx;
   border-top: 1rpx solid #dbeafe;
 }
 
@@ -267,16 +230,16 @@ function openDetail() {
 
 .contract-row__copy text:first-child {
   color: #102033;
-  font-size: 25rpx;
+  font-size: 22rpx;
   font-weight: 950;
 }
 
 .contract-row__copy text:last-child {
-  margin-top: 7rpx;
+  margin-top: 5rpx;
   color: #64748b;
-  font-size: 20rpx;
+  font-size: 18rpx;
   font-weight: 850;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .contract-row__action {
@@ -285,11 +248,11 @@ function openDetail() {
   width: auto;
   min-width: 152rpx;
   max-width: 210rpx;
-  padding: 16rpx 22rpx;
+  padding: 13rpx 18rpx;
   border-radius: 999rpx;
   background: #2388ff;
   color: #fff;
-  font-size: 21rpx;
+  font-size: 20rpx;
   font-weight: 950;
   overflow: hidden;
   text-align: center;

@@ -272,11 +272,11 @@ function matchesScene(item = {}, scene = 'all') {
 
 .feature-card {
   position: relative;
-  min-height: 386rpx;
+  min-height: 308rpx;
   overflow: hidden;
-  border-radius: 44rpx;
+  border-radius: 36rpx;
   background: #dbeafe;
-  box-shadow: 0 20rpx 44rpx rgba(35, 136, 255, 0.14);
+  box-shadow: 0 16rpx 36rpx rgba(35, 136, 255, 0.12);
 }
 
 .feature-card__image,
@@ -297,20 +297,20 @@ function matchesScene(item = {}, scene = 'all') {
   position: relative;
   z-index: 2;
   display: flex;
-  min-height: 386rpx;
+  min-height: 308rpx;
   flex-direction: column;
   justify-content: space-between;
-  padding: 32rpx 30rpx 28rpx;
+  padding: 24rpx 24rpx 22rpx;
   color: #fff;
 }
 
 .feature-card__pill {
   align-self: flex-start;
-  padding: 10rpx 16rpx;
+  padding: 7rpx 12rpx;
   border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.14);
   border: 1rpx solid rgba(255, 255, 255, 0.14);
-  font-size: 18rpx;
+  font-size: 16rpx;
   font-weight: 950;
   backdrop-filter: blur(12px);
 }
@@ -318,46 +318,46 @@ function matchesScene(item = {}, scene = 'all') {
 .feature-card__title-group {
   display: grid;
   gap: 2rpx;
-  margin-top: 14rpx;
+  margin-top: 10rpx;
   max-width: 560rpx;
 }
 
 .feature-card__title-line {
   display: block;
-  font-size: 37rpx;
+  font-size: 31rpx;
   font-weight: 950;
   line-height: 1.08;
   text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.24);
 }
 
 .feature-card__title-line--strong {
-  font-size: 46rpx;
+  font-size: 36rpx;
 }
 
 .feature-card__desc {
   display: block;
-  margin-top: 12rpx;
+  margin-top: 8rpx;
   max-width: 560rpx;
   color: rgba(255, 255, 255, 0.82);
-  font-size: 20rpx;
+  font-size: 18rpx;
   font-weight: 850;
-  line-height: 1.45;
+  line-height: 1.36;
   text-shadow: 0 8rpx 20rpx rgba(7, 25, 59, 0.18);
 }
 
 .feature-card__stats-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10rpx;
-  margin-top: 18rpx;
+  gap: 8rpx;
+  margin-top: 12rpx;
 }
 
 .feature-card__stat-chip {
   display: inline-flex;
-  min-height: 52rpx;
+  min-height: 42rpx;
   align-items: center;
   justify-content: center;
-  padding: 0 18rpx;
+  padding: 0 14rpx;
   border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.96);
   border: 1rpx solid rgba(255, 255, 255, 0.22);
@@ -367,14 +367,14 @@ function matchesScene(item = {}, scene = 'all') {
 
 .feature-card__stat-chip-text {
   color: #274d8f;
-  font-size: 18rpx;
+  font-size: 16rpx;
   font-weight: 900;
   line-height: 1;
 }
 
 .feature-card__stat-chip-num {
   color: #102033;
-  font-size: 21rpx;
+  font-size: 18rpx;
   font-weight: 950;
   line-height: 1;
   vertical-align: baseline;
@@ -385,7 +385,7 @@ function matchesScene(item = {}, scene = 'all') {
   align-items: flex-end;
   justify-content: space-between;
   gap: 20rpx;
-  margin: 42rpx 0 22rpx;
+  margin: 18rpx 0 8rpx;
 }
 
 .section-title text {
@@ -429,11 +429,11 @@ function matchesScene(item = {}, scene = 'all') {
 }
 
 .section-title--inline {
-  margin-bottom: 18rpx;
+  margin-bottom: 6rpx;
 }
 
 .scene-scroll-row {
-  margin-top: 28rpx;
+  margin-top: 16rpx;
   margin-right: -34rpx;
   margin-left: -34rpx;
   white-space: nowrap;
@@ -441,8 +441,8 @@ function matchesScene(item = {}, scene = 'all') {
 
 .scene-scroll-row__inner {
   display: inline-flex;
-  gap: 16rpx;
-  padding: 0 34rpx 8rpx;
+  gap: 14rpx;
+  padding: 0 34rpx 4rpx;
 }
 
 .scene-filter-chip {
@@ -468,7 +468,7 @@ function matchesScene(item = {}, scene = 'all') {
 .partners__list {
   display: flex;
   flex-direction: column;
-  gap: 26rpx;
+  gap: 18rpx;
 }
 
 .empty-card {

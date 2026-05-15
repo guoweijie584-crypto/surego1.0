@@ -21,24 +21,27 @@
 
       <text class="activity-card__title su-line-2">{{ activity.title }}</text>
 
-      <view class="activity-card__meta">
-        <SuIcon name="calendar" size="30" glyph-size="14" variant="inline" color="#64748b" />
-        <text class="su-line-1">{{ activity.date }} {{ activity.time }}</text>
-      </view>
-      <view class="activity-card__meta">
-        <SuIcon name="location" size="30" glyph-size="14" variant="inline" color="#64748b" />
-        <text class="su-line-1">{{ displayLocation }}</text>
-        <text v-if="distanceText" class="activity-card__distance">{{ distanceText }}</text>
+      <view class="activity-card__meta-row">
+        <view class="activity-card__meta">
+          <SuIcon name="calendar" size="30" glyph-size="14" variant="inline" color="#64748b" />
+          <text class="su-line-1">{{ activity.date }} {{ activity.time }}</text>
+        </view>
+        <view class="activity-card__meta">
+          <SuIcon name="location" size="30" glyph-size="14" variant="inline" color="#64748b" />
+          <text class="su-line-1">{{ displayLocation }}</text>
+          <text v-if="distanceText" class="activity-card__distance">{{ distanceText }}</text>
+        </view>
       </view>
 
-      <view class="activity-card__signal" :class="signalClass">
+      <view v-if="!compact" class="activity-card__signal" :class="signalClass">
         <text class="activity-card__signal-label">{{ heatSignal }}</text>
         <text>{{ seatCountText }}</text>
       </view>
 
-      <view class="activity-card__footer">
+      <view class="activity-card__footer" :class="{ 'activity-card__footer--compact': compact }">
         <view class="activity-card__pill-list">
           <text v-for="tag in displayTags" :key="tag">{{ tag }}</text>
+          <text v-if="compact" class="activity-card__status-chip" :class="signalClass">{{ seatCountText }}</text>
         </view>
         <text class="activity-card__action">查看</text>
       </view>
@@ -258,6 +261,30 @@ function openUser() {
   color: #76602a;
 }
 
+.activity-card__status-chip {
+  border: 1rpx solid #eef2f7;
+  background: #f8fafc !important;
+  color: #102033 !important;
+}
+
+.activity-card__status-chip.activity-card__signal--urgent {
+  border-color: #fed7aa;
+  background: #fff7ed !important;
+  color: #9a3412 !important;
+}
+
+.activity-card__status-chip.activity-card__signal--waitlist {
+  border-color: #fde68a;
+  background: #fef3c7 !important;
+  color: #92400e !important;
+}
+
+.activity-card__status-chip.activity-card__signal--fresh {
+  border-color: #bbf7d0;
+  background: #ecfdf5 !important;
+  color: #047857 !important;
+}
+
 .activity-card__title {
   display: block;
   margin-top: 18rpx;
@@ -265,6 +292,10 @@ function openUser() {
   font-size: 34rpx;
   font-weight: 950;
   line-height: 1.24;
+}
+
+.activity-card__meta-row {
+  display: block;
 }
 
 .activity-card__meta {
@@ -276,6 +307,11 @@ function openUser() {
   color: #64748b;
   font-size: 23rpx;
   font-weight: 850;
+}
+
+.activity-card__meta .su-line-1 {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .activity-card__distance {
@@ -360,5 +396,119 @@ function openUser() {
   color: #fff;
   font-size: 21rpx;
   font-weight: 950;
+}
+
+.activity-card--compact .activity-card__cover {
+  height: 200rpx;
+}
+
+.activity-card--compact .activity-card__organizer {
+  top: 16rpx;
+  left: 16rpx;
+  max-width: calc(100% - 158rpx);
+  gap: 8rpx;
+  padding: 6rpx 12rpx 6rpx 6rpx;
+}
+
+.activity-card--compact .activity-card__avatar {
+  width: 44rpx;
+  height: 44rpx;
+  flex-basis: 44rpx;
+}
+
+.activity-card--compact .activity-card__organizer-name {
+  max-width: 220rpx;
+  font-size: 20rpx;
+}
+
+.activity-card--compact .activity-card__verified {
+  margin-top: 3rpx;
+  font-size: 16rpx;
+}
+
+.activity-card--compact .activity-card__price {
+  top: 16rpx;
+  right: 16rpx;
+  padding: 10rpx 14rpx;
+  font-size: 19rpx;
+  white-space: nowrap;
+}
+
+.activity-card--compact .activity-card__body {
+  padding: 20rpx;
+}
+
+.activity-card--compact .activity-card__tags,
+.activity-card--compact .activity-card__pill-list {
+  gap: 8rpx;
+}
+
+.activity-card--compact .activity-card__tags text,
+.activity-card--compact .activity-card__pill-list text {
+  padding: 7rpx 11rpx;
+  font-size: 17rpx;
+}
+
+.activity-card--compact .activity-card__title {
+  margin-top: 12rpx;
+  font-size: 30rpx;
+  line-height: 1.22;
+}
+
+.activity-card--compact .activity-card__meta-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 9rpx;
+}
+
+.activity-card--compact .activity-card__meta {
+  flex: 1 1 0;
+  gap: 7rpx;
+  margin-top: 0;
+  font-size: 20rpx;
+}
+
+.activity-card--compact .activity-card__distance {
+  max-width: 76rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-card--compact .activity-card__footer {
+  gap: 12rpx;
+  margin-top: 10rpx;
+}
+
+.activity-card__footer--compact {
+  align-items: center;
+}
+
+.activity-card__footer--compact .activity-card__pill-list {
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.activity-card__footer--compact .activity-card__pill-list text {
+  max-width: 128rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-card__footer--compact .activity-card__status-chip {
+  max-width: none;
+  flex: 0 0 auto;
+}
+
+.activity-card--compact .activity-card__action {
+  padding: 11rpx 16rpx;
+  font-size: 19rpx;
+  white-space: nowrap;
 }
 </style>
