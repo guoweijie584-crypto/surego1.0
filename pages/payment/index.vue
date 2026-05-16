@@ -8,7 +8,7 @@
         <view class="ref-back" @tap="goBackOrFallback">
           <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
-        <text class="ref-topbar__title">确认占位</text>
+        <text class="ref-topbar__title">试运行订单</text>
         <view class="ref-icon-button">
           <SuIcon name="wallet" size="40" glyph-size="20" variant="inline" color="#2388ff" />
         </view>
@@ -45,11 +45,11 @@
         </view>
         <view class="timeline">
           <text class="timeline__item timeline__item--done">已创建订单</text>
-          <text class="timeline__item" :class="{ 'timeline__item--done': orderStatus === 'paid' }">待支付</text>
+          <text class="timeline__item" :class="{ 'timeline__item--done': orderStatus === 'paid' }">待确认</text>
           <text class="timeline__item">待核销</text>
-          <text class="timeline__item">{{ activity.partyMode === 'sincerity' ? '退款' : '结算' }}</text>
+          <text class="timeline__item">{{ activity.partyMode === 'sincerity' ? '退款记录' : '结算记录' }}</text>
         </view>
-        <text class="payment-note">试运营订单确认，不发生真实扣款。当前状态：{{ orderStatusText }}</text>
+        <text class="payment-note">试运行订单确认，不发生真实扣款。当前状态：{{ orderStatusText }}</text>
       </view>
 
       <view class="ref-bottom-cta">
@@ -78,19 +78,19 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
-const pageTitle = computed(() => (activity.value.partyMode === 'sincerity' ? '冻结诚意金，占住席位' : '支付门票，核销后结算'))
+const pageTitle = computed(() => (activity.value.partyMode === 'sincerity' ? '确认试运行诚意金，占住席位' : '确认试运行订单，核销后结算'))
 const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票' : '诚意金'))
 const feeText = computed(() => `¥${activity.value.amount || 0}`)
 const modeDesc = computed(() => {
-  if (activity.value.partyMode === 'ticket') return '支付成功后保留名额，核销完成后进入结算。'
-  return '到场核销后按规则退回；临时爽约会影响信用记录。'
+  if (activity.value.partyMode === 'ticket') return '订单确认后保留名额，核销完成后进入结算记录。'
+  return '订单确认后保留席位；到场核销后按规则登记退回状态。'
 })
 const orderStatus = computed(() => order.value?.status || 'pending')
 const orderStatusText = computed(() => getOrderStatusText(orderStatus.value))
 const payButtonText = computed(() => {
   if (isPaying.value) return '处理中...'
   if (orderStatus.value === 'paid') return '查看到场凭证'
-  return '确认支付'
+  return '确认试运行订单'
 })
 
 onLoad(async (query) => {
@@ -130,7 +130,7 @@ async function handlePay() {
     activityCover: activity.value.image
   })
   order.value = { ...order.value, ...paid }
-  uni.showToast({ title: '支付成功', icon: 'none' })
+  uni.showToast({ title: '订单确认成功', icon: 'none' })
   setTimeout(() => {
     goParticipantDashboard(activity.value.id, { replace: true })
   }, 260)

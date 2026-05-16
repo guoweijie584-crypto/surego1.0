@@ -32,7 +32,7 @@
         </view>
         <view>
           <text>{{ paidAmountText }}</text>
-          <text>占位金额</text>
+          <text>试运行订单金额</text>
         </view>
       </view>
 
@@ -97,9 +97,9 @@
         </view>
 
         <view class="ref-info-card ref-card">
-          <text class="ref-info-card__title">资金状态</text>
+          <text class="ref-info-card__title">试运行订单状态</text>
           <view class="fund-row">
-            <text>已支付/冻结</text>
+            <text>已确认/冻结</text>
             <text>{{ paidAmountText }}</text>
           </view>
           <view class="fund-row">

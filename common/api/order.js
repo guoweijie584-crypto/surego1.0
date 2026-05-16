@@ -20,12 +20,12 @@ function normalizeOrderStatus(status = 'pending') {
 
 export function getOrderStatusText(status) {
   const labels = {
-    pending: '待支付',
-    pending_payment: '待支付',
-    paid: '已支付',
+    pending: '待确认',
+    pending_payment: '待确认',
+    paid: '已确认',
     frozen: '已冻结',
-    refunding: '退款处理中',
-    refunded: '已退款',
+    refunding: '退款记录处理中',
+    refunded: '退款已记录',
     settled: '已结算',
     disputed: '争议处理中',
     closed: '已关闭'
@@ -90,30 +90,30 @@ function getOrderMessageCopy(status, order = {}) {
   const title = order.activityTitle || '活动订单'
   const labels = {
     paid: {
-      title: '支付成功',
-      content: `「${title}」订单支付成功，入场凭证已更新。`
+      title: '订单确认成功',
+      content: `「${title}」试运行订单确认成功，入场凭证已更新。`
     },
     frozen: {
       title: '占位已确认',
       content: `「${title}」已完成占位确认，活动开始前可在我的页查看后续凭证。`
     },
     closed: {
-      title: '订单已关闭',
+      title: '试运行订单已关闭',
       content: order.closeReason
-        ? `「${title}」订单已关闭：${order.closeReason}`
-        : `「${title}」订单已关闭。`
+        ? `「${title}」试运行订单已关闭：${order.closeReason}`
+        : `「${title}」试运行订单已关闭。`
     },
     refunding: {
-      title: '退款处理中',
+      title: '试运行退款记录处理中',
       content: order.refundNote
-        ? `「${title}」退款处理中：${order.refundNote}`
-        : `「${title}」退款处理中。`
+        ? `「${title}」试运行退款记录处理中：${order.refundNote}`
+        : `「${title}」试运行退款记录处理中。`
     },
     refunded: {
-      title: '退款已记录',
+      title: '试运行退款记录已更新',
       content: order.refundNote
-        ? `「${title}」退款已记录：${order.refundNote}`
-        : `「${title}」退款已记录。`
+        ? `「${title}」试运行退款记录已更新：${order.refundNote}`
+        : `「${title}」试运行退款记录已更新。`
     },
     settled: {
       title: '结算已完成',
@@ -273,7 +273,7 @@ export function markOrderFrozen(id, options = {}) {
   return updateOrderStatus(id, 'frozen', options)
 }
 
-export async function refundOrder(id, refundNote = '退款状态已登记', options = {}) {
+export async function refundOrder(id, refundNote = '试运行退款记录已登记', options = {}) {
   let order
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {

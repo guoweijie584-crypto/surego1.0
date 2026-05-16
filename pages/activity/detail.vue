@@ -187,10 +187,10 @@ const primaryDisabled = computed(() => activity.value.applicationStatus === 'pen
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
-    return { label: `诚意金 ¥${activity.value.amount}`, desc: '签到后按规则退回' }
+    return { label: `诚意金 ¥${activity.value.amount}`, desc: '试运行订单确认后占位' }
   }
   if (activity.value.partyMode === 'ticket') {
-    return { label: `门票 ¥${activity.value.amount}`, desc: '支付后锁定席位' }
+    return { label: `门票 ¥${activity.value.amount}`, desc: '试运行订单确认后锁定席位' }
   }
   return { label: '免费局', desc: '免费参与' }
 })
@@ -213,8 +213,8 @@ const faqList = computed(() => [
 ])
 const meetupText = computed(() => activity.value.meetup || activity.value.description || '发起人会在报名通过后同步集合点和注意事项。')
 const refundRuleText = computed(() => {
-  if (activity.value.partyMode === 'sincerity') return '诚意金用于确认席位，到场核销后按规则退回；临时爽约会影响信用记录。'
-  if (activity.value.partyMode === 'ticket') return '门票确认后保留名额，活动取消时进入退款流程。'
+  if (activity.value.partyMode === 'sincerity') return '试运行订单用于确认席位，到场核销后按规则登记退款状态；临时爽约会影响信用记录。'
+  if (activity.value.partyMode === 'ticket') return '试运行订单确认后保留名额，活动取消时进入退款记录流程。'
   return '本活动免费参与，请按时到场。若无法参加，请提前告知发起人。'
 })
 const participantText = computed(() => {
@@ -239,7 +239,7 @@ const primaryButtonText = computed(() => {
   if (isFull.value) return '加入候补'
   if (activity.value.requireApproval) return '提交申请'
   if (activity.value.partyMode === 'free') return '立即报名'
-  return '报名并支付'
+  return '报名并确认订单'
 })
 
 onLoad(async (query) => {

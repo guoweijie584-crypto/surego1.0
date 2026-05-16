@@ -227,7 +227,7 @@ exports.main = async (event) => {
     const refundedAt = Date.now();
     const patch = {
       status: 'refunded',
-      refund_note: payload.refundNote || payload.refund_note || '模拟退款已记录',
+      refund_note: payload.refundNote || payload.refund_note || '试运行退款记录已登记',
       refunded_at: refundedAt,
       updated_at: refundedAt
     };
