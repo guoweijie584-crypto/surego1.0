@@ -1,0 +1,138 @@
+[
+  {
+    "_id": "seed_ahe",
+    "user_id": "seed_ahe",
+    "nickname": "\u963f\u79be",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u5929\u6d25\u7f8e\u672f\u5b66\u9662 \u00b7 \u5b66\u751f\u8ba4\u8bc1",
+    "quote": "",
+    "credit": 99,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_food",
+    "user_id": "seed_food",
+    "nickname": "\u5357\u95e8\u996d\u642d\u5b50",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u996d\u70b9\u6bd4\u8f83\u56fa\u5b9a\uff0c\u80fd AA\uff0c\u4e0d\u4e34\u65f6\u9e3d\u3002",
+    "quote": "",
+    "credit": 93,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_hackathon",
+    "user_id": "seed_hackathon",
+    "nickname": "Campus Copilot",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u505a\u6821\u56ed\u4efb\u52a1\u52a9\u624b\uff0c\u5df2\u6709 PM \u548c\u540e\u7aef\u3002",
+    "quote": "",
+    "credit": 100,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_owner_wu",
+    "user_id": "seed_owner_wu",
+    "nickname": "\u5434\u540c\u5b66",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u60f3\u505a\u4e00\u4e2a\u80fd\u73b0\u573a\u6f14\u793a\u7684\u6821\u56ed AI \u5c0f\u5de5\u5177\u3002",
+    "quote": "",
+    "credit": 98,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_sport",
+    "user_id": "seed_sport",
+    "nickname": "\u4f53\u80b2\u59d4\u5458",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u5929\u6d25\u533b\u79d1\u5927\u5b66\u8ba4\u8bc1",
+    "quote": "",
+    "credit": 91,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_study",
+    "user_id": "seed_study",
+    "nickname": "\u81ea\u4e60\u76d1\u7763\u5458",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u56fe\u4e66\u9986\u5e38\u9a7b\uff0c\u756a\u8304\u949f\u6253\u5361\u3002",
+    "quote": "",
+    "credit": 98,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_switch",
+    "user_id": "seed_switch",
+    "nickname": "\u5c0f\u5468",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u8f7b\u677e\u5a31\u4e50\u5c40\uff0c\u89c4\u5219\u5148\u8bf4\u6e05\u3002",
+    "quote": "",
+    "credit": 100,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  },
+  {
+    "_id": "seed_xiaozhou",
+    "user_id": "seed_xiaozhou",
+    "nickname": "\u5c0f\u5468",
+    "avatar": "/static/userImg/user.png",
+    "avatar_file_id": "",
+    "profile_completed_at": 1778745600000,
+    "mbti": "",
+    "bio": "\u5929\u6d25\u5927\u5b66\u8ba4\u8bc1\u4e3b\u7406\u4eba",
+    "quote": "",
+    "credit": 94,
+    "roles": [
+      "user"
+    ],
+    "created_at": 1778745600000,
+    "updated_at": 1778745600000
+  }
+]
