@@ -375,10 +375,13 @@ export async function loginWithWeixin(profile = {}) {
   }
 
   try {
-    return await loginWithUniIdCo(code, profile)
+    return await loginWithUserCenter(code, profile)
   } catch (error) {
+    if (shouldUseCloudFallback()) {
+      return loginWithMockFallback(profile)
+    }
     try {
-      return await loginWithUserCenter(code, profile)
+      return await loginWithUniIdCo(code, profile)
     } catch (fallbackError) {
       return loginWithMockFallback(profile)
     }

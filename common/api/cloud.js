@@ -52,10 +52,12 @@ export async function callSuregoFunction(name, action, payload = {}) {
     if (isAuthErrorCode(code) || message.includes('AUTH_REQUIRED')) {
       logout()
     }
-    uni.showToast({
-      title: message,
-      icon: 'none'
-    })
+    if (!canFallbackToMock()) {
+      uni.showToast({
+        title: message,
+        icon: 'none'
+      })
+    }
     throw {
       code: isAuthErrorCode(code) ? code : 'SUREGO_CLOUD_ERROR',
       message

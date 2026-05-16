@@ -162,14 +162,20 @@ const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unre
 
 async function loadData() {
   refreshCurrentAvatar()
-  const [activityItems, groups, unread] = await Promise.all([
-    listActivities(),
-    listMyActivities(),
-    getUnreadMessageCount()
-  ])
-  activities.value = activityItems
-  myGroups.value = groups
-  unreadCount.value = unread
+  try {
+    const [activityItems, groups, unread] = await Promise.all([
+      listActivities(),
+      listMyActivities(),
+      getUnreadMessageCount()
+    ])
+    activities.value = activityItems
+    myGroups.value = groups
+    unreadCount.value = unread
+  } catch (error) {
+    activities.value = []
+    myGroups.value = { hosting: [], joined: [], pending: [] }
+    unreadCount.value = 0
+  }
 }
 
 onShow(loadData)
