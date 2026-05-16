@@ -1,4 +1,4 @@
-import { USE_UNICLOUD, isTrialMode, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
+import { USE_UNICLOUD, isTrialMode, isTrialStrictCloudAuthMode, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
 
 export const MOCK_USER_ID = 'mock_user'
 
@@ -7,6 +7,7 @@ const UNI_ID_TOKEN_KEY = 'uni_id_token'
 const UNI_ID_TOKEN_EXPIRED_KEY = 'uni_id_token_expired'
 const LOCAL_USER_KEY = 'surego_current_user'
 const MOCK_LOGIN_KEY = 'surego_mock_login'
+const LOGIN_DIAGNOSTIC_KEY = 'surego_login_diagnostic'
 const OPS_ROLES = ['admin', 'operator']
 const LEGACY_MOCK_NICKNAME = String.fromCharCode(21556, 21704, 21704)
 export const DEFAULT_USER_NICKNAME = '微信用户'
@@ -104,7 +105,36 @@ function readUniIdToken() {
 }
 
 function isStrictCloudAuthMode() {
-  return USE_UNICLOUD && isTrialMode() && !shouldUseReferenceMockPreview()
+  return USE_UNICLOUD && isTrialMode() && !shouldUseReferenceMockPreview() && !shouldUseCloudFallback()
+}
+
+function getErrorMessage(error, fallback = '') {
+  return String(error?.message || error?.errMsg || error?.code || fallback || '').trim()
+}
+
+export function recordLoginDiagnostic(stage, detail = {}) {
+  const diagnostic = {
+    stage,
+    mode: detail.mode || '',
+    code: detail.code || '',
+    message: detail.message || '',
+    cloudFallbackAllowed: shouldUseCloudFallback(),
+    strictTrialCloudAuth: isTrialStrictCloudAuthMode(),
+    createdAt: Date.now()
+  }
+  try {
+    uni.setStorageSync(LOGIN_DIAGNOSTIC_KEY, diagnostic)
+  } catch (error) {
+    // Storage can be unavailable in isolated tests.
+  }
+  if (diagnostic.cloudFallbackAllowed && stage === 'mock-fallback-used') {
+    console.warn('[surego-auth] local mock login fallback is active', diagnostic)
+  }
+  return diagnostic
+}
+
+export function getLastLoginDiagnostic() {
+  return readStorage(LOGIN_DIAGNOSTIC_KEY)
 }
 
 function pickToken(payload = {}) {
@@ -355,9 +385,20 @@ async function loginWithUserCenter(code, profile = {}) {
 
 export function loginWithMockFallback(profile = {}) {
   if (!shouldUseCloudFallback()) {
+    recordLoginDiagnostic('mock-fallback-blocked', {
+      mode: 'mock',
+      code: 'AUTH_REQUIRED',
+      message: 'Mock login fallback is disabled.'
+    })
     return Promise.reject(new Error('AUTH_REQUIRED'))
   }
   const user = setMockLogin(profile)
+  recordLoginDiagnostic('mock-fallback-used', {
+    mode: 'mock',
+    uid: user.uid,
+    message: 'Local development mock login fallback was used.',
+    cloudFallbackAllowed: true
+  })
   return Promise.resolve({
     mode: 'mock',
     uid: user.uid,
@@ -371,20 +412,45 @@ export async function loginWithWeixin(profile = {}) {
   try {
     code = await requestWeixinLoginCode()
   } catch (error) {
+    recordLoginDiagnostic('weixin-code-failed', {
+      mode: 'weixin-code',
+      message: getErrorMessage(error, 'Weixin login code failed.')
+    })
     return loginWithMockFallback(profile)
   }
 
+  let userCenterError = null
   try {
-    return await loginWithUserCenter(code, profile)
+    const result = await loginWithUserCenter(code, profile)
+    recordLoginDiagnostic('user-center-success', {
+      mode: result.mode,
+      uid: result.uid,
+      message: 'user-center loginByWeixin succeeded.'
+    })
+    return result
   } catch (error) {
-    if (shouldUseCloudFallback()) {
-      return loginWithMockFallback(profile)
-    }
-    try {
-      return await loginWithUniIdCo(code, profile)
-    } catch (fallbackError) {
-      return loginWithMockFallback(profile)
-    }
+    userCenterError = error
+    recordLoginDiagnostic('user-center-failed', {
+      mode: 'user-center',
+      message: getErrorMessage(error, 'user-center loginByWeixin failed.')
+    })
+  }
+
+  try {
+    const result = await loginWithUniIdCo(code, profile)
+    recordLoginDiagnostic('uni-id-co-success', {
+      mode: result.mode,
+      uid: result.uid,
+      message: 'uni-id-co loginByWeixin succeeded.'
+    })
+    return result
+  } catch (fallbackError) {
+    recordLoginDiagnostic('uni-id-co-failed', {
+      mode: 'uni-id-co',
+      message: getErrorMessage(fallbackError, 'uni-id-co loginByWeixin failed.'),
+      code: getErrorMessage(userCenterError)
+    })
+    return loginWithMockFallback(profile)
   }
 }
 
@@ -413,6 +479,7 @@ export function saveCurrentUserProfile(profile = {}) {
 
 export function clearAuthSession() {
   uni.removeStorageSync(MOCK_LOGIN_KEY)
+  uni.removeStorageSync(LOGIN_DIAGNOSTIC_KEY)
   uni.removeStorageSync(UNI_ID_USER_KEY)
   uni.removeStorageSync(UNI_ID_TOKEN_KEY)
   uni.removeStorageSync(LOCAL_USER_KEY)

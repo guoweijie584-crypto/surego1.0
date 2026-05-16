@@ -71,6 +71,9 @@ async function handleLogin() {
   isLoggingIn.value = true
   try {
     const result = await loginWithWeixin()
+    if (result.mode === 'mock') {
+      uni.showToast({ title: '本地开发登录兜底已启用', icon: 'none' })
+    }
     const currentProfile = await getCurrentUser().catch(() => result.user || getCurrentUserProfile())
     profile.value = {
       ...profile.value,
