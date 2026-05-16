@@ -162,6 +162,9 @@ function buildListPostWhere(payload = {}) {
 }
 
 function normalizePost(record = {}) {
+  const viewerIntent = record.viewerIntent || record.viewer_intent || null;
+  const viewerIntentStatus = record.viewerIntentStatus || record.viewer_intent_status || viewerIntent?.status || '';
+  const viewerConversationId = record.viewerConversationId || record.viewer_conversation_id || viewerIntent?.conversationId || viewerIntent?.conversation_id || '';
   return {
     ...record,
     id: record._id || record.id,
@@ -177,6 +180,12 @@ function normalizePost(record = {}) {
     fitTags: record.fit_tags || record.fitTags || [],
     intentCount: Number(record.intent_count || record.intentCount) || 0,
     followCount: Number(record.follow_count || record.followCount) || 0,
+    viewerIntent,
+    viewer_intent: viewerIntent,
+    viewerIntentStatus,
+    viewer_intent_status: viewerIntentStatus,
+    viewerConversationId,
+    viewer_conversation_id: viewerConversationId,
     status: normalizePostStatus(record.status),
     createdAt: record.created_at || record.createdAt || '',
     updatedAt: record.updated_at || record.updatedAt || ''
@@ -347,6 +356,16 @@ async function canManagePost(id, user) {
   return Boolean(post && (String(post.creator_id || '') === user.uid || user.isOps));
 }
 
+async function findViewerIntentForPost(partnerPostId, user = {}) {
+  if (!user.exists || !user.uid || user.uid === 'mock_user') return null;
+  const result = await intents.where({
+    partner_post_id: String(partnerPostId || ''),
+    user_id: user.uid
+  }).limit(1).get();
+  const found = (result.data || [])[0];
+  return found ? normalizeIntent(found) : null;
+}
+
 async function ensureConversationForIntent(intent = {}, post = {}) {
   const partnerPostId = String(intent.partner_post_id || intent.partnerPostId || '');
   const creatorId = String(post.creator_id || post.creatorId || '');
@@ -428,9 +447,18 @@ exports.main = async (event) => {
     const canView = ['open', 'matched'].includes(normalizePostStatus(post.status))
       || (user.exists && (user.isOps || String(post.creator_id || '') === user.uid));
     if (!canView) return { code: 'FORBIDDEN', message: 'This partner post is not visible.' };
+    const viewerIntent = await findViewerIntentForPost(payload.id, user);
     return {
       code: 0,
-      data: normalizePost(post)
+      data: normalizePost({
+        ...post,
+        viewerIntent,
+        viewer_intent: viewerIntent,
+        viewerIntentStatus: viewerIntent?.status || '',
+        viewer_intent_status: viewerIntent?.status || '',
+        viewerConversationId: viewerIntent?.conversationId || viewerIntent?.conversation_id || '',
+        viewer_conversation_id: viewerIntent?.conversationId || viewerIntent?.conversation_id || ''
+      })
     };
   }
 

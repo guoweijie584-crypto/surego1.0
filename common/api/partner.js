@@ -339,6 +339,9 @@ function normalizePartnerPost(item = {}) {
   const detail = item.detail || item.description || ''
   const wants = normalizeTags(item.wants || item.fitTags || item.fit_tags || item.tags)
   const status = normalizeStatus(item.status)
+  const viewerIntent = findViewerIntentForPost({ ...item, id })
+  const viewerIntentStatus = item.viewerIntentStatus || item.viewer_intent_status || viewerIntent?.status || ''
+  const viewerConversationId = item.viewerConversationId || item.viewer_conversation_id || viewerIntent?.conversationId || viewerIntent?.conversation_id || ''
   return {
     ...item,
     id,
@@ -372,6 +375,12 @@ function normalizePartnerPost(item = {}) {
     intentCount: Number(item.intentCount || item.intent_count) || 0,
     followCount: Number(item.followCount || item.follow_count) || 0,
     sourceActivityId: item.sourceActivityId || item.source_activity_id || '',
+    viewerIntent,
+    viewer_intent: viewerIntent,
+    viewerIntentStatus,
+    viewer_intent_status: viewerIntentStatus,
+    viewerConversationId,
+    viewer_conversation_id: viewerConversationId,
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     updatedAt: item.updatedAt || item.updated_at || '',
     isCreator: isCurrentUserCreator({ ...item, creatorId }) || isReferencePreviewOwner({ ...item, creatorId })
@@ -395,6 +404,22 @@ function normalizeIntent(item = {}) {
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     updatedAt: item.updatedAt || item.updated_at || ''
   }
+}
+
+function findViewerIntentForPost(item = {}) {
+  const explicit = item.viewerIntent || item.viewer_intent
+  if (explicit) return normalizeIntent(explicit)
+  const partnerPostId = item.id || item._id || item.partnerPostId || item.partner_post_id
+  const userId = getCurrentUserId()
+  if (!partnerPostId || !userId) return null
+  const source = shouldUseReferenceMockPreview()
+    ? [...readIntents(), ...REFERENCE_INTENTS]
+    : readIntents()
+  const found = source.find((intent) => (
+    String(intent.partnerPostId || intent.partner_post_id) === String(partnerPostId)
+      && String(intent.userId || intent.user_id) === String(userId)
+  ))
+  return found ? normalizeIntent(found) : null
 }
 
 function normalizeConversation(item = {}) {

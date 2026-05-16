@@ -86,7 +86,7 @@
             <SuIcon name="people" size="34" glyph-size="17" variant="inline" color="#102033" />
             <text>群聊</text>
           </view>
-          <view class="partner-action partner-action--primary" @tap="partner.isCreator ? goPartnerWorkbench(partner.id) : handleIntent()">
+          <view class="partner-action partner-action--primary" @tap="handlePrimaryAction">
             <text>{{ primaryActionText }}</text>
           </view>
         </view>
@@ -98,8 +98,8 @@
         <SuIcon name="heart" size="40" glyph-size="20" variant="inline" color="#111827" />
         <text>关注</text>
       </view>
-      <view class="detail__primary" @tap="partner.isCreator ? goPartnerWorkbench(partner.id) : handleIntent()">
-        <text>{{ partner.isCreator ? '进入工作台' : '发送意向' }}</text>
+      <view class="detail__primary" @tap="handlePrimaryAction">
+        <text>{{ primaryActionText }}</text>
       </view>
     </view>
   </view>
@@ -111,7 +111,7 @@ import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { createPartnerIntent, followPartnerPost, getPartnerPostDetail } from '@/common/api/partner.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerWorkbench, guardLoginAction, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerConversation, goPartnerWorkbench, guardLoginAction } from '@/common/utils/route.js'
 
 const partner = ref({})
 const currentId = ref('')
@@ -127,6 +127,10 @@ const displayTags = computed(() => {
 const displayWants = computed(() => (
   (Array.isArray(partner.value.wants) ? partner.value.wants : []).filter(Boolean).slice(0, 4)
 ))
+const viewerIntent = computed(() => partner.value.viewerIntent || partner.value.viewer_intent || null)
+const viewerIntentStatus = computed(() => partner.value.viewerIntentStatus || partner.value.viewer_intent_status || viewerIntent.value?.status || '')
+const viewerConversationId = computed(() => partner.value.viewerConversationId || partner.value.viewer_conversation_id || viewerIntent.value?.conversationId || viewerIntent.value?.conversation_id || '')
+const canOpenConversation = computed(() => viewerIntentStatus.value === 'accepted' && Boolean(viewerConversationId.value))
 const connectionHelp = computed(() => {
   if (partner.value.type === 'long_term') return '先申请认识，合适后稳定约'
   if (partner.value.type === 'project') return '先看角色和投入时间，再确认组队'
@@ -134,6 +138,9 @@ const connectionHelp = computed(() => {
 })
 const primaryActionText = computed(() => {
   if (partner.value.isCreator) return '进入工作台'
+  if (canOpenConversation.value) return '进入私聊'
+  if (viewerIntentStatus.value === 'pending') return '已提交，待确认'
+  if (viewerIntentStatus.value === 'rejected') return '意向未通过'
   if (partner.value.type === 'long_term') return '申请认识'
   if (partner.value.type === 'project') return '申请加入'
   return '提交意向'
@@ -153,6 +160,18 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 async function handleIntent() {
   if (!partner.value.id) return
   if (!guardLoginAction(`/pages/partner/detail?id=${encodeURIComponent(partner.value.id)}`, { replace: true })) return
+  if (canOpenConversation.value) {
+    openAcceptedConversation()
+    return
+  }
+  if (viewerIntentStatus.value === 'pending') {
+    uni.showToast({ title: '意向已提交，等待对方确认', icon: 'none' })
+    return
+  }
+  if (viewerIntentStatus.value === 'rejected') {
+    uni.showToast({ title: '本次意向未通过，可关注其他组队', icon: 'none' })
+    return
+  }
   await createPartnerIntent({
     partnerPostId: partner.value.id,
     creatorId: partner.value.creatorId,
@@ -162,6 +181,15 @@ async function handleIntent() {
   loadData()
 }
 
+function handlePrimaryAction() {
+  if (!partner.value.id) return
+  if (partner.value.isCreator) {
+    goPartnerWorkbench(partner.value.id)
+    return
+  }
+  handleIntent()
+}
+
 async function handleFollow() {
   if (!partner.value.id) return
   if (!guardLoginAction(`/pages/partner/detail?id=${encodeURIComponent(partner.value.id)}`, { replace: true })) return
@@ -169,16 +197,41 @@ async function handleFollow() {
   uni.showToast({ title: '已关注', icon: 'success' })
 }
 
+function openAcceptedConversation() {
+  if (!canOpenConversation.value) {
+    if (viewerIntentStatus.value === 'pending') {
+      uni.showToast({ title: '意向通过后开放私聊', icon: 'none' })
+      return false
+    }
+    if (viewerIntentStatus.value === 'rejected') {
+      uni.showToast({ title: '意向未通过，暂不能进入会话', icon: 'none' })
+      return false
+    }
+    uni.showToast({ title: '请先提交组队意向', icon: 'none' })
+    return false
+  }
+  goPartnerConversation(viewerConversationId.value)
+  return true
+}
+
 function handlePrivateChat() {
   if (!partner.value.id) return
   if (!guardLoginAction(`/pages/partner/detail?id=${encodeURIComponent(partner.value.id)}`, { replace: true })) return
-  showComingSoon('通过意向后开放私聊')
+  openAcceptedConversation()
 }
 
 function handleGroupChat() {
   if (!partner.value.id) return
   if (!guardLoginAction(`/pages/partner/detail?id=${encodeURIComponent(partner.value.id)}`, { replace: true })) return
-  showComingSoon('通过意向后可拉临时群')
+  if (canOpenConversation.value) {
+    openAcceptedConversation()
+    return
+  }
+  if (viewerIntentStatus.value === 'accepted') {
+    uni.showToast({ title: '队长创建群聊后会在消息里通知', icon: 'none' })
+    return
+  }
+  openAcceptedConversation()
 }
 </script>
 

@@ -51,7 +51,12 @@
           <text class="card-copy">先提交你的角色、可投入时间和作品经验。队长确认后，会在通知里提醒你继续完善参赛准备。</text>
         </view>
 
-        <view class="form-card">
+        <view v-if="viewerIntent" class="info-card intent-state-card">
+          <text class="card-title">{{ intentStatusTitle }}</text>
+          <text class="card-copy">{{ intentStatusCopy }}</text>
+        </view>
+
+        <view v-if="!viewerIntent" class="form-card">
           <text class="card-title">提交组队意向</text>
           <label>
             <text>我能补的角色</text>
@@ -71,7 +76,7 @@
           <view
             class="primary-button"
             :class="{ 'primary-button--disabled': submitting }"
-            @tap="partner.isCreator ? goPartnerWorkbench(partner.id) : handleSubmit()"
+            @tap="handlePrimaryAction"
           >
             {{ actionText }}
           </view>
@@ -88,7 +93,7 @@ import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { isLoggedIn } from '@/common/api/auth.js'
 import { createPartnerIntent, getPartnerPostDetail } from '@/common/api/partner.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerWorkbench, guardLoginAction } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerConversation, goPartnerWorkbench, guardLoginAction } from '@/common/utils/route.js'
 
 const partner = ref({})
 const currentId = ref('')
@@ -113,11 +118,29 @@ const roleLabel = computed(() => {
   if (wants.length > 0) return `缺 ${wants.join(' / ')}`
   return partner.value.typeLabel || '项目组队'
 })
+const viewerIntent = computed(() => partner.value.viewerIntent || partner.value.viewer_intent || null)
+const intentStatus = computed(() => partner.value.viewerIntentStatus || partner.value.viewer_intent_status || viewerIntent.value?.status || '')
+const viewerConversationId = computed(() => partner.value.viewerConversationId || partner.value.viewer_conversation_id || viewerIntent.value?.conversationId || viewerIntent.value?.conversation_id || '')
 const emptyText = computed(() => loadError.value || '队伍不存在或已下线')
 const actionText = computed(() => {
   if (partner.value.isCreator) return '进入工作台'
+  if (intentStatus.value === 'accepted' && viewerConversationId.value) return '进入队伍会话'
+  if (intentStatus.value === 'accepted') return '已通过，等待会话'
+  if (intentStatus.value === 'pending') return '已提交，等待队长确认'
+  if (intentStatus.value === 'rejected') return '申请未通过'
   if (submitting.value) return '提交中...'
   return '提交组队意向'
+})
+const intentStatusTitle = computed(() => {
+  if (intentStatus.value === 'accepted') return '队长已通过'
+  if (intentStatus.value === 'rejected') return '申请未通过'
+  return '已提交，等待队长确认'
+})
+const intentStatusCopy = computed(() => {
+  if (intentStatus.value === 'accepted' && viewerConversationId.value) return '可以进入队伍会话，继续确认项目分工和参赛节奏。'
+  if (intentStatus.value === 'accepted') return '队长已通过申请，会话入口同步后可继续沟通。'
+  if (intentStatus.value === 'rejected') return '本次队伍没有通过申请，可以回到黑客松专区查看其他组队。'
+  return '队长会在现有组队/消息链路中处理你的申请。'
 })
 
 async function loadData() {
@@ -151,6 +174,31 @@ function buildIntentMessage() {
     `介绍：${intro.value.trim()}`,
     '来源：黑客松组队专区'
   ].join('\n')
+}
+
+function handlePrimaryAction() {
+  if (!partner.value.id || submitting.value) return
+  if (partner.value.isCreator) {
+    goPartnerWorkbench(partner.value.id)
+    return
+  }
+  if (intentStatus.value === 'accepted' && viewerConversationId.value) {
+    goPartnerConversation(viewerConversationId.value)
+    return
+  }
+  if (intentStatus.value === 'accepted') {
+    uni.showToast({ title: '会话入口同步中', icon: 'none' })
+    return
+  }
+  if (intentStatus.value === 'pending') {
+    uni.showToast({ title: '已提交，等待队长确认', icon: 'none' })
+    return
+  }
+  if (intentStatus.value === 'rejected') {
+    uni.showToast({ title: '申请未通过，可查看其他队伍', icon: 'none' })
+    return
+  }
+  handleSubmit()
 }
 
 async function handleSubmit() {
@@ -205,6 +253,7 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 .question-list { display: flex; flex-wrap: wrap; gap: 10rpx; }
 .question-list text { padding: 10rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
 .info-card, .form-card { margin-top: 24rpx; }
+.intent-state-card { border-color: rgba(35, 136, 255, 0.18); background: #eef7ff; }
 .info-card--grid { display: grid; gap: 18rpx; }
 .info-card--grid view { display: grid; gap: 8rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #f1f5f9; }
 .info-card--grid view:last-child { padding-bottom: 0; border-bottom: 0; }
