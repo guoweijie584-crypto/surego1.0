@@ -722,14 +722,22 @@ if (fs.existsSync(cloudApiPath)) {
       errors.push(`common/api/cloud.js is missing ${token}`);
     }
   }
+  if (!cloudSource.includes('if (!canFallbackToMock())')) {
+    errors.push('common/api/cloud.js must suppress cloud request toasts when local dev mock fallback is active');
+  }
 }
 
 const runtimePath = path.join(root, 'common/config/runtime.js');
 if (fs.existsSync(runtimePath)) {
   const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
-  for (const token of ['USE_UNICLOUD', 'ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
+  for (const token of ['USE_UNICLOUD', 'ALLOW_MOCK_FALLBACK', 'ALLOW_LOCAL_DEV_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'isLocalDevMode', 'shouldUseCloudFallback']) {
     if (!runtimeSource.includes(token)) {
       errors.push(`common/config/runtime.js is missing ${token}`);
+    }
+  }
+  for (const token of ['process.env.NODE_ENV', 'getAccountInfoSync', "envVersion === 'develop'"]) {
+    if (!runtimeSource.includes(token)) {
+      errors.push(`common/config/runtime.js must gate local mock fallback to development runtime with ${token}`);
     }
   }
 }
@@ -764,6 +772,12 @@ if (fs.existsSync(authApiPath)) {
     if (!authSource.includes(token)) {
       errors.push(`common/api/auth.js is missing ${token}`);
     }
+  }
+  if (authSource.indexOf('return await loginWithUserCenter(code, profile)') > authSource.indexOf('return await loginWithUniIdCo(code, profile)')) {
+    errors.push('common/api/auth.js must try the project-local user-center login before uni-id-co');
+  }
+  if (!authSource.includes('if (shouldUseCloudFallback())')) {
+    errors.push('common/api/auth.js must fall back to local mock login before probing optional uni-id-co in local dev mode');
   }
   if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
     errors.push('common/api/auth.js must not use 吴哈哈 as a real login profile fallback');
@@ -1481,6 +1495,11 @@ if (fs.existsSync(homePagePath)) {
   for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority']) {
     if (!source.includes(token)) {
       errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`);
+    }
+  }
+  for (const token of ['catch (error)', 'activities.value = []', 'unreadCount.value = 0']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/home/index.vue must handle startup cloud request failures without an unhandled promise using ${token}`);
     }
   }
   for (const token of ['openUserActivity', 'goParticipantDashboard', '...myGroups.value.pending']) {
