@@ -182,6 +182,10 @@ function buildPartnerPostSeed(item = {}, index = 0) {
     title: item.title || '',
     type: item.type || 'time_box',
     typeLabel: item.typeLabel || '',
+    topic_key: item.topic_key || item.topicKey || '',
+    topicKey: item.topicKey || item.topic_key || '',
+    topic_label: item.topic_label || item.topicLabel || '',
+    topicLabel: item.topicLabel || item.topic_label || '',
     creator_id: creatorId,
     creatorId,
     creator: item.creator || item.author || '',
@@ -299,6 +303,10 @@ const indexFiles = {
   ],
   'surego-partner-posts.index.json': [
     index('status_created_at', [['status', '1'], ['created_at', '-1']]),
+    index('type_status_created_at', [['type', '1'], ['status', '1'], ['created_at', '-1']]),
+    index('topic_status_created_at', [['topic_key', '1'], ['status', '1'], ['created_at', '-1']]),
+    index('scene_status_created_at', [['scene', '1'], ['status', '1'], ['created_at', '-1']]),
+    index('fit_tags_status_created_at', [['fit_tags', '1'], ['status', '1'], ['created_at', '-1']]),
     index('creator_created_at', [['creator_id', '1'], ['created_at', '-1']])
   ],
   'surego-partner-intents.index.json': [

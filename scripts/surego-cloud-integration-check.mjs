@@ -41,6 +41,15 @@ const modules = [
     requiredSchemaFields: ['user_id', 'title', 'content', 'read']
   },
   {
+    name: 'partner',
+    api: 'common/api/partner.js',
+    cloud: 'uniCloud-aliyun/cloudfunctions/surego-partner/index.js',
+    schema: 'uniCloud-aliyun/database/surego-partner-posts.schema.json',
+    actions: ['listPosts', 'detailPost', 'createPost', 'listMine', 'createIntent', 'listIntents', 'updateIntentStatus', 'getConversation', 'listConversations', 'ensureGroupConversation', 'convertToActivity', 'followPost'],
+    apiExports: ['listPartnerPosts', 'listHackathonPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus'],
+    requiredSchemaFields: ['title', 'type', 'creator_id', 'status']
+  },
+  {
     name: 'checkin',
     api: 'common/api/checkin.js',
     cloud: 'uniCloud-aliyun/cloudfunctions/surego-checkin/index.js',
@@ -156,6 +165,27 @@ const authSource = readFile('common/api/auth.js')
 for (const token of ['getCurrentUserId', 'getCurrentUserProfile', 'requireLogin', 'uniCloud.getCurrentUserInfo']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing ${token}`)
+  }
+}
+
+const partnerApiSource = readFile('common/api/partner.js')
+for (const token of ['PARTNER_TOPIC_OPTIONS', 'HACKATHON_TOPIC_KEY', 'topicKey', 'topic_key']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must expose partner topic contract token: ${token}`)
+  }
+}
+
+const partnerCloudSource = readFile('uniCloud-aliyun/cloudfunctions/surego-partner/index.js')
+for (const token of ['normalizeTopicKey', 'topic_key', 'topic_label']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner cloud function must persist/query topic fields with ${token}`)
+  }
+}
+
+const partnerSchema = readSchema('uniCloud-aliyun/database/surego-partner-posts.schema.json')
+for (const field of ['topic_key', 'topic_label']) {
+  if (!partnerSchema.properties?.[field]) {
+    errors.push(`surego-partner-posts schema is missing ${field}`)
   }
 }
 

@@ -393,7 +393,7 @@ if (fs.existsSync(routePath)) {
 const partnerApiPath = path.join(root, 'common/api/partner.js');
 if (fs.existsSync(partnerApiPath)) {
   const source = fs.readFileSync(partnerApiPath, 'utf8');
-  for (const helper of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'listPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
+  for (const helper of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'PARTNER_TOPIC_OPTIONS', 'HACKATHON_TOPIC_KEY', 'listPartnerPosts', 'listHackathonPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
     if (!source.includes(helper)) {
       errors.push(`common/api/partner.js is missing ${helper}`);
     }
@@ -1149,6 +1149,62 @@ if (fs.existsSync(partnerCloudPath)) {
   for (const staleToken of ['createApprovedApplicationsForActivity', 'applications.add({']) {
     if (source.includes(staleToken)) {
       errors.push(`surego-partner must not auto-create approved activity applications during conversion: ${staleToken}`);
+    }
+  }
+  for (const token of ['buildListPostWhere', 'matchesPostTextFilters', 'tagsAny', 'payload.type', 'topic_key', 'normalizeTopicKey']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-partner must support filtered project/hackathon listPosts token: ${token}`);
+    }
+  }
+}
+
+const hackathonIndexPath = path.join(root, 'pages/hackathon/index.vue');
+if (fs.existsSync(hackathonIndexPath)) {
+  const source = fs.readFileSync(hackathonIndexPath, 'utf8');
+  for (const token of ['listHackathonPartnerPosts', 'allowFallback: false', "topicKey: 'hackathon'", 'goHackathonTeam', 'goPartnerCreate({', 'emptyPartner']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/hackathon/index.vue must use real partner data flow token: ${token}`);
+    }
+  }
+  for (const staleToken of ['const teams = [', '@/common/mock', 'uniCloud.callFunction']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/hackathon/index.vue must not use static/mock/direct cloud data: ${staleToken}`);
+    }
+  }
+}
+
+const hackathonTeamPath = path.join(root, 'pages/hackathon/team.vue');
+if (fs.existsSync(hackathonTeamPath)) {
+  const source = fs.readFileSync(hackathonTeamPath, 'utf8');
+  for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/hackathon/team.vue must use real partner detail/intent flow token: ${token}`);
+    }
+  }
+  for (const staleToken of ['const teams = [', '@/common/mock', 'goMessages', 'uniCloud.callFunction']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/hackathon/team.vue must not use static/mock/direct cloud data: ${staleToken}`);
+    }
+  }
+}
+
+const partnerCreateTopicPath = path.join(root, 'pages/partner/create.vue');
+if (fs.existsSync(partnerCreateTopicPath)) {
+  const source = fs.readFileSync(partnerCreateTopicPath, 'utf8');
+  for (const token of ['PARTNER_TOPIC_OPTIONS', 'topicKey', 'topicOptions', 'topic-notice', '黑客松/赛事']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/partner/create.vue must expose project topic selection token: ${token}`);
+    }
+  }
+}
+
+const partnerSeedTopicPath = path.join(root, 'uniCloud-aliyun/database/surego-partner-posts.init_data.json');
+if (fs.existsSync(partnerSeedTopicPath)) {
+  const items = JSON.parse(fs.readFileSync(partnerSeedTopicPath, 'utf8'));
+  for (const id of ['hackathon-ai-front', 'surego-labs', 'campus-ai', 'creator-map']) {
+    const item = items.find((entry) => entry._id === id || entry.id === id);
+    if (!item || item.topic_key !== 'hackathon') {
+      errors.push(`surego-partner-posts.init_data.json must mark ${id} with topic_key=hackathon`);
     }
   }
 }

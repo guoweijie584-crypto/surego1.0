@@ -237,6 +237,16 @@ if (Array.isArray(seedUsers) && !seedUsers.some((item) => item.user_id === 'seed
   errors.push('surego-users.init_data.json must include seed_owner_wu for migrated reference-owner records')
 }
 
+const partnerSeedItems = readJson('uniCloud-aliyun/database/surego-partner-posts.init_data.json')
+if (Array.isArray(partnerSeedItems)) {
+  for (const id of ['hackathon-ai-front', 'surego-labs', 'campus-ai', 'creator-map']) {
+    const item = partnerSeedItems.find((entry) => entry._id === id || entry.id === id)
+    if (!item || item.topic_key !== 'hackathon') {
+      errors.push(`surego-partner-posts.init_data.json must mark ${id} with topic_key=hackathon`)
+    }
+  }
+}
+
 const requiredIndexFiles = [
   'uniCloud-aliyun/database/surego-activities.index.json',
   'uniCloud-aliyun/database/surego-applications.index.json',
@@ -702,7 +712,7 @@ if (!messageSource.includes('filter((item) => isCurrentUserMessage(item, userId)
 }
 
 const partnerApiSource = read('common/api/partner.js')
-for (const token of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'listPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
+for (const token of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'PARTNER_TOPIC_OPTIONS', 'HACKATHON_TOPIC_KEY', 'listPartnerPosts', 'listHackathonPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
   if (!partnerApiSource.includes(token)) {
     errors.push(`common/api/partner.js is missing release partner token: ${token}`)
   }
@@ -738,6 +748,37 @@ const partnerPageSource = read('pages/partners/index.vue')
 for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'getUnreadMessageCount', 'activeType']) {
   if (!partnerPageSource.includes(token)) {
     errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
+  }
+}
+
+const hackathonIndexSource = read('pages/hackathon/index.vue')
+for (const token of ['listHackathonPartnerPosts', 'allowFallback: false', "topicKey: 'hackathon'", 'goHackathonTeam', 'goPartnerCreate({', 'emptyPartner']) {
+  if (!hackathonIndexSource.includes(token)) {
+    errors.push(`pages/hackathon/index.vue must use release hackathon partner token: ${token}`)
+  }
+}
+for (const staleToken of ['const teams = [', '@/common/mock', 'uniCloud.callFunction']) {
+  if (hackathonIndexSource.includes(staleToken)) {
+    errors.push(`pages/hackathon/index.vue must not use static/mock/direct cloud data: ${staleToken}`)
+  }
+}
+
+const partnerCreateTopicSource = read('pages/partner/create.vue')
+for (const token of ['PARTNER_TOPIC_OPTIONS', 'topicKey', 'topicOptions', 'topic-notice', '黑客松/赛事']) {
+  if (!partnerCreateTopicSource.includes(token)) {
+    errors.push(`pages/partner/create.vue must expose release project topic token: ${token}`)
+  }
+}
+
+const hackathonTeamSource = read('pages/hackathon/team.vue')
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn']) {
+  if (!hackathonTeamSource.includes(token)) {
+    errors.push(`pages/hackathon/team.vue must use release hackathon intent token: ${token}`)
+  }
+}
+for (const staleToken of ['const teams = [', '@/common/mock', 'goMessages', 'uniCloud.callFunction']) {
+  if (hackathonTeamSource.includes(staleToken)) {
+    errors.push(`pages/hackathon/team.vue must not use static/mock/direct cloud data: ${staleToken}`)
   }
 }
 if (partnerPageSource.includes('找搭子')) {
@@ -1222,6 +1263,11 @@ for (const staleToken of ['createApprovedApplicationsForActivity', 'applications
 for (const token of ["if (!record.schedule)", "if (!record.location)", "if (!record.description)"]) {
   if (!partnerCloudSource.includes(token)) {
     errors.push(`surego-partner must validate partner post required fields with ${token}`)
+  }
+}
+for (const token of ['buildListPostWhere', 'matchesPostTextFilters', 'tagsAny', 'payload.type', 'topic_key', 'normalizeTopicKey']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must support release filtered project/hackathon listPosts token: ${token}`)
   }
 }
 
