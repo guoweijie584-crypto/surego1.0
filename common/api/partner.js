@@ -10,6 +10,14 @@ const FOLLOWS_KEY = 'surego_partner_follows'
 const CONVERSATIONS_KEY = 'surego_partner_conversations'
 const ACTIVITIES_KEY = 'surego_created_activities'
 const DEFAULT_AVATAR = '/static/userImg/user.png'
+export const HACKATHON_TOPIC_KEY = 'hackathon'
+export const PARTNER_TOPIC_OPTIONS = [
+  { key: '', label: '普通项目', description: '默认项目组队，不进入专题专区' },
+  { key: HACKATHON_TOPIC_KEY, label: '黑客松/赛事', description: '发布到黑客松组队专区' },
+  { key: 'course', label: '课程作业', description: '课程项目、作业 Demo 或课堂展示组队' },
+  { key: 'startup', label: '创业 Demo', description: '创业想法验证、商业计划或 Demo 组队' }
+]
+export const HACKATHON_PARTNER_TAGS = ['黑客松', '赛事', 'AI', '48h']
 const DEFAULT_PARTNER_ACTIVITY_IMAGES = {
   sport: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Shuttlecock_on_a_badminton_court.jpg/1024px-Shuttlecock_on_a_badminton_court.jpg',
   photo: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&q=80&w=900',
@@ -250,6 +258,68 @@ function normalizeTags(tags = []) {
   return String(tags || '').split(/[,\s，、]+/).map((item) => item.trim()).filter(Boolean).slice(0, 6)
 }
 
+function normalizeTopicKey(topicKey = '') {
+  const key = String(topicKey || '').trim()
+  return PARTNER_TOPIC_OPTIONS.some((item) => item.key === key) ? key : ''
+}
+
+function getTopicLabel(topicKey = '') {
+  const key = normalizeTopicKey(topicKey)
+  return PARTNER_TOPIC_OPTIONS.find((item) => item.key === key)?.label || ''
+}
+
+function normalizeFilterList(value = []) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean)
+  return String(value || '').split(/[,\s，、]+/).map((item) => item.trim()).filter(Boolean)
+}
+
+function buildPartnerFilterText(item = {}) {
+  return [
+    item.title,
+    item.scene,
+    item.type,
+    item.typeLabel || item.type_label,
+    item.topicKey || item.topic_key,
+    item.topicLabel || item.topic_label,
+    item.description,
+    item.detail,
+    item.expectation,
+    item.location,
+    item.schedule,
+    ...(Array.isArray(item.fitTags || item.fit_tags) ? (item.fitTags || item.fit_tags) : []),
+    ...(Array.isArray(item.tags) ? item.tags : []),
+    ...(Array.isArray(item.wants) ? item.wants : [])
+  ].map((entry) => String(entry || '').toLowerCase()).join(' ')
+}
+
+function matchesPartnerPostFilters(item = {}, options = {}) {
+  const type = String(options.type || '').trim()
+  if (type && normalizeType(type) !== item.type) return false
+
+  const scene = String(options.scene || '').trim()
+  if (scene && String(item.scene || '') !== scene) return false
+
+  const topicKey = normalizeTopicKey(options.topicKey || options.topic_key)
+  const legacyTagsAny = normalizeFilterList(options.legacyTagsAny || options.legacy_tags_any)
+  if (topicKey) {
+    const itemTopicKey = normalizeTopicKey(item.topicKey || item.topic_key)
+    if (itemTopicKey !== topicKey) {
+      if (legacyTagsAny.length === 0) return false
+      const filterText = buildPartnerFilterText(item)
+      if (!legacyTagsAny.some((tag) => filterText.includes(String(tag).toLowerCase()))) return false
+    }
+  }
+
+  const keyword = String(options.keyword || '').trim().toLowerCase()
+  const tagsAny = normalizeFilterList(options.tagsAny || options.tags_any)
+  if (!keyword && tagsAny.length === 0) return true
+
+  const filterText = buildPartnerFilterText(item)
+  if (keyword && !filterText.includes(keyword)) return false
+  if (tagsAny.length > 0 && !tagsAny.some((tag) => filterText.includes(String(tag).toLowerCase()))) return false
+  return true
+}
+
 function isCurrentUserCreator(item = {}) {
   const currentUserId = getCurrentUserId()
   const creatorId = item.creatorId || item.creator_id || ''
@@ -264,6 +334,7 @@ function isReferencePreviewOwner(item = {}) {
 function normalizePartnerPost(item = {}) {
   const id = item.id || item._id
   const type = normalizeType(item.type || mapKindToType(item.kind))
+  const topicKey = normalizeTopicKey(item.topicKey || item.topic_key)
   const creatorId = item.creatorId || item.creator_id || ''
   const detail = item.detail || item.description || ''
   const wants = normalizeTags(item.wants || item.fitTags || item.fit_tags || item.tags)
@@ -274,6 +345,10 @@ function normalizePartnerPost(item = {}) {
     kind: item.kind || mapTypeToKind(type),
     type,
     typeLabel: item.typeLabel || item.type_label || getTypeLabel(type),
+    topicKey,
+    topic_key: topicKey,
+    topicLabel: item.topicLabel || item.topic_label || getTopicLabel(topicKey),
+    topic_label: item.topicLabel || item.topic_label || getTopicLabel(topicKey),
     creatorId,
     creator_id: creatorId,
     creator: item.creator || item.creator_name || 'SureGo 用户',
@@ -337,11 +412,11 @@ function normalizeConversation(item = {}) {
   }
 }
 
-function listLocalPartnerPosts() {
+function listLocalPartnerPosts(options = {}) {
   return Promise.resolve([
     ...readPosts(),
     ...partnerPosts
-  ].map(normalizePartnerPost).sort((a, b) => {
+  ].map(normalizePartnerPost).filter((item) => matchesPartnerPostFilters(item, options)).sort((a, b) => {
     const rankDiff = PARTNER_POST_STATUS_META[a.status].rank - PARTNER_POST_STATUS_META[b.status].rank
     if (rankDiff !== 0) return rankDiff
     return String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
@@ -350,17 +425,33 @@ function listLocalPartnerPosts() {
 
 export async function listPartnerPosts(options = {}) {
   if (shouldUseReferenceMockPreview()) {
-    return listLocalPartnerPosts()
+    return listLocalPartnerPosts(options)
   }
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-partner', 'listPosts', options)
       return Array.isArray(items) ? items.map(normalizePartnerPost) : []
     } catch (error) {
-      return handleSuregoCloudError(error, () => listLocalPartnerPosts())
+      if (options.allowFallback === false) throw error
+      return handleSuregoCloudError(error, () => listLocalPartnerPosts(options))
     }
   }
-  return listLocalPartnerPosts()
+  return listLocalPartnerPosts(options)
+}
+
+export async function listHackathonPartnerPosts(options = {}) {
+  const tagsAny = [
+    ...HACKATHON_PARTNER_TAGS,
+    ...normalizeFilterList(options.tagsAny || options.tags_any)
+  ]
+  return listPartnerPosts({
+    ...options,
+    type: 'project',
+    topicKey: options.topicKey || options.topic_key || HACKATHON_TOPIC_KEY,
+    tagsAny,
+    legacyTagsAny: tagsAny,
+    allowFallback: false
+  })
 }
 
 function getLocalPartnerPostDetail(id) {
@@ -368,7 +459,7 @@ function getLocalPartnerPostDetail(id) {
   return Promise.resolve(found ? normalizePartnerPost(found) : null)
 }
 
-export async function getPartnerPostDetail(id) {
+export async function getPartnerPostDetail(id, options = {}) {
   if (shouldUseReferenceMockPreview()) {
     return getLocalPartnerPostDetail(id)
   }
@@ -377,6 +468,7 @@ export async function getPartnerPostDetail(id) {
       const detail = await callSuregoFunction('surego-partner', 'detailPost', { id })
       return detail ? normalizePartnerPost(detail) : null
     } catch (error) {
+      if (options.allowFallback === false) throw error
       return handleSuregoCloudError(error, () => getLocalPartnerPostDetail(id))
     }
   }
@@ -387,6 +479,7 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
   const currentUser = getCurrentUserProfile()
   const creatorId = form.creatorId || form.creator_id || currentUser.userId || currentUser.uid
   const type = normalizeType(form.type || mapKindToType(form.kind))
+  const topicKey = normalizeTopicKey(form.topicKey || form.topic_key)
   const tags = normalizeTags(form.fitTags || form.fit_tags || form.tags)
   const wants = normalizeTags(form.wants || form.expectation)
   return normalizePartnerPost({
@@ -394,6 +487,10 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
     title: String(form.title || '').trim(),
     kind: form.kind || mapTypeToKind(type),
     type,
+    topicKey,
+    topic_key: topicKey,
+    topicLabel: form.topicLabel || form.topic_label || getTopicLabel(topicKey),
+    topic_label: form.topicLabel || form.topic_label || getTopicLabel(topicKey),
     creatorId,
     creator_id: creatorId,
     creator: form.creator || currentUser.nickname,
@@ -502,6 +599,7 @@ export async function createPartnerIntent(payload = {}) {
     try {
       return normalizeIntent(await callSuregoFunction('surego-partner', 'createIntent', payload))
     } catch (error) {
+      if (payload.allowFallback === false) throw error
       return handleSuregoCloudError(error, () => createLocalPartnerIntent(payload))
     }
   }

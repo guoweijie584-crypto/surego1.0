@@ -13,6 +13,11 @@ const uniIdUsers = db.collection('uni-id-users');
 const postTypes = ['time_box', 'long_term', 'project'];
 const postStatuses = ['open', 'matched', 'converted', 'paused', 'closed'];
 const intentStatuses = ['pending', 'accepted', 'rejected'];
+const topicOptions = {
+  hackathon: '黑客松组队',
+  course: '课程作业',
+  startup: '创业 Demo'
+};
 
 function now() {
   return Date.now();
@@ -80,11 +85,91 @@ function normalizeTags(tags) {
   return Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 6) : [];
 }
 
+function normalizeTopicKey(topicKey = '') {
+  const key = String(topicKey || '').trim();
+  return Object.prototype.hasOwnProperty.call(topicOptions, key) ? key : '';
+}
+
+function getTopicLabel(topicKey = '') {
+  const key = normalizeTopicKey(topicKey);
+  return key ? topicOptions[key] : '';
+}
+
+function normalizeFilterList(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean);
+  return String(value || '').split(/[,\s，、]+/).map((item) => item.trim()).filter(Boolean);
+}
+
+function buildPostFilterText(record = {}) {
+  return [
+    record.title,
+    record.scene,
+    record.type,
+    record.type_label,
+    record.typeLabel,
+    record.topic_key,
+    record.topicKey,
+    record.topic_label,
+    record.topicLabel,
+    record.description,
+    record.detail,
+    record.expectation,
+    record.location,
+    record.schedule,
+    ...(Array.isArray(record.fit_tags || record.fitTags) ? (record.fit_tags || record.fitTags) : []),
+    ...(Array.isArray(record.tags) ? record.tags : []),
+    ...(Array.isArray(record.wants) ? record.wants : [])
+  ].map((entry) => String(entry || '').toLowerCase()).join(' ');
+}
+
+function matchesPostTextFilters(record = {}, payload = {}) {
+  const topicKey = normalizeTopicKey(payload.topicKey || payload.topic_key);
+  const legacyTagsAny = normalizeFilterList(payload.legacyTagsAny || payload.legacy_tags_any);
+  if (topicKey && normalizeTopicKey(record.topic_key || record.topicKey) !== topicKey) {
+    if (legacyTagsAny.length === 0) return false;
+    const legacyText = buildPostFilterText(record);
+    if (!legacyTagsAny.some((tag) => legacyText.includes(String(tag).toLowerCase()))) return false;
+  }
+
+  const keyword = String(payload.keyword || '').trim().toLowerCase();
+  const tagsAny = normalizeFilterList(payload.tagsAny || payload.tags_any);
+  if (!keyword && tagsAny.length === 0) return true;
+
+  const filterText = buildPostFilterText(record);
+  if (keyword && !filterText.includes(keyword)) return false;
+  if (tagsAny.length > 0 && !tagsAny.some((tag) => filterText.includes(String(tag).toLowerCase()))) return false;
+  return true;
+}
+
+function buildListPostWhere(payload = {}) {
+  const where = {
+    status: dbCmd.in(['open', 'matched'])
+  };
+  const type = String(payload.type || '').trim();
+  if (type && postTypes.includes(type)) {
+    where.type = type;
+  }
+  const scene = String(payload.scene || '').trim();
+  if (scene) {
+    where.scene = scene;
+  }
+  const topicKey = normalizeTopicKey(payload.topicKey || payload.topic_key);
+  const hasLegacyTopicFallback = normalizeFilterList(payload.legacyTagsAny || payload.legacy_tags_any).length > 0;
+  if (topicKey && !hasLegacyTopicFallback) {
+    where.topic_key = topicKey;
+  }
+  return where;
+}
+
 function normalizePost(record = {}) {
   return {
     ...record,
     id: record._id || record.id,
     type: normalizeType(record.type),
+    topicKey: record.topic_key || record.topicKey || '',
+    topic_key: record.topic_key || record.topicKey || '',
+    topicLabel: record.topic_label || record.topicLabel || getTopicLabel(record.topic_key || record.topicKey),
+    topic_label: record.topic_label || record.topicLabel || getTopicLabel(record.topic_key || record.topicKey),
     creatorId: record.creator_id || record.creatorId || '',
     creator_id: record.creator_id || record.creatorId || '',
     typeLabel: record.type_label || record.typeLabel || '',
@@ -130,9 +215,15 @@ function normalizeConversation(record = {}) {
 }
 
 function buildPostRecord(payload = {}, user = {}) {
+  const topicKey = normalizeTopicKey(payload.topicKey || payload.topic_key);
   return {
     title: String(payload.title || '').trim(),
     type: normalizeType(payload.type),
+    kind: payload.kind || '',
+    scene: payload.scene || '',
+    type_label: payload.typeLabel || payload.type_label || '',
+    topic_key: topicKey,
+    topic_label: payload.topicLabel || payload.topic_label || getTopicLabel(topicKey),
     creator_id: user.uid,
     creator: payload.creator || user.profile.nickname || user.profile.username || 'SureGo 用户',
     avatar: payload.avatar || user.profile.avatar || user.profile.avatar_file?.url || '/static/userImg/user.png',
@@ -315,14 +406,19 @@ exports.main = async (event) => {
 
   if (action === 'listPosts') {
     const requestedLimit = Number(payload.limit) > 0 ? Number(payload.limit) : 50;
+    const needsTextFilter = Boolean(String(payload.keyword || '').trim() || normalizeFilterList(payload.tagsAny || payload.tags_any).length);
+    const queryLimit = needsTextFilter ? 100 : Math.min(requestedLimit, 100);
     const result = await posts
-      .where({ status: dbCmd.in(['open', 'matched']) })
+      .where(buildListPostWhere(payload))
       .orderBy('created_at', 'desc')
-      .limit(Math.min(requestedLimit, 100))
+      .limit(queryLimit)
       .get();
+    const items = (result.data || [])
+      .filter((item) => matchesPostTextFilters(item, payload))
+      .slice(0, Math.min(requestedLimit, 100));
     return {
       code: 0,
-      data: (result.data || []).map(normalizePost)
+      data: items.map(normalizePost)
     };
   }
 
@@ -340,6 +436,10 @@ exports.main = async (event) => {
 
   if (action === 'createPost') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const rawTopicKey = String(payload.topicKey || payload.topic_key || '').trim();
+    if (rawTopicKey && !normalizeTopicKey(rawTopicKey)) {
+      return { code: 'VALIDATION_ERROR', message: 'Unsupported partner post topic.' };
+    }
     const record = buildPostRecord(payload, user);
     if (!record.title) return { code: 'VALIDATION_ERROR', message: 'Title is required.' };
     if (!record.schedule) return { code: 'VALIDATION_ERROR', message: 'Schedule is required.' };
