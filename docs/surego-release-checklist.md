@@ -18,7 +18,7 @@
 - 运行 `node scripts\surego-smoke-check.mjs`，确认业务路由、云函数骨架、schema 和禁用 API 检查通过。
 - 运行 `node scripts\surego-cloud-integration-check.mjs`，确认 mock/uniCloud 双模式 facade 和云函数 action 覆盖完整。
 - 运行 `node scripts\surego-release-check.mjs`，确认 `pages.json` 已移除 DCloud 示例路由，业务页面不直接调用 `uniCloud.callFunction`。
-- 确认 `common/config/runtime.js` 默认仍为 `USE_UNICLOUD = false`，未上传云函数时小程序仍可本地跑通。
+- 确认 `common/config/runtime.js` 默认使用 `USE_UNICLOUD = true` 且 `REFERENCE_MOCK_PREVIEW = false`，试运行构建不再静默回退 mock 数据。
 
 ## HBuilderX 与微信开发者工具
 
@@ -38,9 +38,9 @@
 
 ## uniCloud 上线准备
 
-- 上传并部署 `surego-activity`、`surego-application`、`surego-order`、`surego-message`、`surego-checkin`、`surego-moderation`。
-- 上传数据库 schema：活动、报名、订单、消息、签到、举报、审计日志。
-- 云端模式联调前再将 `USE_UNICLOUD` 改为 `true`，先用两个测试微信用户验证多角色隔离。
+- 上传并部署 `surego-activity`、`surego-application`、`surego-order`、`surego-message`、`surego-checkin`、`surego-moderation`、`surego-partner`、`surego-user`。
+- 上传数据库 schema、索引和试运行种子数据：活动、报名、订单、消息、签到、举报、审计日志、搭子、会话、关注、用户资料。
+- 云端模式联调前确认 `USE_UNICLOUD` 已为 `true`，先用两个测试微信用户验证多角色隔离。
 - 验证 A 创建活动、B 报名、A 审核、B 查看凭证、B 确认试运营订单、A 核销、运营处理举报的完整链路。
 
 ## 微信发布合规

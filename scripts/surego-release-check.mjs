@@ -215,6 +215,49 @@ for (const field of ['visibility', 'source', 'source_partner_post_id', 'invited_
   }
 }
 
+const requiredSeedDataFiles = [
+  'uniCloud-aliyun/database/surego-activities.init_data.json',
+  'uniCloud-aliyun/database/surego-partner-posts.init_data.json',
+  'uniCloud-aliyun/database/surego-users.init_data.json'
+]
+
+for (const seedFile of requiredSeedDataFiles) {
+  const items = readJson(seedFile)
+  if (!Array.isArray(items) || items.length === 0) {
+    errors.push(`${seedFile} must contain non-empty seed data for cloud trial mode`)
+    continue
+  }
+  if (JSON.stringify(items).includes('"mock_user"')) {
+    errors.push(`${seedFile} must map reference mock_user records to stable cloud seed users`)
+  }
+}
+
+const seedUsers = readJson('uniCloud-aliyun/database/surego-users.init_data.json')
+if (Array.isArray(seedUsers) && !seedUsers.some((item) => item.user_id === 'seed_owner_wu')) {
+  errors.push('surego-users.init_data.json must include seed_owner_wu for migrated reference-owner records')
+}
+
+const requiredIndexFiles = [
+  'uniCloud-aliyun/database/surego-activities.index.json',
+  'uniCloud-aliyun/database/surego-applications.index.json',
+  'uniCloud-aliyun/database/surego-orders.index.json',
+  'uniCloud-aliyun/database/surego-partner-posts.index.json',
+  'uniCloud-aliyun/database/surego-partner-intents.index.json',
+  'uniCloud-aliyun/database/surego-follows.index.json',
+  'uniCloud-aliyun/database/surego-conversations.index.json',
+  'uniCloud-aliyun/database/surego-checkins.index.json',
+  'uniCloud-aliyun/database/surego-reports.index.json',
+  'uniCloud-aliyun/database/surego-audit-logs.index.json',
+  'uniCloud-aliyun/database/surego-users.index.json'
+]
+
+for (const indexFile of requiredIndexFiles) {
+  const indexes = readJson(indexFile)
+  if (!Array.isArray(indexes) || indexes.length === 0) {
+    errors.push(`${indexFile} must contain indexes for cloud trial query paths`)
+  }
+}
+
 if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
   errors.push('common/js/vconsole.min.js must not be included in the trial release package')
 }
