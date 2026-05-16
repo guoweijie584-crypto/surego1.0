@@ -20,7 +20,7 @@
         <view class="hackathon-hero__shade" />
         <view class="hackathon-hero__content">
           <view>
-            <text class="hackathon-hero__pill">精选推荐</text>
+            <text class="hackathon-hero__pill">项目组队 · 主题视图</text>
             <view class="hackathon-hero__title-group">
               <text class="hackathon-hero__title-line">AI 黑客松选手</text>
               <text class="hackathon-hero__title-line hackathon-hero__title-line--strong">组队专区</text>
@@ -28,8 +28,8 @@
             <text class="hackathon-hero__desc">找产品、前端、算法、设计和路演队友。</text>
           </view>
           <view class="hackathon-stats">
-            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ teams.length }}</text> 招募队伍</text></view>
-            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ roleCount }}</text> 缺队友</text></view>
+            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ teamCountLabel }}</text> 招募队伍</text></view>
+            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ roleCountLabel }}</text> 缺队友</text></view>
             <view><text class="hackathon-stats__label">48h 比赛周期</text></view>
           </view>
         </view>
@@ -39,18 +39,33 @@
         <text>正在找队友</text>
       </view>
 
-      <view class="team-list">
+      <view v-if="loading" class="state-card">
+        <SuIcon name="sceneProject" size="82" glyph-size="40" variant="soft" color="#94a3b8" />
+        <text>正在同步云端组队数据</text>
+      </view>
+
+      <view v-else-if="teams.length > 0" class="team-list">
         <view v-for="team in teams" :key="team.id" class="team-card" @tap="goHackathonTeam(team.id)">
           <view>
             <text class="team-card__role">{{ team.role }}</text>
             <text class="team-card__title">{{ team.name }}</text>
             <text class="team-card__intro">{{ team.intro }}</text>
+            <view class="team-meta-row">
+              <text>{{ team.schedule }}</text>
+              <text>{{ team.intentCount }} 人感兴趣</text>
+            </view>
             <view class="question-list">
               <text v-for="tag in team.tags" :key="tag">{{ tag }}</text>
             </view>
           </view>
           <SuIcon name="arrowRight" size="40" glyph-size="20" variant="inline" color="#94a3b8" />
         </view>
+      </view>
+
+      <view v-else class="state-card">
+        <SuIcon name="emptyPartner" size="88" glyph-size="42" variant="soft" color="#94a3b8" />
+        <text>{{ emptyText }}</text>
+        <view class="state-card__action" @tap="openCreate">发布黑客松组队</view>
       </view>
 
       <view class="section-title">
@@ -67,7 +82,7 @@
       </view>
 
       <view class="bottom-cta">
-        <view class="primary-button" @tap="goPartnerCreate">发布组队需求</view>
+        <view class="primary-button" @tap="openCreate">发布黑客松组队</view>
       </view>
     </scroll-view>
   </view>
@@ -75,19 +90,68 @@
 
 <script setup>
 import SuIcon from '@/components/surego/SuIcon.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
+import { listHackathonPartnerPosts } from '@/common/api/partner.js'
+import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goHackathonTeam, goPartnerCreate, showComingSoon } from '@/common/utils/route.js'
 
-const teams = [
-  { id: 'surego-labs', name: 'SureGo Labs', role: '缺算法 / 后端', tags: ['组队搭子', '推荐算法', '可远程协作'], intro: '想做活动匹配和到场信用模型，需要能快速搭接口的人。' },
-  { id: 'campus-ai', name: 'Campus AI Toolkit', role: '缺前端 / 设计', tags: ['AI 工具', '小程序', '路演'], intro: '做一个校园 AI 助手 Demo，需要能把交互和页面快速做出来的队友。' },
-  { id: 'creator-map', name: 'Creator Map', role: '缺产品 / 运营', tags: ['校园地图', '内容运营', '增长'], intro: '想把校园活动和创作者做成地图，需要能拆需求和做冷启动的人。' }
-]
-
+const posts = ref([])
+const loading = ref(false)
+const loadError = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
-const roleCount = computed(() => teams.reduce((sum, team) => sum + Math.max(1, team.tags.length - 1), 0))
+
+const teams = computed(() => posts.value.map((item) => ({
+  id: item.id,
+  name: item.title,
+  role: buildRoleLabel(item),
+  tags: displayTags(item),
+  intro: item.description || item.detail || item.expectation || '队长正在完善项目介绍',
+  schedule: item.available || item.schedule || '时间待定',
+  intentCount: Number(item.intentCount || item.intent_count || 0)
+})))
+const teamCountLabel = computed(() => (loading.value ? '-' : String(teams.value.length)))
+const roleCount = computed(() => teams.value.reduce((sum, team) => sum + Math.max(1, team.tags.length - 1), 0))
+const roleCountLabel = computed(() => (loading.value ? '-' : String(roleCount.value)))
+const emptyText = computed(() => loadError.value || '云端暂时没有匹配的黑客松组队需求')
+
+function displayTags(item = {}) {
+  const tags = Array.isArray(item.fitTags) && item.fitTags.length ? item.fitTags : item.tags || []
+  return (Array.isArray(tags) ? tags : []).filter(Boolean).slice(0, 4)
+}
+
+function buildRoleLabel(item = {}) {
+  const wants = Array.isArray(item.wants) ? item.wants.filter(Boolean).slice(0, 2) : []
+  if (wants.length > 0) return `缺 ${wants.join(' / ')}`
+  const tags = displayTags(item).filter((tag) => !['黑客松', '项目组队', 'AI', '48h'].includes(tag))
+  return tags.length > 0 ? `缺 ${tags.slice(0, 2).join(' / ')}` : '项目组队'
+}
+
+async function loadData() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    posts.value = await listHackathonPartnerPosts({ limit: 30, topicKey: 'hackathon', allowFallback: false })
+  } catch (error) {
+    posts.value = []
+    loadError.value = error?.message || '云端组队数据暂不可用'
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreate() {
+  goPartnerCreate({
+    type: 'project',
+    scene: 'project',
+    topicKey: 'hackathon'
+  })
+}
+
+onShow(loadData)
+onPullDownRefresh(makeRefreshHandler(loadData))
 </script>
 
 <style scoped>
@@ -120,13 +184,14 @@ const roleCount = computed(() => teams.reduce((sum, team) => sum + Math.max(1, t
 .team-card__role { display: inline-flex; align-self: flex-start; padding: 9rpx 16rpx; border-radius: 999rpx; background: #dbeafe; color: #2563eb; font-size: 20rpx; font-weight: 900; }
 .team-card__title { display: block; margin-top: 16rpx; color: #102033; font-size: 34rpx; font-weight: 950; line-height: 1.25; }
 .team-card__intro { display: block; margin-top: 12rpx; color: #64748b; font-size: 24rpx; font-weight: 800; line-height: 1.5; }
+.team-meta-row { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 14rpx; color: #94a3b8; font-size: 20rpx; font-weight: 850; }
 .question-list { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 16rpx; }
 .question-list text { padding: 10rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
+.state-card { display: flex; min-height: 260rpx; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 30rpx; border: 1rpx solid rgba(24, 24, 27, 0.08); border-radius: 34rpx; background: #fff; color: #94a3b8; font-size: 24rpx; font-weight: 900; text-align: center; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
+.state-card__action { margin-top: 8rpx; padding: 16rpx 24rpx; border-radius: 999rpx; background: #2388ff; color: #fff; font-size: 23rpx; font-weight: 950; }
 .voice-card { display: flex; gap: 22rpx; padding: 30rpx; border-radius: 34rpx; background: #fff; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
 .voice-card__button { display: flex; width: 82rpx; height: 82rpx; flex: 0 0 82rpx; align-items: center; justify-content: center; border-radius: 28rpx; background: #2388ff; }
-.voice-card text { display: block; }
-.voice-card text:first-child { color: #102033; font-size: 27rpx; font-weight: 900; line-height: 1.35; }
-.voice-card text:nth-child(2) { margin-top: 8rpx; color: #64748b; font-size: 22rpx; font-weight: 800; line-height: 1.45; }
+.voice-card text { display: block; color: #102033; font-size: 27rpx; font-weight: 900; line-height: 1.35; }
 .bottom-cta { margin-top: 28rpx; }
 .primary-button { display: flex; height: 88rpx; align-items: center; justify-content: center; border-radius: 999rpx; background: #2388ff; color: #fff; font-size: 26rpx; font-weight: 950; box-shadow: 0 16rpx 34rpx rgba(35, 136, 255, 0.28); }
 </style>

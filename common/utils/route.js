@@ -7,6 +7,24 @@ function buildQuery(params = {}) {
     .join('&')
 }
 
+function isTapEventPayload(value = {}) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof value.type === 'string' &&
+      (value.currentTarget || value.target || value.detail)
+  )
+}
+
+function isNavigationOptions(value = {}) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      !isTapEventPayload(value) &&
+      (Object.prototype.hasOwnProperty.call(value, 'replace') || Object.prototype.hasOwnProperty.call(value, 'root'))
+  )
+}
+
 function goToUrl(url, options = {}) {
   if (options.root) {
     uni.reLaunch({ url })
@@ -182,8 +200,16 @@ export function goActivityCreate() {
   guardLoginAction('/pages/activity/create')
 }
 
-export function goPartnerCreate(options = {}) {
-  guardLoginAction('/pages/partner/create', options)
+export function goPartnerCreate(params = {}, options = {}) {
+  if (isTapEventPayload(params)) {
+    guardLoginAction('/pages/partner/create')
+    return
+  }
+
+  const queryParams = isNavigationOptions(params) ? {} : params
+  const navigationOptions = isNavigationOptions(params) ? params : options
+  const query = buildQuery(queryParams)
+  guardLoginAction(`/pages/partner/create${query ? `?${query}` : ''}`, navigationOptions)
 }
 
 export function goPublishCenter(options = {}) {

@@ -15,6 +15,14 @@
         <text class="create__title">说清楚你的搭子需求</text>
       </view>
 
+      <view v-if="form.topicKey === 'hackathon'" class="topic-notice">
+        <SuIcon name="sceneProject" size="38" glyph-size="18" variant="inline" color="#2388ff" />
+        <view>
+          <text>将发布到黑客松组队专区</text>
+          <text>系统会自动归入黑客松主题，标签只用于展示和搜索。</text>
+        </view>
+      </view>
+
       <view class="voice-launch-button" @tap="showComingSoon('语音找搭子正在接入')">
         <SuIcon name="mic" size="44" glyph-size="22" variant="inline" color="#2388ff" />
         <view>
@@ -63,6 +71,25 @@
               </view>
             </view>
           </scroll-view>
+        </view>
+
+        <view v-if="form.type === 'project'" class="composer-block">
+          <text class="composer-label">主题 / 赛事</text>
+          <view class="topic-option-grid">
+            <view
+              v-for="item in topicOptions"
+              :key="item.key || 'default'"
+              class="topic-card"
+              :class="{ 'topic-card--active': form.topicKey === item.key }"
+              @tap="selectTopic(item.key)"
+            >
+              <text>{{ item.label }}</text>
+              <text>{{ item.description }}</text>
+            </view>
+          </view>
+          <view v-if="topicSuggestionVisible" class="topic-suggestion" @tap="selectTopic('hackathon')">
+            <text>看起来像黑客松组队，可以点这里发布到黑客松/赛事。</text>
+          </view>
         </view>
 
         <view class="composer-block">
@@ -181,7 +208,8 @@
 <script setup>
 import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
-import { createPartnerPost, PARTNER_POST_TYPES } from '@/common/api/partner.js'
+import { onLoad } from '@dcloudio/uni-app'
+import { createPartnerPost, HACKATHON_TOPIC_KEY, PARTNER_POST_TYPES, PARTNER_TOPIC_OPTIONS } from '@/common/api/partner.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail, showComingSoon } from '@/common/utils/route.js'
 
 const CAMPUS_NAME = '天津大学'
@@ -244,6 +272,7 @@ const typeOptions = PARTNER_POST_TYPES.map((item) => ({
 
 const form = reactive({
   type: 'time_box',
+  topicKey: '',
   city: CAMPUS_NAME,
   title: templates.time_box.title,
   schedule: templates.time_box.schedule,
@@ -261,7 +290,19 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPadd
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const selectedType = computed(() => typeOptions.find((item) => item.key === form.type) || typeOptions[0])
+const topicOptions = computed(() => PARTNER_TOPIC_OPTIONS.map((item) => ({
+  ...item,
+  label: item.key === HACKATHON_TOPIC_KEY ? '黑客松/赛事' : item.label
+})))
+const topicSuggestionVisible = computed(() => {
+  if (form.type !== 'project' || form.topicKey) return false
+  const text = `${form.title} ${form.description} ${form.expectation} ${tagText.value}`
+  return /黑客松|赛事|AI|48h|比赛/.test(text)
+})
 const fieldLabels = computed(() => {
+  if (form.type === 'project' && form.topicKey === HACKATHON_TOPIC_KEY) {
+    return { time: '可投入时间', place: '协作地点', rule: '申请规则' }
+  }
   if (form.type === 'project') {
     return { time: '协作节奏', place: '协作地点', rule: '申请规则' }
   }
@@ -292,13 +333,23 @@ function applyTemplate(key) {
 
 function selectType(key) {
   form.type = key
+  if (key !== 'project') {
+    form.topicKey = ''
+  }
   applyTemplate(key)
 }
 
 function selectScene(key) {
   selectedScene.value = key
-  if (key === 'project') form.type = 'project'
-  if (key === 'longterm') form.type = 'long_term'
+  if (key === 'project') selectType('project')
+  if (key === 'longterm') selectType('long_term')
+}
+
+function selectTopic(key = '') {
+  form.topicKey = PARTNER_TOPIC_OPTIONS.some((item) => item.key === key) ? key : ''
+  if (form.topicKey === HACKATHON_TOPIC_KEY) {
+    appendQueryTags('黑客松 AI 48h 项目组队')
+  }
 }
 
 function selectConnectionMode(item) {
@@ -313,6 +364,43 @@ function appendTag(tag) {
   if (!form.expectation.includes(tag)) {
     form.expectation = `${form.expectation} ${tag}`.trim()
   }
+}
+
+function readQueryText(value = '') {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  try {
+    return decodeURIComponent(text)
+  } catch (error) {
+    return text
+  }
+}
+
+function appendQueryTags(value = '') {
+  const tags = readQueryText(value)
+    .split(/[,\s，、]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  tags.forEach(appendTag)
+}
+
+function applyEntryDefaults(options = {}) {
+  const type = readQueryText(options.type)
+  if (type && PARTNER_POST_TYPES.some((item) => item.key === type)) {
+    selectType(type)
+  }
+
+  const scene = readQueryText(options.scene)
+  if (scene) {
+    selectScene(scene)
+  }
+
+  const topicKey = readQueryText(options.topicKey || options.topic_key)
+  if (topicKey) {
+    selectTopic(topicKey)
+  }
+
+  appendQueryTags(options.tags || options.fitTags || options.fit_tags)
 }
 
 function validateForm() {
@@ -333,6 +421,8 @@ async function handleSubmit() {
   try {
     const post = await createPartnerPost({
       ...form,
+      topicKey: form.topicKey,
+      topic_key: form.topicKey,
       scene: selectedScene.value,
       fitTags: tagText.value
     })
@@ -342,6 +432,10 @@ async function handleSubmit() {
     submitting.value = false
   }
 }
+
+onLoad((options = {}) => {
+  applyEntryDefaults(options)
+})
 </script>
 
 <style scoped>
@@ -413,11 +507,43 @@ async function handleSubmit() {
   line-height: 1.55;
 }
 
+.topic-notice,
 .voice-launch-button,
 .voice-card,
 .create-composer {
   margin-right: 34rpx;
   margin-left: 34rpx;
+}
+
+.topic-notice {
+  display: grid;
+  grid-template-columns: 38rpx 1fr;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 22rpx;
+  padding: 22rpx 24rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.18);
+  border-radius: 30rpx;
+  background: #eef7ff;
+  box-shadow: 0 14rpx 34rpx rgba(35, 136, 255, 0.08);
+}
+
+.topic-notice view {
+  display: grid;
+  gap: 6rpx;
+}
+
+.topic-notice text:first-child {
+  color: #102033;
+  font-size: 25rpx;
+  font-weight: 950;
+}
+
+.topic-notice text:last-child {
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 850;
+  line-height: 1.4;
 }
 
 .voice-launch-button {
@@ -578,6 +704,54 @@ async function handleSubmit() {
 .scene-filter-chip--active {
   background: #2388ff;
   color: #fff;
+}
+
+.topic-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 14rpx;
+}
+
+.topic-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 22rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 26rpx;
+  background: #fff;
+}
+
+.topic-card text:first-child {
+  color: #102033;
+  font-size: 24rpx;
+  font-weight: 950;
+}
+
+.topic-card text:last-child {
+  color: #64748b;
+  font-size: 20rpx;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.topic-card--active {
+  border-color: rgba(35, 136, 255, 0.36);
+  background: #edf6ff;
+  box-shadow: 0 10rpx 24rpx rgba(35, 136, 255, 0.1);
+}
+
+.topic-suggestion {
+  margin-top: 14rpx;
+  padding: 18rpx 22rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  color: #2388ff;
+  font-size: 22rpx;
+  font-weight: 900;
+  line-height: 1.45;
 }
 
 .compact-segmented {
