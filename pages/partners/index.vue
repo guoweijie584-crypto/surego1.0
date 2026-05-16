@@ -6,9 +6,9 @@
           <text>搭子</text>
           <text>{{ selectedSchool }}</text>
         </view>
-        <view class="top-search" @tap="showComingSoon('搭子搜索正在接入')">
+        <view class="top-search">
           <SuIcon name="search" size="34" glyph-size="17" variant="inline" color="#64748b" />
-          <input disabled placeholder="搜饭搭子 / 项目组队" placeholder-class="top-search__placeholder" />
+          <input v-model="searchKeyword" confirm-type="search" :adjust-position="false" placeholder="搜饭搭子 / 项目组队" placeholder-class="top-search__placeholder" />
         </view>
         <view class="top-icon" :style="navActionsStyle" @tap="goMessages">
           <SuIcon name="bell" size="50" glyph-size="22" variant="soft" />
@@ -88,12 +88,13 @@ import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goPartnerCreate, goUserProfile, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
 
 const selectedSchool = '天津大学'
 const posts = ref([])
 const unreadCount = ref(0)
 const activeScene = ref('all')
+const searchKeyword = ref('')
 const activeType = activeScene
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
@@ -112,8 +113,12 @@ const sceneFilters = [
 ]
 
 const filteredPosts = computed(() => {
-  if (activeScene.value === 'all') return posts.value
-  return posts.value.filter((item) => matchesScene(item, activeScene.value))
+  const sceneMatched = activeScene.value === 'all'
+    ? posts.value
+    : posts.value.filter((item) => matchesScene(item, activeScene.value))
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) return sceneMatched
+  return sceneMatched.filter((item) => matchesKeyword(item, keyword))
 })
 
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
@@ -153,6 +158,29 @@ function matchesScene(item = {}, scene = 'all') {
     longterm: ['long_term', '长期', '固定', '稳定']
   }
   return (sceneWords[scene] || []).some((word) => haystack.includes(word))
+}
+
+function matchesKeyword(item = {}, keyword = '') {
+  const normalizedKeyword = String(keyword || '').trim().toLowerCase()
+  if (!normalizedKeyword) return true
+  const haystack = [
+    item.title,
+    item.description,
+    item.detail,
+    item.expectation,
+    item.location,
+    item.locationRange,
+    item.schedule,
+    item.available,
+    item.scene,
+    item.type,
+    item.typeLabel,
+    item.topicLabel,
+    ...(Array.isArray(item.fitTags) ? item.fitTags : []),
+    ...(Array.isArray(item.tags) ? item.tags : []),
+    ...(Array.isArray(item.wants) ? item.wants : [])
+  ].filter(Boolean).join(' ').toLowerCase()
+  return haystack.includes(normalizedKeyword)
 }
 </script>
 

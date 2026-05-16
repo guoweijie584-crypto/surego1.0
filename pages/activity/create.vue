@@ -19,24 +19,6 @@
         <text class="create__desc">普通同学也能发起明确活动，规则说清楚，大家才敢放心加入。</text>
       </view>
 
-      <view class="voice-launch-button" @tap="showComingSoon('语音发布正在接入')">
-        <SuIcon name="mic" size="44" glyph-size="22" variant="inline" color="#2388ff" />
-        <view>
-          <text>语音发布</text>
-          <text>说一句出初稿</text>
-        </view>
-      </view>
-
-      <view class="voice-card">
-        <view class="voice-card__button">
-          <SuIcon name="mic" size="56" glyph-size="28" variant="inline" color="#fff" />
-        </view>
-        <view>
-          <text>试着说：“今晚北洋园火锅，6 人 AA，差 3 个饭搭子”</text>
-          <text>说完后先给你一版标题、时间地点、人数、费用和报名问题，你再确认细节。</text>
-        </view>
-      </view>
-
       <view class="composer-strip">
         <view class="composer-block">
           <text class="composer-block__label">活动成行方式</text>
@@ -256,7 +238,7 @@ import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
 import { buildFieldHint, collectMissingFields, isFutureDate, normalizeTimeValue } from '@/common/utils/form.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
 const CAMPUS_NAME = '天津大学'
@@ -539,81 +521,6 @@ async function handleSubmit() {
   font-size: 25rpx;
   font-weight: 700;
   line-height: 1.55;
-}
-
-.voice-launch-button {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  margin: 0 34rpx 24rpx;
-  padding: 24rpx 28rpx;
-  border: 1rpx solid rgba(35, 136, 255, 0.16);
-  border-radius: 34rpx;
-  background: #fff;
-  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.06);
-}
-
-.voice-launch-button view {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.voice-launch-button text:first-child {
-  color: #102033;
-  font-size: 27rpx;
-  font-weight: 900;
-}
-
-.voice-launch-button text:last-child {
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-
-.voice-card {
-  display: flex;
-  gap: 22rpx;
-  margin: 0 34rpx 24rpx;
-  padding: 30rpx;
-  border-radius: 38rpx;
-  background: linear-gradient(135deg, #102033, #2340a4);
-  color: #fff;
-  box-shadow: 0 22rpx 60rpx rgba(35, 64, 164, 0.22);
-}
-
-.voice-card__button {
-  display: flex;
-  width: 82rpx;
-  height: 82rpx;
-  flex: 0 0 82rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #2388ff;
-  box-shadow: 0 12rpx 30rpx rgba(35, 136, 255, 0.42);
-}
-
-.voice-card view:last-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 10rpx;
-}
-
-.voice-card text:first-child {
-  color: #fff;
-  font-size: 27rpx;
-  font-weight: 900;
-  line-height: 1.42;
-}
-
-.voice-card text:last-child {
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.5;
 }
 
 .composer-strip {

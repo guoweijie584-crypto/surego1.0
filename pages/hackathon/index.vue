@@ -68,19 +68,6 @@
         <view class="state-card__action" @tap="openCreate">发布黑客松组队</view>
       </view>
 
-      <view class="section-title">
-        <text>我想找队友</text>
-      </view>
-
-      <view class="voice-card" @tap="showComingSoon('黑客松语音组队正在接入')">
-        <view class="voice-card__button">
-          <SuIcon name="mic" size="56" glyph-size="28" variant="inline" color="#fff" />
-        </view>
-        <view>
-          <text>说：“我想做 AI 校园项目，缺一个前端和设计”</text>
-        </view>
-      </view>
-
       <view class="bottom-cta">
         <view class="primary-button" @tap="openCreate">发布黑客松组队</view>
       </view>
@@ -94,7 +81,7 @@ import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { listHackathonPartnerPosts } from '@/common/api/partner.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goHackathonTeam, goPartnerCreate, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goHackathonTeam, goPartnerCreate } from '@/common/utils/route.js'
 
 const posts = ref([])
 const loading = ref(false)
@@ -189,9 +176,6 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 .question-list text { padding: 10rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
 .state-card { display: flex; min-height: 260rpx; flex-direction: column; align-items: center; justify-content: center; gap: 16rpx; padding: 30rpx; border: 1rpx solid rgba(24, 24, 27, 0.08); border-radius: 34rpx; background: #fff; color: #94a3b8; font-size: 24rpx; font-weight: 900; text-align: center; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
 .state-card__action { margin-top: 8rpx; padding: 16rpx 24rpx; border-radius: 999rpx; background: #2388ff; color: #fff; font-size: 23rpx; font-weight: 950; }
-.voice-card { display: flex; gap: 22rpx; padding: 30rpx; border-radius: 34rpx; background: #fff; box-shadow: 0 14rpx 36rpx rgba(15, 23, 42, 0.05); }
-.voice-card__button { display: flex; width: 82rpx; height: 82rpx; flex: 0 0 82rpx; align-items: center; justify-content: center; border-radius: 28rpx; background: #2388ff; }
-.voice-card text { display: block; color: #102033; font-size: 27rpx; font-weight: 900; line-height: 1.35; }
 .bottom-cta { margin-top: 28rpx; }
 .primary-button { display: flex; height: 88rpx; align-items: center; justify-content: center; border-radius: 999rpx; background: #2388ff; color: #fff; font-size: 26rpx; font-weight: 950; box-shadow: 0 16rpx 34rpx rgba(35, 136, 255, 0.28); }
 </style>

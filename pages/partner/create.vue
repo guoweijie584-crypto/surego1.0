@@ -23,22 +23,6 @@
         </view>
       </view>
 
-      <view class="voice-launch-button" @tap="showComingSoon('语音找搭子正在接入')">
-        <SuIcon name="mic" size="44" glyph-size="22" variant="inline" color="#2388ff" />
-        <view>
-          <text>语音找搭子</text>
-        </view>
-      </view>
-
-      <view class="voice-card">
-        <view class="voice-card__button">
-          <SuIcon name="mic" size="56" glyph-size="28" variant="inline" color="#fff" />
-        </view>
-        <view>
-          <text>说：“今晚北洋园二食堂，想找 1-2 个饭搭子”</text>
-        </view>
-      </view>
-
       <view class="create-composer">
         <view class="composer-block">
           <text class="composer-label">你想怎么找</text>
@@ -210,7 +194,7 @@ import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { createPartnerPost, HACKATHON_TOPIC_KEY, PARTNER_POST_TYPES, PARTNER_TOPIC_OPTIONS } from '@/common/api/partner.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail } from '@/common/utils/route.js'
 
 const CAMPUS_NAME = '天津大学'
 const sceneFilters = [
@@ -508,8 +492,6 @@ onLoad((options = {}) => {
 }
 
 .topic-notice,
-.voice-launch-button,
-.voice-card,
 .create-composer {
   margin-right: 34rpx;
   margin-left: 34rpx;
@@ -544,81 +526,6 @@ onLoad((options = {}) => {
   font-size: 21rpx;
   font-weight: 850;
   line-height: 1.4;
-}
-
-.voice-launch-button {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  margin-bottom: 22rpx;
-  padding: 24rpx 28rpx;
-  border: 1rpx solid rgba(35, 136, 255, 0.16);
-  border-radius: 34rpx;
-  background: #fff;
-  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.06);
-}
-
-.voice-launch-button view {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.voice-launch-button text:first-child {
-  color: #102033;
-  font-size: 27rpx;
-  font-weight: 900;
-}
-
-.voice-launch-button text:nth-child(2) {
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-
-.voice-card {
-  display: flex;
-  gap: 22rpx;
-  margin-bottom: 24rpx;
-  padding: 30rpx;
-  border-radius: 38rpx;
-  background: linear-gradient(135deg, #102033, #2340a4);
-  color: #fff;
-  box-shadow: 0 22rpx 60rpx rgba(35, 64, 164, 0.22);
-}
-
-.voice-card__button {
-  display: flex;
-  width: 82rpx;
-  height: 82rpx;
-  flex: 0 0 82rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #2388ff;
-  box-shadow: 0 12rpx 30rpx rgba(35, 136, 255, 0.42);
-}
-
-.voice-card view:last-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 10rpx;
-}
-
-.voice-card text:first-child {
-  color: #fff;
-  font-size: 27rpx;
-  font-weight: 900;
-  line-height: 1.42;
-}
-
-.voice-card text:nth-child(2) {
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.5;
 }
 
 .create-composer {
