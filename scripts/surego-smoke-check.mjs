@@ -16,6 +16,7 @@ const requiredFiles = [
   'components/surego/SuPageLoading.vue',
   'components/surego/SuWechatProfileSheet.vue',
   'common/config/runtime.js',
+  'docs/surego-cloud-trial-deployment.md',
   'common/api/auth.js',
   'common/api/cloud.js',
   'common/utils/share.js',
@@ -37,6 +38,7 @@ const requiredFiles = [
   'common/api/member.js',
   'common/api/moderation.js',
   'scripts/surego-cloud-integration-check.mjs',
+  'scripts/surego-deployment-scope-check.mjs',
   'pages/home/index.vue',
   'pages/discover/index.vue',
   'pages/discover/search.vue',
@@ -393,6 +395,11 @@ if (fs.existsSync(routePath)) {
 const partnerApiPath = path.join(root, 'common/api/partner.js');
 if (fs.existsSync(partnerApiPath)) {
   const source = fs.readFileSync(partnerApiPath, 'utf8');
+  for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/partner.js must normalize current viewer intent state with ${token}`);
+    }
+  }
   for (const helper of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'PARTNER_TOPIC_OPTIONS', 'HACKATHON_TOPIC_KEY', 'listPartnerPosts', 'listHackathonPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
     if (!source.includes(helper)) {
       errors.push(`common/api/partner.js is missing ${helper}`);
@@ -730,10 +737,13 @@ if (fs.existsSync(cloudApiPath)) {
 const runtimePath = path.join(root, 'common/config/runtime.js');
 if (fs.existsSync(runtimePath)) {
   const runtimeSource = fs.readFileSync(runtimePath, 'utf8');
-  for (const token of ['USE_UNICLOUD', 'ALLOW_MOCK_FALLBACK', 'ALLOW_LOCAL_DEV_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'isLocalDevMode', 'shouldUseCloudFallback']) {
+  for (const token of ['USE_UNICLOUD', 'ALLOW_MOCK_FALLBACK', 'ALLOW_LOCAL_DEV_MOCK_FALLBACK', 'TRIAL_STRICT_CLOUD_AUTH', 'APP_MODE', 'isTrialMode', 'isTrialStrictCloudAuthMode', 'isLocalDevMode', 'shouldUseCloudFallback']) {
     if (!runtimeSource.includes(token)) {
       errors.push(`common/config/runtime.js is missing ${token}`);
     }
+  }
+  if (!runtimeSource.includes('!isTrialStrictCloudAuthMode()')) {
+    errors.push('common/config/runtime.js must disable local mock fallback when strict trial cloud auth is enabled');
   }
   for (const token of ['process.env.NODE_ENV', 'getAccountInfoSync', "envVersion === 'develop'"]) {
     if (!runtimeSource.includes(token)) {
@@ -758,7 +768,7 @@ if (fs.existsSync(authApiPath)) {
   if (!authSource.includes('saveCurrentUserProfile')) {
     errors.push('common/api/auth.js is missing saveCurrentUserProfile');
   }
-  for (const helper of ['loginWithWeixin', 'loginWithMockFallback', 'persistUniIdSession']) {
+  for (const helper of ['loginWithWeixin', 'loginWithMockFallback', 'persistUniIdSession', 'getLastLoginDiagnostic', 'recordLoginDiagnostic']) {
     if (!authSource.includes(helper)) {
       errors.push(`common/api/auth.js is missing ${helper}`);
     }
@@ -776,8 +786,15 @@ if (fs.existsSync(authApiPath)) {
   if (authSource.indexOf('return await loginWithUserCenter(code, profile)') > authSource.indexOf('return await loginWithUniIdCo(code, profile)')) {
     errors.push('common/api/auth.js must try the project-local user-center login before uni-id-co');
   }
-  if (!authSource.includes('if (shouldUseCloudFallback())')) {
-    errors.push('common/api/auth.js must fall back to local mock login before probing optional uni-id-co in local dev mode');
+  if (!authSource.includes('LOGIN_DIAGNOSTIC_KEY') || !authSource.includes('cloudFallbackAllowed')) {
+    errors.push('common/api/auth.js must persist login diagnostics including whether local fallback was allowed');
+  }
+  const loginWithWeixinBody = authSource.slice(
+    authSource.indexOf('export async function loginWithWeixin'),
+    authSource.indexOf('export function saveCurrentUserProfile')
+  );
+  if (loginWithWeixinBody.indexOf('await loginWithUniIdCo(code, profile)') > loginWithWeixinBody.lastIndexOf('return loginWithMockFallback(profile')) {
+    errors.push('common/api/auth.js must try uni-id-co before falling back to mock login');
   }
   if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
     errors.push('common/api/auth.js must not use 吴哈哈 as a real login profile fallback');
@@ -1038,6 +1055,11 @@ if (fs.existsSync(manageDashboardPath)) {
   if (source.includes('v-for="item in lifecycleActions"') || source.includes('@tap="setActivityLifecycle(item.key)"')) {
     errors.push('pages/manage/dashboard.vue must not expose arbitrary lifecycle status selection');
   }
+  for (const token of ['试运行订单金额', '试运行订单状态']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/dashboard.vue must label trial-order funds with ${token}`);
+    }
+  }
 }
 
 const activityCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js');
@@ -1086,6 +1108,16 @@ if (fs.existsSync(orderCloudPath)) {
   for (const action of ["action === 'ensureForActivity'", "action === 'getForActivity'", "action === 'getDetail'", "action === 'updateStatus'", "action === 'refund'", "action === 'close'"]) {
     if (!source.includes(action)) {
       errors.push(`surego-order cloud function is missing ${action}`);
+    }
+  }
+}
+
+const orderApiTrialCopyPath = path.join(root, 'common/api/order.js');
+if (fs.existsSync(orderApiTrialCopyPath)) {
+  const source = fs.readFileSync(orderApiTrialCopyPath, 'utf8');
+  for (const token of ['试运行订单确认成功', '试运行退款记录', '订单确认成功']) {
+    if (!source.includes(token)) {
+      errors.push(`common/api/order.js must use trial-order notification wording token: ${token}`);
     }
   }
 }
@@ -1141,6 +1173,11 @@ if (fs.existsSync(messageCloudPath)) {
 const partnerCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-partner/index.js');
 if (fs.existsSync(partnerCloudPath)) {
   const source = fs.readFileSync(partnerCloudPath, 'utf8');
+  for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+    if (!source.includes(token)) {
+      errors.push(`surego-partner cloud function must return current viewer intent state with ${token}`);
+    }
+  }
   for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', 'invited_user_ids', 'source_partner_intent_ids']) {
     if (!source.includes(token)) {
       errors.push(`surego-partner cloud function must support partner conversion token: ${token}`);
@@ -1171,12 +1208,15 @@ if (fs.existsSync(hackathonIndexPath)) {
       errors.push(`pages/hackathon/index.vue must not use static/mock/direct cloud data: ${staleToken}`);
     }
   }
+  if (source.includes('showComingSoon') || source.includes('voice-card')) {
+    errors.push('pages/hackathon/index.vue must hide low-priority voice placeholder entry in trial mode');
+  }
 }
 
 const hackathonTeamPath = path.join(root, 'pages/hackathon/team.vue');
 if (fs.existsSync(hackathonTeamPath)) {
   const source = fs.readFileSync(hackathonTeamPath, 'utf8');
-  for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn']) {
+  for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn', 'viewerIntent', 'intentStatus', 'goPartnerConversation']) {
     if (!source.includes(token)) {
       errors.push(`pages/hackathon/team.vue must use real partner detail/intent flow token: ${token}`);
     }
@@ -1367,6 +1407,11 @@ if (fs.existsSync(activityDetailPath)) {
   }
   if (source.includes("toastAndClose('举报已提交')")) {
     errors.push('pages/activity/detail.vue report action must create a moderation report instead of toast-only feedback');
+  }
+  for (const token of ['试运行订单', '报名并确认订单']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/detail.vue must use trial-order activity wording token: ${token}`);
+    }
   }
 }
 
@@ -1600,6 +1645,14 @@ for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/u
 const partnerPagePath = path.join(root, 'pages/partners/index.vue');
 if (fs.existsSync(partnerPagePath)) {
   const source = fs.readFileSync(partnerPagePath, 'utf8');
+  for (const token of ['searchKeyword', 'matchesKeyword', 'v-model="searchKeyword"']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/partners/index.vue must implement real local partner search with ${token}`);
+    }
+  }
+  if (source.includes('showComingSoon')) {
+    errors.push('pages/partners/index.vue search must not be a placeholder toast');
+  }
   if (source.includes('找搭子')) {
     errors.push('pages/partners/index.vue must not render the stale 找搭子 label');
   }
@@ -1616,13 +1669,25 @@ if (fs.existsSync(partnerPagePath)) {
   }
 }
 
+for (const createPage of ['pages/activity/create.vue', 'pages/partner/create.vue']) {
+  const absolute = path.join(root, createPage);
+  if (!fs.existsSync(absolute)) continue;
+  const source = fs.readFileSync(absolute, 'utf8');
+  if (source.includes('voice-launch-button') || source.includes('showComingSoon')) {
+    errors.push(`${createPage} must hide low-priority voice placeholder entry in trial mode`);
+  }
+}
+
 const partnerDetailPath = path.join(root, 'pages/partner/detail.vue');
 if (fs.existsSync(partnerDetailPath)) {
   const source = fs.readFileSync(partnerDetailPath, 'utf8');
-  for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange', 'connectionRule']) {
+  for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange', 'connectionRule', 'viewerIntent', 'viewerIntentStatus', 'goPartnerConversation', 'openAcceptedConversation']) {
     if (!source.includes(token)) {
       errors.push(`pages/partner/detail.vue must align partner detail information order with ${token}`);
     }
+  }
+  if (source.includes('showComingSoon')) {
+    errors.push('pages/partner/detail.vue must replace placeholder chat actions with intent-state and conversation routing');
   }
   if (source.includes('搭子帖')) {
     errors.push('pages/partner/detail.vue must not expose 搭子帖 in user-visible copy');
@@ -1741,6 +1806,26 @@ if (fs.existsSync(rolesInitPath)) {
   }
 }
 
+const deploymentDocPath = path.join(root, 'docs/surego-cloud-trial-deployment.md');
+if (fs.existsSync(deploymentDocPath)) {
+  const source = fs.readFileSync(deploymentDocPath, 'utf8');
+  for (const token of ['只上传 SureGo 业务云函数', '不要全量上传', 'surego-activity', 'surego-partner', 'surego-users.init_data.json', 'uni-id-roles.init_data.json']) {
+    if (!source.includes(token)) {
+      errors.push(`docs/surego-cloud-trial-deployment.md is missing deployment scope token: ${token}`);
+    }
+  }
+}
+
+const deploymentScopeCheckPath = path.join(root, 'scripts/surego-deployment-scope-check.mjs');
+if (fs.existsSync(deploymentScopeCheckPath)) {
+  const source = fs.readFileSync(deploymentScopeCheckPath, 'utf8');
+  for (const token of ['allowedCloudFunctions', 'allowedDatabaseArtifacts', 'blockedDemoRoutes', 'surego-activity', 'user-center']) {
+    if (!source.includes(token)) {
+      errors.push(`scripts/surego-deployment-scope-check.mjs is missing deployment scope token: ${token}`);
+    }
+  }
+}
+
 const posterPagePath = path.join(root, 'pages/share/poster.vue');
 if (fs.existsSync(posterPagePath)) {
   const source = fs.readFileSync(posterPagePath, 'utf8');
@@ -1773,6 +1858,16 @@ if (fs.existsSync(path.join(root, stackCheckFiles.payment))) {
   if (!source.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
     errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success');
   }
+  for (const token of ['确认试运行订单', '订单确认成功', '试运行订单确认，不发生真实扣款']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/payment/index.vue must use trial-order wording token: ${token}`);
+    }
+  }
+  for (const staleToken of ['确认支付', '支付成功']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/payment/index.vue must not imply real payment with ${staleToken}`);
+    }
+  }
 }
 
 if (fs.existsSync(path.join(root, stackCheckFiles.order))) {
@@ -1782,6 +1877,11 @@ if (fs.existsSync(path.join(root, stackCheckFiles.order))) {
   }
   if (!source.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
     errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order');
+  }
+  for (const token of ['试运行金额', '试运行订单规则', '试运行退款记录']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/order/detail.vue must use trial-order detail wording token: ${token}`);
+    }
   }
 }
 

@@ -76,6 +76,11 @@ const requiredUtilityFiles = [
   'common/utils/share.js'
 ]
 
+const requiredOpsFiles = [
+  'docs/surego-cloud-trial-deployment.md',
+  'scripts/surego-deployment-scope-check.mjs'
+]
+
 const requiredComponents = [
   'components/surego/SuWechatProfileSheet.vue',
   'uni_modules/unicloud-city-select/components/unicloud-city-select/unicloud-city-select.vue'
@@ -202,10 +207,13 @@ if (!runtimeSource.includes("APP_MODE = 'trial'")) {
 if (!runtimeSource.includes('USE_UNICLOUD = true')) {
   errors.push('common/config/runtime.js must use USE_UNICLOUD = true for cloud trial release')
 }
-for (const token of ['ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
+for (const token of ['ALLOW_MOCK_FALLBACK', 'TRIAL_STRICT_CLOUD_AUTH', 'APP_MODE', 'isTrialMode', 'isTrialStrictCloudAuthMode', 'shouldUseCloudFallback']) {
   if (!runtimeSource.includes(token)) {
     errors.push(`common/config/runtime.js is missing operation runtime token: ${token}`)
   }
+}
+if (!runtimeSource.includes('!isTrialStrictCloudAuthMode()')) {
+  errors.push('common/config/runtime.js must disable local mock fallback when strict trial cloud auth is enabled')
 }
 
 const activitySchema = readJson('uniCloud-aliyun/database/surego-activities.schema.json')
@@ -286,6 +294,10 @@ for (const apiFile of requiredApiFiles) {
 
 for (const utilityFile of requiredUtilityFiles) {
   assertNoMojibake(utilityFile, read(utilityFile))
+}
+
+for (const opsFile of requiredOpsFiles) {
+  assertNoMojibake(opsFile, read(opsFile))
 }
 
 for (const component of requiredComponents) {
@@ -415,10 +427,17 @@ if (!loginSource.includes('SuWechatProfileSheet') || !loginSource.includes('prof
 }
 
 const authSource = read('common/api/auth.js')
-for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center', 'hasOpsRole']) {
+for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center', 'hasOpsRole', 'getLastLoginDiagnostic', 'recordLoginDiagnostic', 'LOGIN_DIAGNOSTIC_KEY', 'cloudFallbackAllowed']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
   }
+}
+const loginWithWeixinBody = authSource.slice(
+  authSource.indexOf('export async function loginWithWeixin'),
+  authSource.indexOf('export function saveCurrentUserProfile')
+)
+if (loginWithWeixinBody.indexOf('await loginWithUniIdCo(code, profile)') > loginWithWeixinBody.lastIndexOf('return loginWithMockFallback(profile')) {
+  errors.push('common/api/auth.js must try uni-id-co before falling back to mock login')
 }
 if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
   errors.push('common/api/auth.js must not use 吴哈哈 as a release login fallback')
@@ -455,6 +474,11 @@ for (const token of ['getAllowedActivityStatusTransitions', 'availableLifecycleA
 }
 if (manageDashboardSourceForLifecycle.includes('v-for="item in lifecycleActions"') || manageDashboardSourceForLifecycle.includes('@tap="setActivityLifecycle(item.key)"')) {
   errors.push('pages/manage/dashboard.vue must not expose arbitrary lifecycle status selection')
+}
+for (const token of ['试运行订单金额', '试运行订单状态']) {
+  if (!manageDashboardSourceForLifecycle.includes(token)) {
+    errors.push(`pages/manage/dashboard.vue must label trial-order funds with ${token}`)
+  }
 }
 
 const opsUsersSource = read('pages/ops/users.vue')
@@ -619,6 +643,11 @@ for (const token of ['getActivityStatusMeta', 'isTerminalActivity']) {
     errors.push(`pages/activity/detail.vue must guard terminal activity actions with ${token}`)
   }
 }
+for (const token of ['试运行订单', '报名并确认订单']) {
+  if (!activityDetailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue must use trial-order activity wording token: ${token}`)
+  }
+}
 
 const activitySource = read('common/api/activity.js')
 for (const token of ['isCurrentUserActivityCreator', 'REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewActivityOwner', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
@@ -717,6 +746,11 @@ for (const token of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'PARTNER_
     errors.push(`common/api/partner.js is missing release partner token: ${token}`)
   }
 }
+for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must normalize current viewer intent state with ${token}`)
+  }
+}
 for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js', 'createMessage']) {
   if (!partnerApiSource.includes(token)) {
     errors.push(`common/api/partner.js must use release facade/message dependency ${token}`)
@@ -750,6 +784,14 @@ for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'ge
     errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
   }
 }
+for (const token of ['searchKeyword', 'matchesKeyword', 'v-model="searchKeyword"']) {
+  if (!partnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue must implement real local partner search with ${token}`)
+  }
+}
+if (partnerPageSource.includes('showComingSoon')) {
+  errors.push('pages/partners/index.vue search must not be a placeholder toast')
+}
 
 const hackathonIndexSource = read('pages/hackathon/index.vue')
 for (const token of ['listHackathonPartnerPosts', 'allowFallback: false', "topicKey: 'hackathon'", 'goHackathonTeam', 'goPartnerCreate({', 'emptyPartner']) {
@@ -762,6 +804,9 @@ for (const staleToken of ['const teams = [', '@/common/mock', 'uniCloud.callFunc
     errors.push(`pages/hackathon/index.vue must not use static/mock/direct cloud data: ${staleToken}`)
   }
 }
+if (hackathonIndexSource.includes('showComingSoon') || hackathonIndexSource.includes('voice-card')) {
+  errors.push('pages/hackathon/index.vue must hide low-priority voice placeholder entry in trial mode')
+}
 
 const partnerCreateTopicSource = read('pages/partner/create.vue')
 for (const token of ['PARTNER_TOPIC_OPTIONS', 'topicKey', 'topicOptions', 'topic-notice', '黑客松/赛事']) {
@@ -771,7 +816,7 @@ for (const token of ['PARTNER_TOPIC_OPTIONS', 'topicKey', 'topicOptions', 'topic
 }
 
 const hackathonTeamSource = read('pages/hackathon/team.vue')
-for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn']) {
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn', 'viewerIntent', 'intentStatus', 'goPartnerConversation']) {
   if (!hackathonTeamSource.includes(token)) {
     errors.push(`pages/hackathon/team.vue must use release hackathon intent token: ${token}`)
   }
@@ -783,6 +828,12 @@ for (const staleToken of ['const teams = [', '@/common/mock', 'goMessages', 'uni
 }
 if (partnerPageSource.includes('找搭子')) {
   errors.push('pages/partners/index.vue must not render the stale 找搭子 label')
+}
+for (const createPage of ['pages/activity/create.vue', 'pages/partner/create.vue']) {
+  const source = read(createPage)
+  if (source.includes('voice-launch-button') || source.includes('showComingSoon')) {
+    errors.push(`${createPage} must hide low-priority voice placeholder entry in trial mode`)
+  }
 }
 for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
   if (!partnerPageSource.includes(token)) {
@@ -820,7 +871,7 @@ if (partnerCardSource.includes('width: 120rpx')) {
 }
 
 const partnerDetailSource = read('pages/partner/detail.vue')
-for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'followPartnerPost', 'goPartnerWorkbench', 'guardLoginAction']) {
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'followPartnerPost', 'goPartnerWorkbench', 'guardLoginAction', 'viewerIntent', 'viewerIntentStatus', 'goPartnerConversation', 'openAcceptedConversation']) {
   if (!partnerDetailSource.includes(token)) {
     errors.push(`pages/partner/detail.vue is missing release partner detail token: ${token}`)
   }
@@ -832,6 +883,9 @@ for (const token of ['partner.detail', 'displayWants', 'partner.available', 'par
 }
 if (partnerDetailSource.includes('搭子帖')) {
   errors.push('pages/partner/detail.vue must not expose 搭子帖 in user-visible copy')
+}
+if (partnerDetailSource.includes('showComingSoon')) {
+  errors.push('pages/partner/detail.vue must replace placeholder chat actions with intent-state and conversation routing')
 }
 
 const partnerCreateSource = read('pages/partner/create.vue')
@@ -1166,6 +1220,20 @@ for (const role of ['"role_id": "user"', '"role_id": "operator"', '"role_id": "a
   }
 }
 
+const deploymentDocSource = read('docs/surego-cloud-trial-deployment.md')
+for (const token of ['只上传 SureGo 业务云函数', '不要全量上传', 'surego-activity', 'surego-partner', 'surego-users.init_data.json', 'uni-id-roles.init_data.json']) {
+  if (!deploymentDocSource.includes(token)) {
+    errors.push(`docs/surego-cloud-trial-deployment.md is missing deployment scope token: ${token}`)
+  }
+}
+
+const deploymentScopeCheckSource = read('scripts/surego-deployment-scope-check.mjs')
+for (const token of ['allowedCloudFunctions', 'allowedDatabaseArtifacts', 'blockedDemoRoutes', 'surego-activity', 'user-center']) {
+  if (!deploymentScopeCheckSource.includes(token)) {
+    errors.push(`scripts/surego-deployment-scope-check.mjs is missing deployment scope token: ${token}`)
+  }
+}
+
 const posterSource = read('pages/share/poster.vue')
 for (const token of ['canvas-id="posterCanvas"', 'uni.saveImageToPhotosAlbum', 'open-type="share"']) {
   if (!posterSource.includes(token)) {
@@ -1180,6 +1248,16 @@ const paymentSource = read('pages/payment/index.vue')
 if (!paymentSource.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
   errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success')
 }
+for (const token of ['确认试运行订单', '订单确认成功', '试运行订单确认，不发生真实扣款']) {
+  if (!paymentSource.includes(token)) {
+    errors.push(`pages/payment/index.vue must use trial-order wording token: ${token}`)
+  }
+}
+for (const staleToken of ['确认支付', '支付成功']) {
+  if (paymentSource.includes(staleToken)) {
+    errors.push(`pages/payment/index.vue must not imply real payment with ${staleToken}`)
+  }
+}
 
 const orderDetailSourceForStack = read('pages/order/detail.vue')
 if (!orderDetailSourceForStack.includes('goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })')) {
@@ -1187,6 +1265,18 @@ if (!orderDetailSourceForStack.includes('goPayment({ activityId: order.activityI
 }
 if (!orderDetailSourceForStack.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
   errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order')
+}
+for (const token of ['试运行金额', '试运行订单规则', '试运行退款记录']) {
+  if (!orderDetailSourceForStack.includes(token)) {
+    errors.push(`pages/order/detail.vue must use trial-order detail wording token: ${token}`)
+  }
+}
+
+const orderApiSourceForTrialCopy = read('common/api/order.js')
+for (const token of ['试运行订单确认成功', '试运行退款记录', '订单确认成功']) {
+  if (!orderApiSourceForTrialCopy.includes(token)) {
+    errors.push(`common/api/order.js must use trial-order notification wording token: ${token}`)
+  }
 }
 
 const successSource = read('pages/status/success.vue')
@@ -1245,6 +1335,11 @@ if (!messageApiSource.includes('getUnreadMessageCount')) {
 }
 
 const partnerCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-partner/index.js')
+for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must return current viewer intent state with ${token}`)
+  }
+}
 for (const token of ['surego-conversations', 'ensureConversationForIntent', 'participant_ids', 'conversation_id']) {
   if (!partnerCloudSource.includes(token)) {
     errors.push(`surego-partner must create/link conversations when accepting intents with ${token}`)
