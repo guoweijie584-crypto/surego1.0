@@ -1723,6 +1723,21 @@ for (const [file, tokens] of Object.entries({
   }
 }
 
+const profilePagePath = path.join(root, 'pages/user/profile.vue');
+if (fs.existsSync(profilePagePath)) {
+  const source = fs.readFileSync(profilePagePath, 'utf8');
+  for (const token of ['displayProfile', 'profileStats', ':src="displayProfile.avatar"', '{{ displayProfile.nickname }}', 'v-for="stat in profileStats"']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/user/profile.vue must bind the hero card to current user/profile stats with ${token}`);
+    }
+  }
+  for (const staleToken of ['mockProfileAvatar', 'pexels-photo-12603316']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/user/profile.vue must not render stale static profile hero data: ${staleToken}`);
+    }
+  }
+}
+
 const searchPagePath = path.join(root, 'pages/discover/search.vue');
 if (fs.existsSync(searchPagePath)) {
   const source = fs.readFileSync(searchPagePath, 'utf8');

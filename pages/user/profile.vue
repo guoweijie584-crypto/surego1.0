@@ -18,11 +18,11 @@
       <view class="profile__content">
         <view class="profile-hero-card">
           <view class="profile-hero-card__top">
-            <image class="profile-avatar" :src="mockProfileAvatar" mode="aspectFill" />
+            <image class="profile-avatar" :src="displayProfile.avatar" mode="aspectFill" />
             <view class="profile-hero-card__main">
-              <text class="ref-pill ref-pill--green">天津大学 · 学生邮箱认证</text>
-              <text class="profile-hero-card__name">吴同学</text>
-              <text class="profile-hero-card__bio">周末看展 / 饭搭子雷达 / 羽毛球新手，不临时鸽。</text>
+              <text class="ref-pill ref-pill--green">{{ displayProfile.badge }}</text>
+              <text class="profile-hero-card__name">{{ displayProfile.nickname }}</text>
+              <text class="profile-hero-card__bio">{{ displayProfile.bio }}</text>
               <view class="account-icon-row">
                 <view
                   v-for="account in socialAccounts"
@@ -37,10 +37,10 @@
             </view>
           </view>
           <view class="trust-strip">
-            <view><text>97.9%</text><text>到场率</text></view>
-            <view><text>18</text><text>报名</text></view>
-            <view><text>3</text><text>发起活动</text></view>
-            <view><text>2</text><text>搭子</text></view>
+            <view v-for="stat in profileStats" :key="stat.key">
+              <text>{{ stat.value }}</text>
+              <text>{{ stat.label }}</text>
+            </view>
           </view>
         </view>
 
@@ -276,7 +276,7 @@ import { listMyPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
-import { getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goAuthLogin, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goPartnerWorkbench, goVerify } from '@/common/utils/route.js'
 
@@ -293,7 +293,6 @@ const socialAccounts = [
   { key: 'github', label: 'GitHub', icon: 'github', active: true },
   { key: 'wechat', label: '微信', icon: 'wechat', active: false }
 ]
-const mockProfileAvatar = 'https://images.pexels.com/photos/12603316/pexels-photo-12603316.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop'
 const activeTab = ref('overview')
 const activeActivityScope = ref('joined')
 const activePartnerScope = ref('posted')
@@ -352,6 +351,44 @@ const currentPartnerList = computed(() => (
 ))
 const firstOrder = computed(() => orders.value[0] || null)
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
+const displayProfile = computed(() => {
+  const profile = user.value || {}
+  if (!loggedIn.value) {
+    return {
+      avatar: DEFAULT_USER_AVATAR,
+      nickname: DEFAULT_USER_NICKNAME,
+      bio: profile.bio || '登录后同步你的活动、订单和搭子状态。',
+      badge: '未登录'
+    }
+  }
+  return {
+    avatar: getDisplayText(profile.avatar, DEFAULT_USER_AVATAR),
+    nickname: getDisplayText(profile.nickname, DEFAULT_USER_NICKNAME),
+    bio: getDisplayText(profile.bio || profile.quote, '还没有填写个人简介'),
+    badge: getProfileBadge(profile)
+  }
+})
+const profileStats = computed(() => {
+  const profile = user.value || {}
+  const registeredCount = getCountFromListOrProfile(
+    [...joinedActivities.value, ...pendingActivities.value],
+    profile.joinedCount ?? profile.joined_count ?? profile.applicationCount ?? profile.application_count
+  )
+  const hostedCount = getCountFromListOrProfile(
+    hostingActivities.value,
+    profile.hostedCount ?? profile.hosted_count
+  )
+  const partnerCount = getCountFromListOrProfile(
+    postedPartnerPosts.value,
+    profile.partnerPostCount ?? profile.partner_post_count ?? profile.partnerCount ?? profile.partner_count
+  )
+  return [
+    { key: 'credit', label: '信用分', value: loggedIn.value ? formatStatNumber(profile.credit, 0) : '0' },
+    { key: 'registered', label: '报名', value: String(loggedIn.value ? registeredCount : 0) },
+    { key: 'hosted', label: '发起活动', value: String(loggedIn.value ? hostedCount : 0) },
+    { key: 'partners', label: '搭子', value: String(loggedIn.value ? partnerCount : 0) }
+  ]
+})
 const orderFilters = [
   { key: 'all', label: '全部' },
   { key: 'pending', label: '待支付' },
@@ -363,6 +400,42 @@ const filteredOrders = computed(() => {
   if (activeOrderFilter.value === 'all') return orders.value
   return orders.value.filter((item) => item.status === activeOrderFilter.value)
 })
+
+function getDisplayText(value, fallback = '') {
+  const text = String(value || '').trim()
+  return text || fallback
+}
+
+function getProfileBadge(profile = {}) {
+  if (hasOpsRole(profile)) return '运营账号'
+  return profileComplete.value ? '资料已完善' : '微信资料待完善'
+}
+
+function getItemIdentity(item = {}) {
+  return String(item.id || item._id || item.activityId || item.activity_id || item.partnerPostId || item.partner_post_id || '')
+}
+
+function countUniqueItems(items = []) {
+  const seen = new Set()
+  return (Array.isArray(items) ? items : []).filter((item, index) => {
+    const id = getItemIdentity(item) || `index_${index}`
+    if (seen.has(id)) return false
+    seen.add(id)
+    return true
+  }).length
+}
+
+function getCountFromListOrProfile(items = [], profileCount = 0) {
+  const listCount = countUniqueItems(items)
+  if (listCount > 0) return listCount
+  return Math.max(0, Number(profileCount) || 0)
+}
+
+function formatStatNumber(value, fallback = 0) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return String(fallback)
+  return Number.isInteger(number) ? String(number) : number.toFixed(1)
+}
 
 function withTimeout(promise, fallback, timeout = 5000) {
   return Promise.race([
