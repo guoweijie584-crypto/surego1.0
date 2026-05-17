@@ -314,20 +314,22 @@ async function ensureDefaultRole(userId) {
 async function resolveUserContext(event = {}, payload = {}) {
   const uid = String(event.userId || event.uid || payload.uid || payload.userId || payload.user_id || '');
   if (!uid || uid === 'mock_user') {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+    return { uid, roles: [], exists: false, tokenValid: false, isAdmin: false, isOps: false };
   }
   const userRecord = await findUniIdUser(uid);
-  if (!isTokenOwnedByUser(userRecord, event.uniIdToken)) {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+  const tokenValid = isTokenOwnedByUser(userRecord, event.uniIdToken);
+  if (!tokenValid) {
+    return { uid, roles: [], exists: false, tokenValid: false, isAdmin: false, isOps: false };
   }
   const roles = await ensureDefaultRole(uid);
   if (!roles) {
-    return { uid, roles: [], exists: false, isAdmin: false, isOps: false };
+    return { uid, roles: [], exists: false, tokenValid: false, isAdmin: false, isOps: false };
   }
   return {
     uid,
     roles,
     exists: true,
+    tokenValid,
     isAdmin: hasAdminRole(roles),
     isOps: hasOpsRole(roles)
   };
@@ -401,11 +403,17 @@ exports.main = async (event) => {
 
   if (action === 'profile') {
     const found = await findByUserId(payload.userId || payload.user_id || user.uid);
+    const authContext = {
+      authUid: user.uid,
+      tokenValid: user.tokenValid,
+      isOps: user.isOps,
+      isAdmin: user.isAdmin
+    };
     return {
       code: 0,
       data: found
-        ? normalizeProfile({ ...found, roles: user.roles })
-        : normalizeProfile({ user_id: user.uid, roles: user.roles })
+        ? normalizeProfile({ ...found, roles: user.roles, ...authContext })
+        : normalizeProfile({ user_id: user.uid, roles: user.roles, ...authContext })
     };
   }
 

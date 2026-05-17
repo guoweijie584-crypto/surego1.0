@@ -1,5 +1,8 @@
 ﻿import { isLoggedIn } from '@/common/api/auth.js'
 
+import { hasOpsRole } from '@/common/api/auth.js'
+import { getCurrentUser, isAdminUser } from '@/common/api/user.js'
+
 function buildQuery(params = {}) {
   return Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -287,17 +290,51 @@ export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
 }
 
+async function guardOpsAction(url, options = {}) {
+  if (!isLoggedIn()) {
+    guardLoginAction(url, options)
+    return
+  }
+  try {
+    const profile = await getCurrentUser({ allowFallback: false })
+    if (!hasOpsRole(profile)) {
+      uni.showToast({ title: '无运营权限', icon: 'none' })
+      return
+    }
+    goToUrl(url, options)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '权限校验失败', icon: 'none' })
+  }
+}
+
+async function guardAdminAction(url, options = {}) {
+  if (!isLoggedIn()) {
+    guardLoginAction(url, options)
+    return
+  }
+  try {
+    const profile = await getCurrentUser({ allowFallback: false })
+    if (!isAdminUser(profile)) {
+      uni.showToast({ title: '仅管理员可操作', icon: 'none' })
+      return
+    }
+    goToUrl(url, options)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '权限校验失败', icon: 'none' })
+  }
+}
+
 export function goOpsDashboard(options = {}) {
-  guardLoginAction('/pages/ops/dashboard', options)
+  guardOpsAction('/pages/ops/dashboard', options)
 }
 
 export function goOpsReports(status = '', options = {}) {
   const query = buildQuery({ status })
-  guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`, options)
+  guardOpsAction(`/pages/ops/reports${query ? `?${query}` : ''}`, options)
 }
 
 export function goOpsUsers(options = {}) {
-  guardLoginAction('/pages/ops/users', options)
+  guardAdminAction('/pages/ops/users', options)
 }
 
 export function goActivityEdit(id) {

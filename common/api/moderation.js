@@ -2,6 +2,7 @@ import { USE_UNICLOUD } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, isOpsUser } from '@/common/api/auth.js'
 import { listAllActivities } from '@/common/api/activity.js'
+import { listPartnerPosts } from '@/common/api/partner.js'
 import { listOrdersByActivity } from '@/common/api/order.js'
 import { listApplications } from '@/common/api/application.js'
 import { getCheckinSummary } from '@/common/api/checkin.js'
@@ -31,6 +32,11 @@ function normalizeReportStatus(status = 'pending') {
 }
 
 function normalizeModerationStatus(status = 'pending', options = {}) {
+  if (options.forWrite && status === 'visible') return 'approved'
+  return ACTIVITY_MODERATION_STATUSES.includes(status) ? status : 'pending'
+}
+
+function normalizePartnerModerationStatus(status = 'pending', options = {}) {
   if (options.forWrite && status === 'visible') return 'approved'
   return ACTIVITY_MODERATION_STATUSES.includes(status) ? status : 'pending'
 }
@@ -65,6 +71,25 @@ function normalizeActivityModeration(item = {}) {
     moderationNote: item.moderationNote || item.moderation_note || '',
     moderatedBy: item.moderatedBy || item.moderated_by || '',
     moderatedAt: item.moderatedAt || item.moderated_at || ''
+  }
+}
+
+function normalizePartnerModeration(item = {}) {
+  const moderationStatus = normalizePartnerModerationStatus(item.moderationStatus || item.moderation_status || 'pending')
+  const creatorId = item.creatorId || item.creator_id || ''
+  return {
+    ...item,
+    id: String(item.id || item._id || item.partnerPostId || item.partner_post_id || ''),
+    creatorId,
+    creator_id: creatorId,
+    moderationStatus,
+    moderation_status: moderationStatus,
+    moderationNote: item.moderationNote || item.moderation_note || '',
+    moderation_note: item.moderationNote || item.moderation_note || '',
+    moderatedBy: item.moderatedBy || item.moderated_by || '',
+    moderated_by: item.moderatedBy || item.moderated_by || '',
+    moderatedAt: item.moderatedAt || item.moderated_at || '',
+    moderated_at: item.moderatedAt || item.moderated_at || ''
   }
 }
 
@@ -227,6 +252,22 @@ export async function listOpsActivities() {
   return items.map(mergeActivityModeration)
 }
 
+export async function listOpsPartnerPosts() {
+  if (USE_UNICLOUD) {
+    try {
+      const items = await callSuregoFunction('surego-moderation', 'listOpsPartnerPosts', { limit: 100 })
+      return items.map(normalizePartnerModeration)
+    } catch (error) {
+      return handleSuregoCloudError(error, async () => {
+        const items = await listPartnerPosts()
+        return items.map(normalizePartnerModeration)
+      })
+    }
+  }
+  const items = await listPartnerPosts()
+  return items.map(normalizePartnerModeration)
+}
+
 function getModerationEventType(activity = {}, options = {}) {
   const nextStatus = normalizeModerationStatus(activity.moderationStatus || activity.moderation_status)
   const previousStatus = normalizeModerationStatus(options.previousModerationStatus || options.previous_moderation_status || options.activity?.moderationStatus || options.activity?.moderation_status || '')
@@ -296,8 +337,37 @@ export async function moderateActivity(activityId, moderationStatus, options = {
   return activity
 }
 
+function moderateLocalPartnerPost(partnerPostId, moderationStatus, options = {}) {
+  const nextModerationStatus = normalizePartnerModerationStatus(moderationStatus, { forWrite: true })
+  writeAuditLog({ action: `partner_post.${nextModerationStatus}`, targetType: 'partner_post', targetId: partnerPostId, note: options.moderationNote || '' })
+  return Promise.resolve(normalizePartnerModeration({
+    id: partnerPostId,
+    moderationStatus: nextModerationStatus,
+    moderationNote: options.moderationNote || '',
+    moderatedBy: options.moderatedBy || getCurrentUserId(),
+    moderatedAt: now()
+  }))
+}
+
+export async function moderatePartnerPost(partnerPostId, moderationStatus, options = {}) {
+  const payload = {
+    partnerPostId,
+    moderationStatus: normalizePartnerModerationStatus(moderationStatus, { forWrite: true }),
+    moderationNote: options.moderationNote || '',
+    moderatedBy: options.moderatedBy || getCurrentUserId()
+  }
+  if (USE_UNICLOUD) {
+    try {
+      return normalizePartnerModeration(await callSuregoFunction('surego-moderation', 'moderatePartnerPost', payload))
+    } catch (error) {
+      return handleSuregoCloudError(error, () => moderateLocalPartnerPost(partnerPostId, payload.moderationStatus, options))
+    }
+  }
+  return moderateLocalPartnerPost(partnerPostId, payload.moderationStatus, options)
+}
+
 async function getLocalOpsStats() {
-  const [activities, reports] = await Promise.all([listOpsActivities(), listReports('all')])
+  const [activities, partnerPosts, reports] = await Promise.all([listOpsActivities(), listOpsPartnerPosts(), listReports('all')])
   const activityApplications = await Promise.all(activities.map((item) => listApplications(item.id)))
   const activityOrders = await Promise.all(activities.map((item) => listOrdersByActivity(item.id)))
   const activityCheckins = await Promise.all(activities.map((item) => getCheckinSummary(item.id, item.participantCount || 0)))
@@ -311,6 +381,9 @@ async function getLocalOpsStats() {
     pendingReports: reports.filter((item) => item.status === 'pending').length,
     pendingActivities: activities.filter((item) => item.status === 'reviewing' || !item.moderationStatus || item.moderationStatus === 'pending').length,
     hiddenActivities: activities.filter((item) => item.moderationStatus === 'hidden').length,
+    partnerCount: partnerPosts.length,
+    pendingPartners: partnerPosts.filter((item) => !item.moderationStatus || item.moderationStatus === 'pending').length,
+    hiddenPartners: partnerPosts.filter((item) => item.moderationStatus === 'hidden').length,
     applicationCount: activityApplications.flat().length,
     orderCount: orders.length,
     paidOrderCount: orders.filter((item) => item.status === 'paid').length,
