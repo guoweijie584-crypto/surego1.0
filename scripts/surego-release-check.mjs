@@ -611,8 +611,9 @@ for (const bannedCopy of ['快成行', '我的进行中']) {
 if (!homeSource.includes(':activity="item" compact')) {
   errors.push('pages/home/index.vue home activity list must render SuActivityCard in compact mode')
 }
+const normalizedHomeSource = homeSource.replace(/\r\n/g, '\n')
 for (const token of ['.scene-row {\n  margin-top: 14rpx;', '.sort-tabs {\n  display: flex;\n  gap: 12rpx;\n  margin-top: 14rpx;', 'margin: 24rpx 0 14rpx;']) {
-  if (!homeSource.includes(token)) {
+  if (!normalizedHomeSource.includes(token)) {
     errors.push(`pages/home/index.vue must keep compact spacing below the feature card with ${token}`)
   }
 }
@@ -848,8 +849,9 @@ for (const createPage of ['pages/activity/create.vue', 'pages/partner/create.vue
     errors.push(`${createPage} must hide low-priority voice placeholder entry in trial mode`)
   }
 }
+const normalizedPartnerPageSource = partnerPageSource.replace(/\r\n/g, '\n')
 for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
-  if (!partnerPageSource.includes(token)) {
+  if (!normalizedPartnerPageSource.includes(token)) {
     errors.push(`pages/partners/index.vue must keep compact spacing below the feature card with ${token}`)
   }
 }
