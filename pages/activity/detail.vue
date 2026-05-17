@@ -162,6 +162,7 @@ import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getApplicationForActivity } from '@/common/api/application.js'
+import { isLoggedIn } from '@/common/api/auth.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -182,8 +183,12 @@ const activityStatusMeta = computed(() => getActivityStatusMeta(activity.value))
 const isLeader = computed(() => activity.value.isCreator)
 const isJoined = computed(() => activity.value.applicationStatus === 'approved' || isLeader.value)
 const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
+const isActivityRecruitable = computed(() => ['published', 'recruiting'].includes(activityStatusMeta.value.key))
 const isFull = computed(() => activity.value.hasParticipantLimit && Number(activity.value.participantCount || 0) >= Number(activity.value.maxParticipants || 0))
-const primaryDisabled = computed(() => activity.value.applicationStatus === 'pending' || (isTerminalActivity.value && !isLeader.value))
+const primaryDisabled = computed(() => {
+  if (isLeader.value || isJoined.value || ['pending', 'rejected'].includes(activity.value.applicationStatus)) return false
+  return activity.value.applicationStatus === 'pending' || isTerminalActivity.value || !isActivityRecruitable.value
+})
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
@@ -233,6 +238,7 @@ const primaryButtonText = computed(() => {
   if (isLeader.value) return '进入活动管理'
   if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (isJoined.value) return '查看到场凭证'
+  if (!isActivityRecruitable.value) return activityStatusMeta.value.label
   if (activity.value.applicationStatus === 'invited') return '确认加入'
   if (activity.value.applicationStatus === 'pending') return '审核中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
@@ -251,25 +257,55 @@ async function loadData(id = activity.value.id || '101') {
   isPageLoading.value = true
   try {
     const detail = await getActivityDetail(id)
-    const [application, memberGroups] = await Promise.all([
-      getApplicationForActivity(detail.id),
-      listActivityMembers(detail.id)
-    ])
+    if (!detail?.id) {
+      uni.showToast({ title: '活动不存在或暂不可查看', icon: 'none' })
+      return
+    }
     activity.value = {
       ...detail,
-      ...(application ? {
-        applicationId: application.id,
-        applicationStatus: application.status,
-        reviewNote: application.reviewNote,
-        rejectReason: application.rejectReason,
-        paidAt: application.paidAt,
-        orderId: application.orderId
-      } : {}),
-      memberCount: memberGroups.members.length,
-      pendingCount: memberGroups.pending.length
+      memberCount: Number(detail.participantCount || detail.participant_count || 0),
+      pendingCount: 0
     }
+    await Promise.all([
+      syncViewerApplication(detail.id),
+      syncActivityMembers(detail.id)
+    ])
   } finally {
     isPageLoading.value = false
+  }
+}
+
+async function syncViewerApplication(id) {
+  if (!isLoggedIn()) return
+  try {
+    const application = await getApplicationForActivity(id)
+    if (!application) return
+    activity.value = {
+      ...activity.value,
+      applicationId: application.id,
+      applicationStatus: application.status,
+      reviewNote: application.reviewNote,
+      rejectReason: application.rejectReason,
+      paidAt: application.paidAt,
+      orderId: application.orderId
+    }
+  } catch (error) {
+    // Detail content is public; viewer application state should not block real activity data.
+  }
+}
+
+async function syncActivityMembers(id) {
+  try {
+    const members = await listActivityMembers(id)
+    const memberCount = Array.isArray(members)
+      ? Math.max(0, members.filter((item) => !item.isCreator).length)
+      : Number(activity.value.participantCount || activity.value.participant_count || 0)
+    activity.value = {
+      ...activity.value,
+      memberCount
+    }
+  } catch (error) {
+    // Member enrichment is optional on public detail pages.
   }
 }
 

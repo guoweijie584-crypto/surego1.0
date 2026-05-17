@@ -147,11 +147,14 @@ function pickTokenExpired(payload = {}) {
 
 function normalizeUniIdUser(payload = {}, fallback = {}) {
   const user = payload.userInfo || payload.user || payload
-  const uid = pickUserId(
+  const uid = pickOptionalUserId(
     { uid: payload.uid, _id: payload.uid },
     user,
     fallback
   )
+  if (!uid) {
+    throw new Error('Weixin login did not return a stable uid.')
+  }
   return {
     uid,
     _id: uid,

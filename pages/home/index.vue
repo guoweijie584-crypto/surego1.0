@@ -98,8 +98,9 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
-import { isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { getActivityStatusMeta, isHomeVisibleMyActivity, listActivities, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getCurrentUserProfile, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
+import { getCurrentLocation, sortActivitiesByDistance } from '@/common/api/location.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goGraduation, goMessages, goParticipantDashboard, goSearch, goUserProfile } from '@/common/utils/route.js'
@@ -109,6 +110,7 @@ const currentAvatar = ref(DEFAULT_AVATAR)
 const selectedSchool = '天津大学'
 const unreadCount = ref(0)
 const activities = ref([])
+const currentLocation = ref(null)
 const myGroups = ref({ hosting: [], joined: [], pending: [] })
 const activeScene = ref('all')
 const activeSort = ref('recommend')
@@ -140,12 +142,15 @@ const visibleMyActivities = computed(() => sortActivitiesByStatusPriority([
 ]).filter(isHomeVisibleMyActivity))
 
 const filteredActivities = computed(() => {
-  if (activeScene.value === 'all') return activities.value
-  return activities.value.filter((item) => item.category === activeScene.value)
+  const visibleActivities = activities.value.filter(isVisibleOnHomeFeed)
+  if (activeScene.value === 'all') return visibleActivities
+  return visibleActivities.filter((item) => item.category === activeScene.value)
 })
 
+const locatedActivities = computed(() => sortActivitiesByDistance(filteredActivities.value, currentLocation.value || undefined))
+
 const sortedActivities = computed(() => {
-  const items = [...filteredActivities.value]
+  const items = [...locatedActivities.value]
   if (activeSort.value === 'soon') {
     return items.sort((a, b) => String(a.dateValue || a.date || '').localeCompare(String(b.dateValue || b.date || '')))
   }
@@ -153,7 +158,7 @@ const sortedActivities = computed(() => {
     return items.sort((a, b) => getSlotsLeft(a) - getSlotsLeft(b))
   }
   if (activeSort.value === 'nearby') {
-    return items.sort((a, b) => Number.parseFloat(a.distance || 999) - Number.parseFloat(b.distance || 999))
+    return items.sort((a, b) => getDistanceSortValue(a) - getDistanceSortValue(b))
   }
   return items
 })
@@ -163,12 +168,14 @@ const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unre
 async function loadData() {
   refreshCurrentAvatar()
   try {
-    const [activityItems, groups, unread] = await Promise.all([
+    const [activityItems, groups, unread, location] = await Promise.all([
       listActivities(),
       listMyActivities(),
-      getUnreadMessageCount()
+      getUnreadMessageCount(),
+      getCurrentLocation({ silent: true })
     ])
-    activities.value = activityItems
+    currentLocation.value = location
+    activities.value = sortActivitiesByDistance(activityItems, location)
     myGroups.value = groups
     unreadCount.value = unread
   } catch (error) {
@@ -193,9 +200,41 @@ function getSlotsLeft(item = {}) {
   return Math.max(0, Number(item.maxParticipants || 0) - Number(item.participantCount || 0))
 }
 
+function getDistanceSortValue(item = {}) {
+  const distance = Number(item.distanceKm ?? item.distance)
+  return Number.isFinite(distance) ? distance : 999
+}
+
 function resetFilters() {
   activeScene.value = 'all'
   activeSort.value = 'recommend'
+}
+
+function isVisibleOnHomeFeed(item = {}) {
+  return ['published', 'recruiting', 'formed', 'ongoing'].includes(getActivityStatusMeta(item).key)
+    && !isActivityDateExpired(item)
+}
+
+function isActivityDateExpired(item = {}) {
+  const activityDate = parseActivityDateValue(item)
+  if (!activityDate) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  activityDate.setHours(0, 0, 0, 0)
+  return activityDate.getTime() < today.getTime()
+}
+
+function parseActivityDateValue(item = {}) {
+  const value = item.dateValue || item.startAt || item.start_at
+  if (value) {
+    const parsed = new Date(String(value).replace(/\./g, '-'))
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  const matched = String(item.date || '').match(/(\d{1,2})月(\d{1,2})日/)
+  if (!matched) return null
+  const date = new Date()
+  date.setMonth(Number(matched[1]) - 1, Number(matched[2]))
+  return date
 }
 
 function openGraduationFeature() {

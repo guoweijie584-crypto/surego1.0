@@ -227,6 +227,60 @@ async function findByUserId(userId) {
   return (result.data || [])[0] || null;
 }
 
+async function findProfilesByUserId(userId) {
+  const id = String(userId || '');
+  if (!id) return [];
+  const result = await profileCollection.where({ user_id: id }).limit(100).get();
+  return result.data || [];
+}
+
+function pickProfileMergeTarget(items = []) {
+  return [...items].sort((left, right) => {
+    const leftCompleted = Number(left.profile_completed_at || left.profileCompletedAt || 0);
+    const rightCompleted = Number(right.profile_completed_at || right.profileCompletedAt || 0);
+    if (leftCompleted !== rightCompleted) return rightCompleted - leftCompleted;
+    return Number(right.updated_at || right.created_at || 0) - Number(left.updated_at || left.created_at || 0);
+  })[0] || null;
+}
+
+function mergeProfileRecord(base = {}, next = {}) {
+  return {
+    ...base,
+    ...next,
+    nickname: next.nickname || base.nickname || '',
+    avatar: next.avatar || base.avatar || '',
+    avatar_file_id: next.avatar_file_id || base.avatar_file_id || '',
+    profile_completed_at: next.profile_completed_at || base.profile_completed_at || 0,
+    mbti: next.mbti || base.mbti || '',
+    bio: next.bio || base.bio || '',
+    quote: next.quote || base.quote || '',
+    credit: Number(next.credit || base.credit) || 100,
+    roles: next.roles?.length ? next.roles : normalizeRoles(base.roles),
+    updated_at: now()
+  };
+}
+
+async function upsertProfileByUserId(userId, payload = {}) {
+  const records = await findProfilesByUserId(userId);
+  const target = pickProfileMergeTarget(records);
+  if (target) {
+    const merged = mergeProfileRecord(target, payload);
+    delete merged._id;
+    await profileCollection.doc(target._id).update(merged);
+    await Promise.all(records
+      .filter((item) => item._id && item._id !== target._id)
+      .map((item) => profileCollection.doc(item._id).remove().catch(() => null)));
+    return normalizeProfile({ ...target, ...merged });
+  }
+  const record = {
+    ...payload,
+    user_id: userId,
+    created_at: now()
+  };
+  const result = await profileCollection.add(record);
+  return normalizeProfile({ ...record, _id: result.id || result._id });
+}
+
 async function findUniIdUser(userId) {
   if (!userId) return null;
   try {
@@ -374,23 +428,10 @@ exports.main = async (event) => {
   }
 
   if (action === 'updateProfile') {
-    const found = await findByUserId(user.uid);
     const profile = buildProfile(payload, user);
-    if (found) {
-      await profileCollection.doc(found._id).update(profile);
-      return {
-        code: 0,
-        data: normalizeProfile({ ...found, ...profile })
-      };
-    }
-    const record = {
-      ...profile,
-      created_at: now()
-    };
-    const result = await profileCollection.add(record);
     return {
       code: 0,
-      data: normalizeProfile({ ...record, _id: result.id || result._id })
+      data: await upsertProfileByUserId(user.uid, profile)
     };
   }
 

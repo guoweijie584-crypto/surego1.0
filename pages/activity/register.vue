@@ -83,7 +83,7 @@
 import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getActivityDetail } from '@/common/api/activity.js'
+import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getApplicationForActivity, submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
@@ -165,8 +165,13 @@ onLoad(async (query) => {
   const id = (query && query.id) || '101'
   isPageLoading.value = true
   try {
-    activity.value = await getActivityDetail(id)
-    await syncApplicationStatus(id)
+    const detail = await getActivityDetail(id)
+    if (!detail?.id) {
+      uni.showToast({ title: '活动不存在或暂不可报名', icon: 'none' })
+      return
+    }
+    activity.value = detail
+    await syncApplicationStatus(detail.id)
     answers.value = visibleQuestions.value.map(() => '')
     validateJoinEligibility(true)
   } finally {
@@ -175,14 +180,18 @@ onLoad(async (query) => {
 })
 
 async function syncApplicationStatus(id = activity.value.id) {
-  const application = await getApplicationForActivity(id)
-  if (!application) return
-  activity.value = {
-    ...activity.value,
-    application,
-    applicationStatus: application.status || activity.value.applicationStatus,
-    reviewNote: application.reviewNote || activity.value.reviewNote || '',
-    rejectReason: application.rejectReason || activity.value.rejectReason || ''
+  try {
+    const application = await getApplicationForActivity(id)
+    if (!application) return
+    activity.value = {
+      ...activity.value,
+      application,
+      applicationStatus: application.status || activity.value.applicationStatus,
+      reviewNote: application.reviewNote || activity.value.reviewNote || '',
+      rejectReason: application.rejectReason || activity.value.rejectReason || ''
+    }
+  } catch (error) {
+    // Keep the real activity detail visible even if viewer-specific application state is unavailable.
   }
 }
 
@@ -245,6 +254,8 @@ function validateJoinEligibility(silent = false) {
     messageText = '你已加入该活动'
   } else if (current.applicationStatus === 'rejected') {
     messageText = '该活动申请未通过，暂不可重复提交'
+  } else if (!['published', 'recruiting'].includes(getActivityStatusMeta(current).key)) {
+    messageText = '活动当前不在报名状态'
   } else if (current.hasParticipantLimit && Number(current.participantCount || 0) >= Number(current.maxParticipants || 0)) {
     messageText = '活动名额已满'
   } else if (['finished', 'cancelled'].includes(current.status) || ['finished', 'cancelled'].includes(current.lifecycleStatus)) {
