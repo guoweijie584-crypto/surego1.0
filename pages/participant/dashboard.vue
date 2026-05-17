@@ -21,7 +21,6 @@
     <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab" :style="contentTopStyle">
       <view class="ref-page-head">
         <text class="ref-page-head__eyebrow">到场凭证</text>
-        <text class="ref-page-head__title">到场要用的都在这里</text>
       </view>
 
       <view class="ref-summary-card ref-card">
@@ -38,7 +37,6 @@
           <SuIcon :name="primaryIcon" size="92" glyph-size="46" variant="inline" color="#94a3b8" />
         </view>
         <text class="ref-qr-card__code">{{ entryCode || '等待审核通过后生成' }}</text>
-        <text class="ref-qr-card__hint">{{ entryHint }}</text>
         <text v-if="reviewFeedback" class="pass-feedback" :class="{ 'pass-feedback--danger': applicationState.key === 'rejected' }">
           {{ reviewFeedback }}
         </text>
@@ -54,46 +52,32 @@
           <view v-for="item in statCards" :key="item.label" class="pass-status" :class="`pass-status--${item.tone}`">
             <text>{{ item.value }}</text>
             <text>{{ item.label }}</text>
-            <text>{{ item.desc }}</text>
           </view>
         </view>
       </view>
 
       <view class="ref-action-grid pass-gap">
-        <view class="ref-action-grid__item" @tap="showToast('导航能力正在接入')">
+        <view class="ref-action-grid__item" @tap="showToast(activity.location)">
           <SuIcon name="location" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>打开导航</text>
-          <text>{{ activity.location }}</text>
         </view>
-        <view class="ref-action-grid__item" @tap="showToast(paymentState.desc)">
+        <view class="ref-action-grid__item" @tap="showToast(paymentState.label)">
           <SuIcon name="shield" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>退出规则</text>
-          <text>{{ paymentState.label }}</text>
         </view>
-        <view class="ref-action-grid__item" @tap="showToast('申诉入口正在接入')">
+        <view class="ref-action-grid__item" @tap="showToast('发起申诉')">
           <SuIcon name="help" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>发起申诉</text>
-          <text>核销或订单异常</text>
         </view>
         <view class="ref-action-grid__item" @tap="handlePrimaryAction">
           <SuIcon :name="primaryIcon" size="40" glyph-size="20" variant="inline" color="#2388ff" />
           <text>{{ primaryActionText }}</text>
-          <text>{{ entryLabel }}</text>
         </view>
       </view>
 
       <view v-if="order" class="ref-info-card ref-card pass-gap" @tap="goOrderDetail(order.id, { activityId: activity.id })">
         <text class="ref-info-card__title">{{ order.type === 'ticket' ? '门票订单' : '诚意金订单' }}</text>
-        <text class="ref-info-card__text">{{ getOrderStatusText(order.status) }} · 点击查看订单详情</text>
-      </view>
-
-      <view class="ref-info-card ref-card pass-gap">
-        <text class="ref-info-card__title">核销后继续联系</text>
-        <text class="ref-info-card__text">到场确认后可查看发起人放置的二维码或群二维码，由你自己决定是否继续联系。</text>
-        <view class="contact-lock">
-          <SuIcon name="scan" size="52" glyph-size="26" variant="inline" color="#2388ff" />
-          <text>核销后可看</text>
-        </view>
+        <text class="ref-info-card__text">{{ getOrderStatusText(order.status) }}</text>
       </view>
 
       <view class="ref-info-card ref-card pass-gap">
@@ -175,25 +159,25 @@ const reviewFeedback = computed(() => {
 })
 
 const paymentState = computed(() => {
-  if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付', desc: '本局免费参与' }
-  if (!order.value) return { key: 'pending', label: '待支付', desc: '进入支付页确认试运营订单' }
-  if (order.value.status === 'paid') return { key: 'paid', label: '已支付', desc: `订单号 ${order.value.id}` }
-  if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款', desc: order.value.refundNote || '退款状态已登记' }
-  if (order.value.status === 'closed') return { key: 'closed', label: '已关闭', desc: order.value.closeReason || '订单已关闭' }
-  return { key: 'pending', label: '待支付', desc: '仍可继续确认' }
+  if (activity.value.partyMode === 'free') return { key: 'free', label: '无需支付' }
+  if (!order.value) return { key: 'pending', label: '待支付' }
+  if (order.value.status === 'paid') return { key: 'paid', label: '已支付' }
+  if (order.value.status === 'refunded') return { key: 'refunded', label: '已退款' }
+  if (order.value.status === 'closed') return { key: 'closed', label: '已关闭' }
+  return { key: 'pending', label: '待支付' }
 })
 
 const checkinState = computed(() => {
-  if (activity.value.isCreator) return { key: 'leader', label: '可管理签到', desc: '局长可直接进入管理台' }
-  if (isTerminalActivity.value) return { key: 'closed', label: activityStatusMeta.value.label, desc: '当前活动不可继续现场签到' }
+  if (activity.value.isCreator) return { key: 'leader', label: '可管理签到' }
+  if (isTerminalActivity.value) return { key: 'closed', label: activityStatusMeta.value.label }
   if (activity.value.applicationStatus === 'pending' || applicationState.value.key === 'pending') {
-    return { key: 'waiting', label: '等待审核', desc: '通过后生成入场凭证' }
+    return { key: 'waiting', label: '等待审核' }
   }
-  if (checkin.value) return { key: 'done', label: '已签到', desc: `签到时间 ${checkin.value.checkedAt}` }
+  if (checkin.value) return { key: 'done', label: '已签到' }
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') {
-    return { key: 'pay', label: '先去支付', desc: '支付后可进入签到流程' }
+    return { key: 'pay', label: '先去支付' }
   }
-  return { key: 'ready', label: '待签到', desc: '到场后可完成核销' }
+  return { key: 'ready', label: '待签到' }
 })
 
 const entryLabel = computed(() => {
@@ -206,20 +190,10 @@ const entryLabel = computed(() => {
   return '入场凭证'
 })
 
-const entryHint = computed(() => {
-  if (activity.value.isCreator) return '局长可进入管理台查看审核、签到和消息'
-  if (isTerminalActivity.value) return '活动已进入终态，凭证仅作记录查看'
-  if (applicationState.value.key === 'pending') return '审核通过后会自动生成凭证'
-  if (applicationState.value.key === 'rejected') return reviewFeedback.value || '当前申请未通过，返回详情页查看原因'
-  if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '先完成支付，再进入签到'
-  if (checkin.value) return '凭证已完成核销'
-  return '请向局长出示入场二维码'
-})
-
 const statCards = computed(() => [
-  { label: '报名状态', value: applicationState.value.label, desc: '当前入局审核结果', tone: applicationState.value.key === 'approved' ? 'green' : 'blue' },
-  { label: '支付状态', value: paymentState.value.label, desc: paymentState.value.desc, tone: paymentState.value.key === 'paid' ? 'green' : 'orange' },
-  { label: '签到状态', value: checkinState.value.label, desc: checkinState.value.desc, tone: checkinState.value.key === 'done' ? 'green' : 'dark' }
+  { label: '报名状态', value: applicationState.value.label, tone: applicationState.value.key === 'approved' ? 'green' : 'blue' },
+  { label: '支付状态', value: paymentState.value.label, tone: paymentState.value.key === 'paid' ? 'green' : 'orange' },
+  { label: '签到状态', value: checkinState.value.label, tone: checkinState.value.key === 'done' ? 'green' : 'dark' }
 ])
 
 const showEntryQr = computed(() => {

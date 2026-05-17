@@ -14,7 +14,6 @@
       <view class="hackathon-hero graduation-topic-hero">
         <text class="pill pill--blue">天大毕业季</text>
         <text class="hero-title">毕业前，再和同校同学约一次</text>
-        <text class="hero-desc">约拍、散伙饭、自习收尾和小聚都放在这里。看到合适的活动，可以直接报名或加入候补。</text>
         <view class="hackathon-stats">
           <view><text>{{ graduationActivities.length }}</text><text>毕业活动</text></view>
           <view><text>{{ soonCount }}</text><text>最近开始</text></view>

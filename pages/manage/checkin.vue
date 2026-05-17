@@ -38,9 +38,7 @@
         <view class="panel__head">
           <view>
             <text class="panel__title">成员凭证核销</text>
-            <text class="panel__sub">SCAN MEMBER PASS</text>
           </view>
-          <text class="panel__hint">扫码或手动输入</text>
         </view>
 
         <view class="code-box">
@@ -68,7 +66,6 @@
         <view class="panel__head">
           <view>
             <text class="panel__title">参与者列表</text>
-            <text class="panel__sub">{{ participantList.length }} MEMBERS</text>
           </view>
           <text class="panel__hint">{{ checkedCount }}/{{ participantList.length }}</text>
         </view>

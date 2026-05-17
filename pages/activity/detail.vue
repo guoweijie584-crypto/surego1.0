@@ -58,7 +58,7 @@
           </view>
         </view>
 
-        <view class="info-card">
+        <view v-if="meetupText" class="info-card">
           <view class="section-title">
           <text>碰头安排</text>
           </view>
@@ -70,44 +70,22 @@
           <text>报名与费用</text>
             <text>{{ mode.label }}</text>
           </view>
-          <text>{{ refundRuleText }}</text>
-          <text class="pill pill--blue">{{ mode.desc }}</text>
         </view>
 
         <view class="credit-card">
           <SuIcon name="shield" size="60" glyph-size="30" variant="inline" color="#2388ff" />
           <view>
           <text>信用与安全</text>
-            <text>报名成功后请按时到场，核销记录会影响后续活动和搭子匹配。</text>
           </view>
         </view>
 
-        <view class="info-card">
+        <view v-if="detailQuestions.length" class="info-card">
           <view class="section-title">
             <text>报名问答</text>
           </view>
           <view class="question-list">
             <text v-for="question in detailQuestions" :key="question">{{ question }}</text>
           </view>
-        </view>
-
-        <view class="info-card">
-          <view class="section-title section-title--inline">
-            <text>大家问过</text>
-            <text @tap="showComingSoon('提问功能正在接入')">提问</text>
-          </view>
-          <view v-for="item in faqList" :key="item.q" class="faq-item">
-            <text>{{ item.q }}</text>
-            <text>{{ item.a }}</text>
-          </view>
-        </view>
-
-        <view class="info-card">
-          <view class="section-title">
-            <text>成行后怎么联系</text>
-          </view>
-          <text class="card-copy">报名成功并被发起人确认后，可以在我的页查看群二维码或个人二维码。</text>
-          <text class="pill pill--blue">通过后再联系</text>
         </view>
 
         <view class="organizer-card" @tap="openOrganizerProfile">
@@ -192,12 +170,12 @@ const primaryDisabled = computed(() => {
 
 const mode = computed(() => {
   if (activity.value.partyMode === 'sincerity') {
-    return { label: `诚意金 ¥${activity.value.amount}`, desc: '试运行订单确认后占位' }
+    return { label: `诚意金 ¥${activity.value.amount}` }
   }
   if (activity.value.partyMode === 'ticket') {
-    return { label: `门票 ¥${activity.value.amount}`, desc: '试运行订单确认后锁定席位' }
+    return { label: `门票 ¥${activity.value.amount}` }
   }
-  return { label: '免费局', desc: '免费参与' }
+  return { label: '免费局' }
 })
 const detailTags = computed(() => {
   const base = [
@@ -210,18 +188,9 @@ const detailTags = computed(() => {
 })
 const detailQuestions = computed(() => {
   const questions = activity.value.questions || []
-  return questions.length ? questions : ['你为什么想参加这场活动？', '是否能按时到场？']
+  return questions
 })
-const faqList = computed(() => [
-  { q: '临时有事可以退出吗？', a: activity.value.partyMode === 'free' ? '请尽早联系发起人，避免影响成行。' : '按费用规则处理，具体以活动说明为准。' },
-  { q: '怎么联系？', a: '通知中心查看联系入口。' }
-])
-const meetupText = computed(() => activity.value.meetup || activity.value.description || '发起人会在报名通过后同步集合点和注意事项。')
-const refundRuleText = computed(() => {
-  if (activity.value.partyMode === 'sincerity') return '试运行订单用于确认席位，到场核销后按规则登记退款状态；临时爽约会影响信用记录。'
-  if (activity.value.partyMode === 'ticket') return '试运行订单确认后保留名额，活动取消时进入退款记录流程。'
-  return '本活动免费参与，请按时到场。若无法参加，请提前告知发起人。'
-})
+const meetupText = computed(() => activity.value.meetup || activity.value.description || '')
 const participantText = computed(() => {
   if (!activity.value.hasParticipantLimit) return `${activity.value.participantCount || 0} 人已加入`
   return `${activity.value.participantCount}/${activity.value.maxParticipants} 已占位`

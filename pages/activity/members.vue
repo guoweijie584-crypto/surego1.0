@@ -50,7 +50,6 @@
         <view class="section__head">
           <view>
             <text class="section__title">已确认成员</text>
-            <text class="section__sub">APPROVED MEMBERS</text>
           </view>
         </view>
 
@@ -71,7 +70,6 @@
         <view class="section__head">
           <view>
             <text class="section__title">申请动态</text>
-            <text class="section__sub">APPLICATION QUEUE</text>
           </view>
         </view>
 

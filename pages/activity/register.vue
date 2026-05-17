@@ -58,10 +58,9 @@
 
       <view class="ref-form-card ref-card register-gap">
         <text class="ref-form-card__title">规则确认</text>
-        <text class="ref-info-card__text">{{ noticeText }}</text>
         <view class="ref-check-line" :class="{ 'ref-check-line--active': agreed }" @tap="agreed = !agreed">
           <SuIcon :name="agreed ? 'checkmarkempty' : 'circle'" size="36" glyph-size="18" variant="inline" :color="agreed ? '#047857' : '#94a3b8'" />
-          <text>我已阅读报名、退款、结算和爽约规则</text>
+          <text>我已确认</text>
         </view>
       </view>
 
@@ -131,16 +130,6 @@ const visibleQuestions = computed(() => (
 
 const shortLocation = computed(() => {
   return (activity.value.location || '').split(' · ')[0] || activity.value.location
-})
-
-const noticeText = computed(() => {
-  if (activity.value.partyMode === 'sincerity') {
-    return `本局为诚意金局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，签到后记录为可退回状态。`
-  }
-  if (activity.value.partyMode === 'ticket') {
-    return `本局为门票局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，确认后锁定名额。`
-  }
-  return '请按时成行，爽约会影响信用星级。'
 })
 
 const submitText = computed(() => {

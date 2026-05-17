@@ -30,7 +30,6 @@
               <text class="feature-card__title-line">最后一段校园时间</text>
               <text class="feature-card__title-line feature-card__title-line--strong">找同学一起认真告别</text>
             </view>
-            <text class="feature-card__desc">学位服、海河夜景、校园草坪和宿舍楼前都有人在约。</text>
             <view class="feature-card__stats-bar">
               <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">4</text> 场约拍</text></view>
               <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">23</text> 人想拍</text></view>

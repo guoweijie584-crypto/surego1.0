@@ -9,8 +9,6 @@
     <view class="login__hero">
       <view class="login__logo">成</view>
       <text class="login__eyebrow">SureGo 成行</text>
-      <text class="login__title">先认识一下，再一起出发</text>
-      <text class="login__desc">授权后可以发起活动、报名入局、查看票券和现场签到。</text>
     </view>
 
     <view class="login__panel">
