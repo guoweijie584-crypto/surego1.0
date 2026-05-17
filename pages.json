@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "path": "pages/home/index",
+      "path": "pages/partners/index",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": true
@@ -57,7 +57,7 @@
       }
     },
     {
-      "path": "pages/partners/index",
+      "path": "pages/home/index",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": true

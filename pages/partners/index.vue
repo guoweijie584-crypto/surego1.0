@@ -30,11 +30,10 @@
               <text class="feature-card__title-line">天津高校 AI 黑客松</text>
               <text class="feature-card__title-line feature-card__title-line--strong">组队中</text>
             </view>
-            <text class="feature-card__desc">找产品、前端、算法、设计、路演队友。按方向和角色快速上车。</text>
             <view class="feature-card__stats-bar">
-              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">12</text> 支队伍</text></view>
-              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">28</text> 缺队友</text></view>
-              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text">周末开赛</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">{{ hackathonTeamCountLabel }}</text> 支队伍</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text"><text class="feature-card__stat-chip-num">{{ hackathonIntentCountLabel }}</text> 人感兴趣</text></view>
+              <view class="feature-card__stat-chip"><text class="feature-card__stat-chip-text">{{ hackathonStartLabel }}</text></view>
             </view>
           </view>
         </view>
@@ -85,13 +84,16 @@ import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
-import { listPartnerPosts } from '@/common/api/partner.js'
+import { listHackathonPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
 import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
 
 const selectedSchool = '天津大学'
+const HACKATHON_START_DATE = '2026-05-22'
 const posts = ref([])
+const hackathonPosts = ref([])
+const hackathonLoading = ref(false)
 const unreadCount = ref(0)
 const activeScene = ref('all')
 const searchKeyword = ref('')
@@ -122,14 +124,25 @@ const filteredPosts = computed(() => {
 })
 
 const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
+const hackathonTeamCountLabel = computed(() => (hackathonLoading.value ? '-' : String(hackathonPosts.value.length)))
+const hackathonIntentCount = computed(() => hackathonPosts.value.reduce((sum, item) => sum + Number(item.intentCount || item.intent_count || 0), 0))
+const hackathonIntentCountLabel = computed(() => (hackathonLoading.value ? '-' : String(hackathonIntentCount.value)))
+const hackathonStartLabel = computed(() => buildHackathonStartLabel(hackathonPosts.value))
 
 async function loadData() {
-  const [items, unread] = await Promise.all([
-    listPartnerPosts(),
-    getUnreadMessageCount()
-  ])
-  posts.value = items
-  unreadCount.value = unread
+  hackathonLoading.value = true
+  try {
+    const [items, hackathonItems, unread] = await Promise.all([
+      listPartnerPosts(),
+      listHackathonPartnerPosts({ limit: 100, topicKey: 'hackathon', allowFallback: false }).catch(() => []),
+      getUnreadMessageCount()
+    ])
+    posts.value = items
+    hackathonPosts.value = Array.isArray(hackathonItems) ? hackathonItems : []
+    unreadCount.value = unread
+  } finally {
+    hackathonLoading.value = false
+  }
 }
 
 onShow(loadData)
@@ -181,6 +194,24 @@ function matchesKeyword(item = {}, keyword = '') {
     ...(Array.isArray(item.wants) ? item.wants : [])
   ].filter(Boolean).join(' ').toLowerCase()
   return haystack.includes(normalizedKeyword)
+}
+
+function parseHackathonDate(items = []) {
+  const schedule = items.map((item) => String(item.schedule || item.available || '')).find(Boolean) || HACKATHON_START_DATE
+  const match = schedule.match(/(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日/) || schedule.match(/(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (!match) return new Date(`${HACKATHON_START_DATE}T00:00:00`)
+  const [, year, month, day] = match
+  return new Date(Number(year), Number(month) - 1, Number(day))
+}
+
+function buildHackathonStartLabel(items = []) {
+  const startDate = parseHackathonDate(items)
+  const today = new Date()
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const diffDays = Math.ceil((startDate.getTime() - todayDate.getTime()) / 86400000)
+  if (diffDays > 0) return `${diffDays} 天后开赛`
+  if (diffDays === 0) return '今日开赛'
+  return '已开赛'
 }
 </script>
 
