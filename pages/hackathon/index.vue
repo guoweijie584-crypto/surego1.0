@@ -25,11 +25,10 @@
               <text class="hackathon-hero__title-line">AI 黑客松选手</text>
               <text class="hackathon-hero__title-line hackathon-hero__title-line--strong">组队专区</text>
             </view>
-            <text class="hackathon-hero__desc">找产品、前端、算法、设计和路演队友。</text>
           </view>
           <view class="hackathon-stats">
             <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ teamCountLabel }}</text> 招募队伍</text></view>
-            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ roleCountLabel }}</text> 缺队友</text></view>
+            <view><text class="hackathon-stats__label"><text class="hackathon-stats__num">{{ intentCountLabel }}</text> 人感兴趣</text></view>
             <view><text class="hackathon-stats__label">48h 比赛周期</text></view>
           </view>
         </view>
@@ -100,8 +99,8 @@ const teams = computed(() => posts.value.map((item) => ({
   intentCount: Number(item.intentCount || item.intent_count || 0)
 })))
 const teamCountLabel = computed(() => (loading.value ? '-' : String(teams.value.length)))
-const roleCount = computed(() => teams.value.reduce((sum, team) => sum + Math.max(1, team.tags.length - 1), 0))
-const roleCountLabel = computed(() => (loading.value ? '-' : String(roleCount.value)))
+const intentCount = computed(() => teams.value.reduce((sum, team) => sum + Number(team.intentCount || 0), 0))
+const intentCountLabel = computed(() => (loading.value ? '-' : String(intentCount.value)))
 const emptyText = computed(() => loadError.value || '云端暂时没有匹配的黑客松组队需求')
 
 function displayTags(item = {}) {

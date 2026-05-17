@@ -14,7 +14,6 @@
     <scroll-view scroll-y class="publish__scroll" :style="contentTopStyle">
       <view class="create-hub-hero">
         <text class="pill">发布</text>
-        <text class="create-hub-hero__title">今天想约什么？</text>
       </view>
 
       <view class="create-choice-grid">
@@ -23,10 +22,8 @@
             <SuIcon name="calendar" size="58" glyph-size="29" variant="inline" color="#2388ff" />
           </view>
           <view>
-            <text>发活动</text>
-            <text>确定时间地点</text>
+            <text>发布活动</text>
           </view>
-          <text class="choice-pill choice-pill--green">马上约</text>
         </view>
 
         <view class="create-choice-card" @tap="goPartnerCreate">
@@ -34,10 +31,8 @@
             <SuIcon name="people" size="58" glyph-size="29" variant="inline" color="#6d28d9" />
           </view>
           <view>
-            <text>搭子</text>
-            <text>找同行的人</text>
+            <text>发布搭子</text>
           </view>
-          <text class="choice-pill choice-pill--purple">先认识</text>
         </view>
       </view>
 
