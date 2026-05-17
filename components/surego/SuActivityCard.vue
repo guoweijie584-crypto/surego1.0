@@ -15,6 +15,7 @@
     <view class="activity-card__body">
       <view class="activity-card__tags">
         <text>{{ activity.category || '活动' }}</text>
+        <text class="activity-card__status" :class="`activity-card__status--${statusMeta.tone}`">{{ statusMeta.label }}</text>
         <text v-if="activity.requireApproval">需确认</text>
         <text v-if="activity.hasParticipantLimit">可候补</text>
       </view>
@@ -52,6 +53,7 @@
 <script setup>
 import { computed } from 'vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
+import { getActivityStatusMeta } from '@/common/api/activity.js'
 import { goActivityDetail, goUserDetail, goUserProfile } from '@/common/utils/route.js'
 
 const props = defineProps({
@@ -82,6 +84,8 @@ const verifiedText = computed(() => {
 const displayLocation = computed(() => {
   return (props.activity.location || '').split(' · ')[0].split(' 路 ')[0] || props.activity.location || '地点待定'
 })
+
+const statusMeta = computed(() => getActivityStatusMeta(props.activity))
 
 const distanceText = computed(() => {
   if (props.activity.distanceText) return props.activity.distanceText
@@ -259,6 +263,31 @@ function openUser() {
 .activity-card__pill-list text {
   background: #f6f3e8;
   color: #76602a;
+}
+
+.activity-card__tags .activity-card__status--green {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.activity-card__tags .activity-card__status--blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.activity-card__tags .activity-card__status--amber {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.activity-card__tags .activity-card__status--gray {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.activity-card__tags .activity-card__status--red {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .activity-card__status-chip {
