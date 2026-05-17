@@ -9,6 +9,16 @@ const businessPages = [
   'pages/discover/search',
   'pages/discover/city',
   'pages/calendar/index',
+  'pages/graduation/index',
+  'pages/hackathon/index',
+  'pages/hackathon/team',
+  'pages/verify/index',
+  'pages/partners/index',
+  'pages/partner/detail',
+  'pages/partner/create',
+  'pages/partner/workbench',
+  'pages/partner/conversation',
+  'pages/publish/index',
   'pages/activity/detail',
   'pages/activity/members',
   'pages/activity/register',
@@ -47,6 +57,7 @@ const staleDemoRoutes = [
 
 const requiredApiFiles = [
   'common/api/activity.js',
+  'common/api/partner.js',
   'common/api/application.js',
   'common/api/order.js',
   'common/api/message.js',
@@ -65,6 +76,11 @@ const requiredUtilityFiles = [
   'common/utils/share.js'
 ]
 
+const requiredOpsFiles = [
+  'docs/surego-cloud-trial-deployment.md',
+  'scripts/surego-deployment-scope-check.mjs'
+]
+
 const requiredComponents = [
   'components/surego/SuWechatProfileSheet.vue',
   'uni_modules/unicloud-city-select/components/unicloud-city-select/unicloud-city-select.vue'
@@ -72,6 +88,7 @@ const requiredComponents = [
 
 const requiredCloudFunctions = [
   'surego-activity',
+  'surego-partner',
   'surego-application',
   'surego-order',
   'surego-message',
@@ -92,6 +109,9 @@ const bannedPatterns = [
 ]
 
 const errors = []
+const mojibakePattern = /[\u93bc\u934f\u9366\u7ead\u93cd\u9353\u8e47\u5bf0\u6fb6\u9422\u6dc7\u7487\u95c2\u95b8\u95bb\u9420\u5a62\u7035\u5bb8\u97eb\u59a4\u6fde\u5a32\u59e9\u70ac\u60e7\u57d7\u9352\u55e4\u60b3\u7ef1\u2540\u7d91\u935a\u5d89\ue582]/
+const questionRun = String.fromCharCode(63, 63, 63)
+const replacementChar = String.fromCharCode(0xfffd)
 
 const activityFormPages = ['pages/activity/create.vue', 'pages/activity/edit.vue']
 const requiredKeyboardAttributes = ['adjust-position="false"', 'cursor-spacing="80"']
@@ -120,12 +140,21 @@ function readJson(relativePath) {
   }
 }
 
+function assertNoMojibake(relativePath, source) {
+  const lines = source.split(/\r?\n/)
+  lines.forEach((line, index) => {
+    if (mojibakePattern.test(line) || line.includes(questionRun) || line.includes(replacementChar)) {
+      errors.push(`${relativePath}:${index + 1} contains likely mojibake text`)
+    }
+  })
+}
+
 const pagesConfig = readJson('pages.json')
 const pagePaths = (pagesConfig.pages || []).map((item) => item.path)
 const pagePathSet = new Set(pagePaths)
 
-if (pagePaths[0] !== 'pages/home/index') {
-  errors.push('pages.json first route must be pages/home/index')
+if (pagePaths[0] !== 'pages/partners/index') {
+  errors.push('pages.json first route must be pages/partners/index')
 }
 
 for (const page of businessPages) {
@@ -178,9 +207,72 @@ if (!runtimeSource.includes("APP_MODE = 'trial'")) {
 if (!runtimeSource.includes('USE_UNICLOUD = true')) {
   errors.push('common/config/runtime.js must use USE_UNICLOUD = true for cloud trial release')
 }
-for (const token of ['ALLOW_MOCK_FALLBACK', 'APP_MODE', 'isTrialMode', 'shouldUseCloudFallback']) {
+for (const token of ['ALLOW_MOCK_FALLBACK', 'TRIAL_STRICT_CLOUD_AUTH', 'APP_MODE', 'isTrialMode', 'isTrialStrictCloudAuthMode', 'shouldUseCloudFallback']) {
   if (!runtimeSource.includes(token)) {
     errors.push(`common/config/runtime.js is missing operation runtime token: ${token}`)
+  }
+}
+if (!runtimeSource.includes('!isTrialStrictCloudAuthMode()')) {
+  errors.push('common/config/runtime.js must disable local mock fallback when strict trial cloud auth is enabled')
+}
+
+const activitySchema = readJson('uniCloud-aliyun/database/surego-activities.schema.json')
+for (const field of ['visibility', 'source', 'source_partner_post_id', 'invited_user_ids', 'source_partner_intent_ids']) {
+  if (!activitySchema.properties?.[field]) {
+    errors.push(`surego-activities schema is missing ${field}`)
+  }
+}
+
+const requiredSeedDataFiles = [
+  'uniCloud-aliyun/database/surego-activities.init_data.json',
+  'uniCloud-aliyun/database/surego-partner-posts.init_data.json',
+  'uniCloud-aliyun/database/surego-users.init_data.json'
+]
+
+for (const seedFile of requiredSeedDataFiles) {
+  const items = readJson(seedFile)
+  if (!Array.isArray(items) || items.length === 0) {
+    errors.push(`${seedFile} must contain non-empty seed data for cloud trial mode`)
+    continue
+  }
+  if (JSON.stringify(items).includes('"mock_user"')) {
+    errors.push(`${seedFile} must map reference mock_user records to stable cloud seed users`)
+  }
+}
+
+const seedUsers = readJson('uniCloud-aliyun/database/surego-users.init_data.json')
+if (Array.isArray(seedUsers) && !seedUsers.some((item) => item.user_id === 'seed_owner_wu')) {
+  errors.push('surego-users.init_data.json must include seed_owner_wu for migrated reference-owner records')
+}
+
+const partnerSeedItems = readJson('uniCloud-aliyun/database/surego-partner-posts.init_data.json')
+if (Array.isArray(partnerSeedItems)) {
+  for (const id of ['hackathon-ai-front', 'surego-labs', 'campus-ai', 'creator-map']) {
+    const item = partnerSeedItems.find((entry) => entry._id === id || entry.id === id)
+    if (!item || item.topic_key !== 'hackathon') {
+      errors.push(`surego-partner-posts.init_data.json must mark ${id} with topic_key=hackathon`)
+    }
+  }
+}
+
+const requiredIndexFiles = [
+  'uniCloud-aliyun/database/surego-activities.index.json',
+  'uniCloud-aliyun/database/surego-applications.index.json',
+  'uniCloud-aliyun/database/surego-orders.index.json',
+  'uniCloud-aliyun/database/surego-partner-posts.index.json',
+  'uniCloud-aliyun/database/surego-partner-intents.index.json',
+  'uniCloud-aliyun/database/surego-follows.index.json',
+  'uniCloud-aliyun/database/surego-conversations.index.json',
+  'uniCloud-aliyun/database/surego-checkins.index.json',
+  'uniCloud-aliyun/database/surego-reports.index.json',
+  'uniCloud-aliyun/database/surego-audit-logs.index.json',
+  'uniCloud-aliyun/database/surego-users.index.json'
+]
+
+for (const indexFile of requiredIndexFiles) {
+  const indexes = readJson(indexFile)
+  if (!Array.isArray(indexes) || indexes.length === 0) {
+    errors.push(`${indexFile} must contain indexes for cloud trial query paths`)
   }
 }
 
@@ -190,6 +282,7 @@ if (fs.existsSync(path.join(root, 'common/js/vconsole.min.js'))) {
 
 for (const apiFile of requiredApiFiles) {
   const source = read(apiFile)
+  assertNoMojibake(apiFile, source)
   const isLocalPlatformFacade = apiFile === 'common/api/upload.js' || apiFile === 'common/api/location.js'
   if (!isLocalPlatformFacade && (!source.includes('USE_UNICLOUD') || !source.includes('callSuregoFunction'))) {
     errors.push(`${apiFile} must keep mock/uniCloud facade mode`)
@@ -200,11 +293,15 @@ for (const apiFile of requiredApiFiles) {
 }
 
 for (const utilityFile of requiredUtilityFiles) {
-  read(utilityFile)
+  assertNoMojibake(utilityFile, read(utilityFile))
+}
+
+for (const opsFile of requiredOpsFiles) {
+  assertNoMojibake(opsFile, read(opsFile))
 }
 
 for (const component of requiredComponents) {
-  read(component)
+  assertNoMojibake(component, read(component))
 }
 
 for (const name of requiredCloudFunctions) {
@@ -216,6 +313,21 @@ for (const name of requiredCloudFunctions) {
 
 for (const page of businessPages) {
   const source = read(`${page}.vue`)
+  assertNoMojibake(`${page}.vue`, source)
+  const corruptedTag = source.match(/\?\/(?:text|view|button|scroll-view|template)>/)
+  if (corruptedTag) {
+    errors.push(`${page}.vue contains a corrupted template closing tag: ${corruptedTag[0]}`)
+  }
+  const interpolationPattern = /{{([\s\S]*?)}}/g
+  let interpolationMatch
+  while ((interpolationMatch = interpolationPattern.exec(source))) {
+    const expression = interpolationMatch[1].trim()
+    try {
+      new Function(`return (${expression})`)
+    } catch (error) {
+      errors.push(`${page}.vue has invalid template expression "${expression}": ${error.message}`)
+    }
+  }
   if (source.includes('uniCloud.callFunction')) {
     errors.push(`${page}.vue must call common/api facade instead of uniCloud.callFunction`)
   }
@@ -246,17 +358,36 @@ for (const helper of ['goActivityCreate', 'goActivityRegister', 'goManageDashboa
     errors.push(`common/utils/route.js is missing release helper: ${helper}`)
   }
 }
-for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot']) {
+for (const helper of ['goBackOrFallback', 'goHomeRoot', 'goDiscoverRoot', 'goPartnersRoot', 'goPublishCenter', 'goPartnerDetail', 'goPartnerCreate', 'goPartnerWorkbench', 'goPartnerConversation']) {
   if (!routeSource.includes(helper)) {
     errors.push(`common/utils/route.js is missing stack navigation helper: ${helper}`)
   }
 }
 
 const dockSource = read('components/surego/SuBottomDock.vue')
-for (const helper of ['goHomeRoot', 'goDiscoverRoot']) {
+for (const helper of ['goHomeRoot', 'goPartnersRoot', 'goMessages', 'goUserProfile', 'goPartnerCreate', 'goActivityCreate']) {
   if (!dockSource.includes(helper)) {
     errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`)
   }
+}
+for (const token of ['showPublishSheet', '发布搭子', '发布活动', 'publish-sheet__panel']) {
+  if (!dockSource.includes(token)) {
+    errors.push(`SuBottomDock.vue must expose publish sheet token: ${token}`)
+  }
+}
+if (dockSource.includes('goPublishCenter')) {
+  errors.push('SuBottomDock.vue must open the publish sheet instead of navigating to goPublishCenter')
+}
+for (const navKey of ["key: 'home'", "key: 'partners'", "key: 'publish'", "key: 'messages'", "key: 'profile'"]) {
+  if (!dockSource.includes(navKey)) {
+    errors.push(`SuBottomDock.vue must render dual-entry nav item ${navKey}`)
+  }
+}
+if (!dockSource.includes("label: '搭子'")) {
+  errors.push("SuBottomDock.vue must use '搭子' as the partner tab label")
+}
+if (dockSource.includes("label: '找搭子'")) {
+  errors.push("SuBottomDock.vue must not render the stale '找搭子' tab label")
 }
 for (const token of ['options.replace', 'options.root', "typeof fallbackUrl === 'string'", 'export function goPayment(params = {}, options = {})']) {
   if (!routeSource.includes(token)) {
@@ -270,10 +401,26 @@ for (const token of ['open-type="share"', 'createReport', 'goSharePoster']) {
     errors.push(`pages/activity/detail.vue is missing release entry: ${token}`)
   }
 }
+for (const token of ['priority-row', 'priority-row__content', 'priority-row__primary', 'priority-row__secondary']) {
+  if (!detailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue must use explicit flex priority rows to avoid narrow vertical text: ${token}`)
+  }
+}
+if (detailSource.includes('.priority { display: grid') || detailSource.includes('grid-template-columns: 34rpx 1fr')) {
+  errors.push('pages/activity/detail.vue priority summary must not rely on mini-program grid layout')
+}
 
 const profileSource = read('pages/user/profile.vue')
-if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('canUseOps.value = hasOpsRole(user.value)')) {
+if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('getCurrentUser({ allowFallback: false })') || !profileSource.includes('canUseOps.value = hasOpsRole(freshUser)')) {
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
+}
+for (const token of ['postedPartnerPosts', 'activeActivityScope', 'activePartnerScope', 'currentActivityList', 'currentPartnerList', 'goUserEdit', 'profile-edit-entry', 'fulfillmentStats', 'reputationReviews']) {
+  if (!profileSource.includes(token)) {
+    errors.push(`pages/user/profile.vue must keep remote profile behavior with ${token}`)
+  }
+}
+if (profileSource.includes("goMyActivities({ tab: 'hosting' })") || profileSource.includes('管理第一条申请')) {
+  errors.push('pages/user/profile.vue overview cards must switch in-page categories instead of jumping to a separate list or first item')
 }
 if (profileSource.includes('count: loggedIn.value ? 2 : 0') || profileSource.includes('靠谱、准时') || profileSource.includes('活动组织清晰')) {
   errors.push('pages/user/profile.vue must not ship hard-coded mock reviews')
@@ -288,10 +435,17 @@ if (!loginSource.includes('SuWechatProfileSheet') || !loginSource.includes('prof
 }
 
 const authSource = read('common/api/auth.js')
-for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center', 'hasOpsRole']) {
+for (const token of ['loginWithWeixin', 'persistUniIdSession', 'uni.login', 'uni-id-co', 'user-center', 'hasOpsRole', 'getLastLoginDiagnostic', 'recordLoginDiagnostic', 'LOGIN_DIAGNOSTIC_KEY', 'cloudFallbackAllowed']) {
   if (!authSource.includes(token)) {
     errors.push(`common/api/auth.js is missing release login bridge token: ${token}`)
   }
+}
+const loginWithWeixinBody = authSource.slice(
+  authSource.indexOf('export async function loginWithWeixin'),
+  authSource.indexOf('export function saveCurrentUserProfile')
+)
+if (loginWithWeixinBody.indexOf('await loginWithUniIdCo(code, profile)') > loginWithWeixinBody.lastIndexOf('return loginWithMockFallback(profile')) {
+  errors.push('common/api/auth.js must try uni-id-co before falling back to mock login')
 }
 if (authSource.includes("|| '吴哈哈'") || authSource.includes("nickname: '吴哈哈'")) {
   errors.push('common/api/auth.js must not use 吴哈哈 as a release login fallback')
@@ -329,6 +483,11 @@ for (const token of ['getAllowedActivityStatusTransitions', 'availableLifecycleA
 if (manageDashboardSourceForLifecycle.includes('v-for="item in lifecycleActions"') || manageDashboardSourceForLifecycle.includes('@tap="setActivityLifecycle(item.key)"')) {
   errors.push('pages/manage/dashboard.vue must not expose arbitrary lifecycle status selection')
 }
+for (const token of ['试运行订单金额', '试运行订单状态']) {
+  if (!manageDashboardSourceForLifecycle.includes(token)) {
+    errors.push(`pages/manage/dashboard.vue must label trial-order funds with ${token}`)
+  }
+}
 
 const opsUsersSource = read('pages/ops/users.vue')
 for (const token of ['listUsers', 'updateUserRoles', 'roleOptions', 'isAdminUser']) {
@@ -356,13 +515,15 @@ if (!createSource.includes('adjust-position="false"') || !createSource.includes(
 
 for (const page of ['pages/activity/create.vue', 'pages/activity/edit.vue']) {
   const source = read(page)
-  for (const token of ['unicloud-city-select', ':location="false"', 'hotCities', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'form.cityCode', 'form.district']) {
-    if (!source.includes(token)) {
-      errors.push(`${page} must sync selected map location to activity city with ${token}`)
+  for (const staleToken of ['unicloud-city-select', 'openCitySelector', 'handleCitySelect', 'inferCityFromLocation', 'syncCityFromLocation', 'city-select']) {
+    if (source.includes(staleToken)) {
+      errors.push(`${page} must not expose city selection in Tianjin University mode: ${staleToken}`)
     }
   }
-  if (source.includes('<picker :range="cityNames"') || source.includes('cityNames =') || source.includes('cityIndex')) {
-    errors.push(`${page} must use unicloud-city-select instead of a fixed city picker`)
+  for (const token of ['CAMPUS_NAME', '天津大学', 'CAMPUS_CITY_CODE', 'form.cityCode', 'form.district']) {
+    if (!source.includes(token)) {
+      errors.push(`${page} must keep fixed Tianjin University campus metadata with ${token}`)
+    }
   }
 }
 
@@ -413,6 +574,12 @@ const userDetailRouteSource = read('common/utils/route.js')
 if (!userDetailRouteSource.includes('goUserDetail')) {
   errors.push('common/utils/route.js must expose goUserDetail for member/leader avatars')
 }
+const activityApiSourceForInvites = read('common/api/activity.js')
+for (const token of ['invited', 'isActivityInvitee', 'invitedUserIds', 'invited_user_ids', 'sourcePartnerIntentIds', 'source_partner_intent_ids']) {
+  if (!activityApiSourceForInvites.includes(token)) {
+    errors.push(`common/api/activity.js must support invited converted activity visibility with ${token}`)
+  }
+}
 for (const page of ['pages/activity/detail.vue', 'pages/activity/members.vue', 'pages/manage/checkin.vue', 'pages/manage/dashboard.vue']) {
   const source = read(page)
   if (!source.includes('goUserDetail')) {
@@ -431,8 +598,38 @@ for (const token of ['isHomeVisibleMyActivity', 'sortActivitiesByStatusPriority'
     errors.push(`pages/home/index.vue must filter terminal my-activity cards with ${token}`)
   }
 }
+for (const staleStat of ['{{ activities.length }}', '{{ visibleMyActivities.length }}', '{{ quickStartCount }}']) {
+  if (homeSource.includes(staleStat)) {
+    errors.push(`pages/home/index.vue must not bind topic stats to stale runtime count: ${staleStat}`)
+  }
+}
+for (const bannedCopy of ['快成行', '我的进行中']) {
+  if (homeSource.includes(bannedCopy)) {
+    errors.push(`pages/home/index.vue must not expose stale topic stat copy: ${bannedCopy}`)
+  }
+}
+if (!homeSource.includes(':activity="item" compact')) {
+  errors.push('pages/home/index.vue home activity list must render SuActivityCard in compact mode')
+}
+const normalizedHomeSource = homeSource.replace(/\r\n/g, '\n')
+for (const token of ['.scene-row {\n  margin-top: 14rpx;', '.sort-tabs {\n  display: flex;\n  gap: 12rpx;\n  margin-top: 14rpx;', 'margin: 24rpx 0 14rpx;']) {
+  if (!normalizedHomeSource.includes(token)) {
+    errors.push(`pages/home/index.vue must keep compact spacing below the feature card with ${token}`)
+  }
+}
 
-for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
+const activityCardSource = read('components/surego/SuActivityCard.vue')
+for (const token of ['.activity-card--compact .activity-card__cover', 'height: 200rpx;', '.activity-card--compact .activity-card__body', 'activity-card__meta-row', '.activity-card--compact .activity-card__meta-row', 'activity-card__footer--compact', 'activity-card__status-chip', 'v-if="!compact"']) {
+  if (!activityCardSource.includes(token)) {
+    errors.push(`SuActivityCard.vue must define compact home-card style token: ${token}`)
+  }
+}
+const compactCoverBlock = activityCardSource.match(/\.activity-card--compact\s+\.activity-card__cover\s*\{[\s\S]*?\}/)
+if (compactCoverBlock?.[0].includes('height: 308rpx')) {
+  errors.push('SuActivityCard.vue compact cover must not keep the default 308rpx height')
+}
+
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/participant/dashboard.vue']) {
   const source = read(file)
   for (const token of ['unreadCount', 'getUnreadMessageCount']) {
     if (!source.includes(token)) {
@@ -455,9 +652,14 @@ for (const token of ['getActivityStatusMeta', 'isTerminalActivity']) {
     errors.push(`pages/activity/detail.vue must guard terminal activity actions with ${token}`)
   }
 }
+for (const token of ['报名并确认订单']) {
+  if (!activityDetailSource.includes(token)) {
+    errors.push(`pages/activity/detail.vue must use trial-order activity wording token: ${token}`)
+  }
+}
 
 const activitySource = read('common/api/activity.js')
-for (const token of ['isCurrentUserActivityCreator', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
+for (const token of ['isCurrentUserActivityCreator', 'REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewActivityOwner', 'applicationStatus', 'isPubliclyVisibleActivity', 'PUBLIC_ACTIVITY_MODERATION_STATUSES', "'surego-activity', 'listMine'"]) {
   if (!activitySource.includes(token)) {
     errors.push(`common/api/activity.js is missing ownership release token: ${token}`)
   }
@@ -481,8 +683,20 @@ if (activitySource.includes('isCreator: form.isCreator') || activitySource.inclu
   errors.push('common/api/activity.js must not trust stored isCreator in release mode')
 }
 
+const mockActivitiesSource = read('common/mock/activities.js')
+for (const token of ['graduation-photo-walk-owner', "creatorId: 'mock_user'", '毕业季草坪约拍']) {
+  if (!mockActivitiesSource.includes(token)) {
+    errors.push(`common/mock/activities.js must include my published activity mock with ${token}`)
+  }
+}
+
 const profileActivitySource = read('pages/user/profile.vue')
-for (const token of ['ACTIVITY_STATUS_FILTERS', 'filteredActivityList', 'getActivityStatusMeta', 'profile-card__status']) {
+for (const token of ['listMyPartnerPosts', 'partnerPostList', "activeTab === 'partners'", 'goPartnerWorkbench']) {
+  if (!profileActivitySource.includes(token)) {
+    errors.push(`pages/user/profile.vue must manage my partner posts with ${token}`)
+  }
+}
+for (const token of ['activityScopeTabs', 'partnerScopeTabs', 'currentActivityList', 'currentPartnerList', 'getActivityStatusMeta', 'profile-card__status']) {
   if (!profileActivitySource.includes(token)) {
     errors.push(`pages/user/profile.vue must render release activity categories/status badge: ${token}`)
   }
@@ -517,6 +731,15 @@ for (const token of ['scrollTop', ':scroll-top="scrollTop"', 'scroll-with-animat
 }
 
 const messageSource = read('common/api/message.js')
+for (const token of ['partnerPostId', 'partner_post_id', 'conversationId', 'conversation_id']) {
+  if (!messageSource.includes(token)) {
+    errors.push(`common/api/message.js must carry partner message links with ${token}`)
+  }
+}
+const messagesPageSource = read('pages/messages/index.vue')
+if (!messagesPageSource.includes('goPartnerConversation') || !messagesPageSource.includes('item.conversationId')) {
+  errors.push('pages/messages/index.vue must route partner conversation messages to goPartnerConversation')
+}
 for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) {
   if (messageSource.includes(staleToken)) {
     errors.push(`common/api/message.js must not ship seeded mock messages: ${staleToken}`)
@@ -524,6 +747,198 @@ for (const staleToken of ['defaultMessages', 'getSeedMessages', 'msg_default']) 
 }
 if (!messageSource.includes('filter((item) => isCurrentUserMessage(item, userId))')) {
   errors.push('common/api/message.js must scope local messages to the current user')
+}
+
+const partnerApiSource = read('common/api/partner.js')
+for (const token of ['PARTNER_POST_TYPES', 'PARTNER_POST_STATUS_META', 'PARTNER_TOPIC_OPTIONS', 'HACKATHON_TOPIC_KEY', 'listPartnerPosts', 'listHackathonPartnerPosts', 'getPartnerPostDetail', 'createPartnerPost', 'listMyPartnerPosts', 'createPartnerIntent', 'listPartnerIntents', 'updatePartnerIntentStatus', 'followPartnerPost']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js is missing release partner token: ${token}`)
+  }
+}
+for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must normalize current viewer intent state with ${token}`)
+  }
+}
+for (const token of ['USE_UNICLOUD', 'callSuregoFunction', '@/common/api/auth.js', 'createMessage']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must use release facade/message dependency ${token}`)
+  }
+}
+for (const token of ['getPartnerConversation', 'listPartnerConversations', 'CONVERSATIONS_KEY']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must align conversation flow with ${token}`)
+  }
+}
+for (const token of ['convertPartnerPostToActivity', 'kind', 'converted', 'visibility', 'sourcePartnerPostId', 'sourcePartnerIntentIds', 'invitedUserIds', 'invited_user_ids', 'source_partner_intent_ids']) {
+  if (!partnerApiSource.includes(token)) {
+    errors.push(`common/api/partner.js must expose document-aligned partner conversion token: ${token}`)
+  }
+}
+for (const staleToken of ['writeApprovedApplications(activity', 'writeApprovedApplications(activity,', 'APPLICATIONS_KEY']) {
+  if (partnerApiSource.includes(staleToken)) {
+    errors.push(`common/api/partner.js must not auto-create approved applications during partner conversion: ${staleToken}`)
+  }
+}
+const followHelperStart = partnerApiSource.indexOf('export async function followPartnerPost')
+const followHelperEnd = partnerApiSource.indexOf('\nfunction ', followHelperStart + 1)
+const followHelperSource = partnerApiSource.slice(followHelperStart, followHelperEnd === -1 ? partnerApiSource.length : followHelperEnd)
+if (followHelperSource.indexOf('if (USE_UNICLOUD)') > followHelperSource.indexOf('readFollows()')) {
+  errors.push('common/api/partner.js followPartnerPost must call cloud before local follow cache in USE_UNICLOUD mode')
+}
+
+const partnerPageSource = read('pages/partners/index.vue')
+for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'getUnreadMessageCount', 'activeType']) {
+  if (!partnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
+  }
+}
+for (const token of ['searchKeyword', 'matchesKeyword', 'v-model="searchKeyword"']) {
+  if (!partnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue must implement real local partner search with ${token}`)
+  }
+}
+if (partnerPageSource.includes('showComingSoon')) {
+  errors.push('pages/partners/index.vue search must not be a placeholder toast')
+}
+
+const hackathonIndexSource = read('pages/hackathon/index.vue')
+for (const token of ['listHackathonPartnerPosts', 'allowFallback: false', "topicKey: 'hackathon'", 'goHackathonTeam', 'goPartnerCreate({', 'emptyPartner']) {
+  if (!hackathonIndexSource.includes(token)) {
+    errors.push(`pages/hackathon/index.vue must use release hackathon partner token: ${token}`)
+  }
+}
+for (const staleToken of ['const teams = [', '@/common/mock', 'uniCloud.callFunction']) {
+  if (hackathonIndexSource.includes(staleToken)) {
+    errors.push(`pages/hackathon/index.vue must not use static/mock/direct cloud data: ${staleToken}`)
+  }
+}
+if (hackathonIndexSource.includes('showComingSoon') || hackathonIndexSource.includes('voice-card')) {
+  errors.push('pages/hackathon/index.vue must hide low-priority voice placeholder entry in trial mode')
+}
+
+const partnerCreateTopicSource = read('pages/partner/create.vue')
+for (const token of ['HACKATHON_TOPIC_KEY', 'topicKey', 'topic-notice', 'HACKATHON_LOCKED_TIME', 'HACKATHON_LOCKED_LOCATION', '2026年5月22日', '天津大学科技园']) {
+  if (!partnerCreateTopicSource.includes(token)) {
+    errors.push(`pages/partner/create.vue must expose locked hackathon publish token: ${token}`)
+  }
+}
+for (const staleToken of ['PARTNER_TOPIC_OPTIONS', 'topicOptions', '黑客松/赛事', '确认方式', '希望对方', '标签']) {
+  if (partnerCreateTopicSource.includes(staleToken)) {
+    errors.push(`pages/partner/create.vue must not expose stale heavy publish token: ${staleToken}`)
+  }
+}
+
+const hackathonTeamSource = read('pages/hackathon/team.vue')
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'allowFallback: false', 'guardLoginAction', 'isLoggedIn', 'viewerIntent', 'intentStatus', 'goPartnerConversation']) {
+  if (!hackathonTeamSource.includes(token)) {
+    errors.push(`pages/hackathon/team.vue must use release hackathon intent token: ${token}`)
+  }
+}
+for (const staleToken of ['const teams = [', '@/common/mock', 'goMessages', 'uniCloud.callFunction']) {
+  if (hackathonTeamSource.includes(staleToken)) {
+    errors.push(`pages/hackathon/team.vue must not use static/mock/direct cloud data: ${staleToken}`)
+  }
+}
+if (partnerPageSource.includes('找搭子')) {
+  errors.push('pages/partners/index.vue must not render the stale 找搭子 label')
+}
+for (const createPage of ['pages/activity/create.vue', 'pages/partner/create.vue']) {
+  const source = read(createPage)
+  if (source.includes('voice-launch-button') || source.includes('showComingSoon')) {
+    errors.push(`${createPage} must hide low-priority voice placeholder entry in trial mode`)
+  }
+}
+const normalizedPartnerPageSource = partnerPageSource.replace(/\r\n/g, '\n')
+for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
+  if (!normalizedPartnerPageSource.includes(token)) {
+    errors.push(`pages/partners/index.vue must keep compact spacing below the feature card with ${token}`)
+  }
+}
+if (!partnerPageSource.includes('gap: 18rpx;')) {
+  errors.push('pages/partners/index.vue must tighten partner list spacing to gap: 18rpx')
+}
+if (partnerPageSource.includes('gap: 26rpx;')) {
+  errors.push('pages/partners/index.vue must not keep tall partner list spacing gap: 26rpx')
+}
+
+const partnerCardSource = read('components/surego/SuPartnerCard.vue')
+for (const token of ['contract-row__copy', 'contract-row__action', 'min-width: 152rpx', 'white-space: nowrap', 'text-overflow: ellipsis']) {
+  if (!partnerCardSource.includes(token)) {
+    errors.push(`SuPartnerCard.vue action capsule must keep single-line text on real devices with ${token}`)
+  }
+}
+for (const token of ['compact-meta-row', 'compact-meta-chip', 'displayConnectionSummary']) {
+  if (!partnerCardSource.includes(token)) {
+    errors.push(`SuPartnerCard.vue must use compact partner list layout with ${token}`)
+  }
+}
+for (const staleToken of ['partner-post-card__desc', 'displayExpectation', 'partner-post-card__want-main', 'partner-meta-grid']) {
+  if (partnerCardSource.includes(staleToken)) {
+    errors.push(`SuPartnerCard.vue compact list card must not render tall/redundant detail block: ${staleToken}`)
+  }
+}
+if (partnerCardSource.includes('grid-template-columns: 1fr;') && partnerCardSource.includes('.contract-row')) {
+  errors.push('SuPartnerCard.vue action capsule must sit on the right of the contract row, not stretch as a full-width grid row')
+}
+if (partnerCardSource.includes('width: 120rpx')) {
+  errors.push('SuPartnerCard.vue action capsule must not use fixed 120rpx width because four Chinese characters wrap on device')
+}
+
+const partnerDetailSource = read('pages/partner/detail.vue')
+for (const token of ['getPartnerPostDetail', 'createPartnerIntent', 'followPartnerPost', 'goPartnerWorkbench', 'guardLoginAction', 'viewerIntent', 'viewerIntentStatus', 'goPartnerConversation', 'openAcceptedConversation']) {
+  if (!partnerDetailSource.includes(token)) {
+    errors.push(`pages/partner/detail.vue is missing release partner detail token: ${token}`)
+  }
+}
+for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange']) {
+  if (!partnerDetailSource.includes(token)) {
+    errors.push(`pages/partner/detail.vue must align partner detail information order with ${token}`)
+  }
+}
+if (partnerDetailSource.includes('搭子帖')) {
+  errors.push('pages/partner/detail.vue must not expose 搭子帖 in user-visible copy')
+}
+if (partnerDetailSource.includes('showComingSoon')) {
+  errors.push('pages/partner/detail.vue must replace placeholder chat actions with intent-state and conversation routing')
+}
+
+const partnerCreateSource = read('pages/partner/create.vue')
+for (const token of ['createPartnerPost', 'adjust-position="false"', 'cursor-spacing="80"']) {
+  if (!partnerCreateSource.includes(token)) {
+    errors.push(`pages/partner/create.vue is missing release partner create token: ${token}`)
+  }
+}
+
+const partnerConversationSource = read('pages/partner/conversation.vue')
+for (const token of ['getPartnerConversation', 'conversation.partnerPostId', 'participantIds', 'goPartnerDetail']) {
+  if (!partnerConversationSource.includes(token)) {
+    errors.push(`pages/partner/conversation.vue is missing release conversation token: ${token}`)
+  }
+}
+
+const partnerWorkbenchSource = read('pages/partner/workbench.vue')
+for (const token of ['listPartnerIntents', 'updatePartnerIntentStatus', 'goPartnerDetail']) {
+  if (!partnerWorkbenchSource.includes(token)) {
+    errors.push(`pages/partner/workbench.vue is missing release partner workbench token: ${token}`)
+  }
+}
+for (const token of ['convertPartnerPostToActivity', 'openConvertSheet', 'convertSheetVisible', 'conversionForm', 'sourcePartnerIntentIds', 'invitedUserIds']) {
+  if (!partnerWorkbenchSource.includes(token)) {
+    errors.push(`pages/partner/workbench.vue must support real partner conversion flow token: ${token}`)
+  }
+}
+for (const staleToken of ['搭子转活动正在接入', '定向通知正在接入']) {
+  if (partnerWorkbenchSource.includes(staleToken)) {
+    errors.push(`pages/partner/workbench.vue must not keep placeholder conversion copy: ${staleToken}`)
+  }
+}
+
+const publishSource = read('pages/publish/index.vue')
+for (const token of ['goActivityCreate', 'goPartnerCreate', '发布活动', '发布搭子']) {
+  if (!publishSource.includes(token)) {
+    errors.push(`pages/publish/index.vue is missing release publish hub token: ${token}`)
+  }
 }
 
 const appMessageSource = read('common/api/application.js')
@@ -820,6 +1235,20 @@ for (const role of ['"role_id": "user"', '"role_id": "operator"', '"role_id": "a
   }
 }
 
+const deploymentDocSource = read('docs/surego-cloud-trial-deployment.md')
+for (const token of ['只上传 SureGo 业务云函数', '不要全量上传', 'surego-activity', 'surego-partner', 'surego-users.init_data.json', 'uni-id-roles.init_data.json']) {
+  if (!deploymentDocSource.includes(token)) {
+    errors.push(`docs/surego-cloud-trial-deployment.md is missing deployment scope token: ${token}`)
+  }
+}
+
+const deploymentScopeCheckSource = read('scripts/surego-deployment-scope-check.mjs')
+for (const token of ['allowedCloudFunctions', 'allowedDatabaseArtifacts', 'blockedDemoRoutes', 'surego-activity', 'user-center']) {
+  if (!deploymentScopeCheckSource.includes(token)) {
+    errors.push(`scripts/surego-deployment-scope-check.mjs is missing deployment scope token: ${token}`)
+  }
+}
+
 const posterSource = read('pages/share/poster.vue')
 for (const token of ['canvas-id="posterCanvas"', 'uni.saveImageToPhotosAlbum', 'open-type="share"']) {
   if (!posterSource.includes(token)) {
@@ -834,6 +1263,16 @@ const paymentSource = read('pages/payment/index.vue')
 if (!paymentSource.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
   errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success')
 }
+for (const token of ['确认试运行订单', '订单确认成功']) {
+  if (!paymentSource.includes(token)) {
+    errors.push(`pages/payment/index.vue must use trial-order wording token: ${token}`)
+  }
+}
+for (const staleToken of ['确认支付', '支付成功', '试运行订单确认，不发生真实扣款']) {
+  if (paymentSource.includes(staleToken)) {
+    errors.push(`pages/payment/index.vue must not imply real payment with ${staleToken}`)
+  }
+}
 
 const orderDetailSourceForStack = read('pages/order/detail.vue')
 if (!orderDetailSourceForStack.includes('goPayment({ activityId: order.activityId, type: order.type, amount: order.amount }, { replace: true })')) {
@@ -841,6 +1280,18 @@ if (!orderDetailSourceForStack.includes('goPayment({ activityId: order.activityI
 }
 if (!orderDetailSourceForStack.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
   errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order')
+}
+for (const token of ['试运行金额', '试运行退款记录']) {
+  if (!orderDetailSourceForStack.includes(token)) {
+    errors.push(`pages/order/detail.vue must use trial-order detail wording token: ${token}`)
+  }
+}
+
+const orderApiSourceForTrialCopy = read('common/api/order.js')
+for (const token of ['试运行订单确认成功', '试运行退款记录', '订单确认成功']) {
+  if (!orderApiSourceForTrialCopy.includes(token)) {
+    errors.push(`common/api/order.js must use trial-order notification wording token: ${token}`)
+  }
 }
 
 const successSource = read('pages/status/success.vue')
@@ -858,6 +1309,16 @@ const activityCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-activity
 for (const token of ["action === 'listMine'", 'isPubliclyVisibleActivity', "status: 'reviewing'", "activity.moderation_status = 'pending'"]) {
   if (!activityCloudSource.includes(token)) {
     errors.push(`surego-activity must enforce review-gated visibility: ${token}`)
+  }
+}
+for (const token of ["visibility: payload.visibility || 'public'", 'source_partner_post_id', "source: payload.source || 'direct_activity'"]) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must support converted activity visibility/source token: ${token}`)
+  }
+}
+for (const token of ['invited_user_ids', 'source_partner_intent_ids']) {
+  if (!activityCloudSource.includes(token)) {
+    errors.push(`surego-activity must support converted activity invite token: ${token}`)
   }
 }
 for (const token of ['creatorStatusTransitions', 'canTransitionStatus', 'INVALID_TRANSITION']) {
@@ -886,6 +1347,45 @@ if (!messageApiSource.includes('eventKey') || !messageApiSource.includes('existi
 }
 if (!messageApiSource.includes('getUnreadMessageCount')) {
   errors.push('common/api/message.js must expose getUnreadMessageCount for release notification badges')
+}
+
+const partnerCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-partner/index.js')
+for (const token of ['viewerIntent', 'viewerIntentStatus', 'viewerConversationId', 'findViewerIntentForPost']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must return current viewer intent state with ${token}`)
+  }
+}
+for (const token of ['surego-conversations', 'ensureConversationForIntent', 'participant_ids', 'conversation_id']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must create/link conversations when accepting intents with ${token}`)
+  }
+}
+for (const token of ["action === 'convertToActivity'", 'source_partner_post_id', 'visibility', 'invited_user_ids', 'source_partner_intent_ids']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must support partner conversion flow token: ${token}`)
+  }
+}
+for (const staleToken of ['createApprovedApplicationsForActivity', 'applications.add({']) {
+  if (partnerCloudSource.includes(staleToken)) {
+    errors.push(`surego-partner must not auto-create approved activity applications during conversion: ${staleToken}`)
+  }
+}
+for (const token of ["if (!record.description)"]) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must validate partner post required fields with ${token}`)
+  }
+}
+for (const token of ['buildListPostWhere', 'matchesPostTextFilters', 'tagsAny', 'payload.type', 'topic_key', 'normalizeTopicKey']) {
+  if (!partnerCloudSource.includes(token)) {
+    errors.push(`surego-partner must support release filtered project/hackathon listPosts token: ${token}`)
+  }
+}
+
+const partnerApiSourceForMine = read('common/api/partner.js')
+for (const token of ['REFERENCE_PREVIEW_OWNER_IDS', 'isReferencePreviewOwner', 'weekly-badminton']) {
+  if (!partnerApiSourceForMine.includes(token)) {
+    errors.push(`common/api/partner.js must keep reference mock owner posts visible in mine with ${token}`)
+  }
 }
 
 const moderationSource = read('common/api/moderation.js')

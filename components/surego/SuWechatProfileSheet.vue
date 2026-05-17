@@ -5,12 +5,11 @@
       <view class="profile-sheet__handle" />
       <text class="profile-sheet__eyebrow">WECHAT PROFILE</text>
       <text class="profile-sheet__title">完善微信资料</text>
-      <text class="profile-sheet__desc">选择头像并填写昵称后，活动、报名、消息和现场凭证都会使用这份资料。</text>
 
       <button class="profile-sheet__avatar-btn" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
         <image class="profile-sheet__avatar" :src="form.avatar" mode="aspectFill" />
         <view class="profile-sheet__camera">
-          <uni-icons type="camera-filled" size="18" color="#fff" />
+          <SuIcon name="camera-filled" size="36" glyph-size="18" variant="inline" color="#fff" />
         </view>
       </button>
 
@@ -41,6 +40,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { reactive, watch, ref } from 'vue'
 import { syncCurrentUserProfile } from '@/common/api/user.js'
 import { uploadImageFile } from '@/common/api/upload.js'
@@ -178,9 +178,7 @@ function handleClose() {
 .profile-sheet__title {
   margin-top: 8rpx;
   color: #111827;
-  font-size: 38rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 38rpx; font-weight: 900;
 }
 
 .profile-sheet__desc {

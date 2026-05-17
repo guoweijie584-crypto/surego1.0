@@ -1,29 +1,57 @@
-﻿<template>
+<template>
   <view class="create su-page">
     <view class="create__nav" :style="navStyle">
       <view class="create__nav-row" :style="navRowStyle">
         <view class="create__nav-btn" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#0f172a" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#0f172a" />
         </view>
         <text>发起新局</text>
         <view class="create__nav-btn" @tap="showPreview = true">
-          <uni-icons type="eye" size="22" color="#0f172a" />
+          <SuIcon name="eye" size="44" glyph-size="22" variant="inline" color="#0f172a" />
         </view>
       </view>
     </view>
 
     <scroll-view scroll-y class="create__scroll" :style="contentTopStyle">
-      <view class="create__hero">
-        <text class="create__eyebrow">CREATE A SPOT</text>
-        <text class="create__title">把想法开成一局</text>
-        <text class="create__desc">设置时间、地点和报名方式，提交后等待运营审核。</text>
+      <view class="composer-strip">
+        <view class="composer-block">
+          <text class="composer-block__label">活动成行方式</text>
+          <view class="compact-segmented">
+            <view
+              v-for="item in intentModes"
+              :key="item.key"
+              class="compact-segmented__item"
+              :class="{ 'compact-segmented__item--active': intentMode === item.key }"
+              @tap="handleIntentModeChange(item.key)"
+            >
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="composer-block">
+          <text class="composer-block__label">场景</text>
+          <scroll-view scroll-x class="scene-scroll-row" :show-scrollbar="false">
+            <view class="scene-scroll-row__inner">
+              <view
+                v-for="(item, index) in categories"
+                :key="item"
+                class="scene-filter-chip"
+                :class="{ 'scene-filter-chip--active': form.category === item }"
+                @tap="selectCategory(index)"
+              >
+                <text>{{ item }}</text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
       </view>
 
       <view class="form-card">
         <view class="cover" @tap="openCoverPicker">
           <image class="cover__image" :src="form.image" mode="aspectFill" @error="handleCoverImageError" />
           <view class="cover__mask">
-            <uni-icons type="image" size="26" color="#fff" />
+            <SuIcon name="image" size="52" glyph-size="26" variant="inline" color="#fff" />
             <text>选择封面</text>
           </view>
         </view>
@@ -78,22 +106,11 @@
         </view>
 
         <view class="field">
-          <text class="label">活动城市</text>
-          <view class="input input--picker city-select" @tap="openCitySelector">
-            <text>{{ form.city }}</text>
-            <uni-icons type="right" size="16" color="#94a3b8" />
-          </view>
-          <view class="field-helper field-helper--muted">
-            <text>选择地图地点后自动同步，可手动修正</text>
-          </view>
-        </view>
-
-        <view class="field">
           <text class="label">地点 *</text>
-          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" placeholder="例如：西湖风景区 路 太子湾公园" placeholder-class="placeholder" />
+          <input class="input" v-model="form.location" adjust-position="false" cursor-spacing="80" placeholder="例如：北洋园图书馆 3F / 鞍山西道沉浸剧场" placeholder-class="placeholder" />
           <view class="field-helper" @tap="chooseLocation">
-            <uni-icons type="location" size="16" color="#3b82f6" />
-            <text>{{ form.latitude ? '已选择地图定位，可重新选择' : '从地图选择地点' }}</text>
+            <SuIcon name="location" size="32" glyph-size="16" variant="inline" color="#3b82f6" />
+            <text>地图选点</text>
           </view>
         </view>
 
@@ -107,9 +124,8 @@
               :class="{ 'mode--active': form.partyMode === item.value }"
               @tap="form.partyMode = item.value"
             >
-              <uni-icons :type="item.icon" size="22" :color="form.partyMode === item.value ? '#fff' : item.color" />
+              <SuIcon :name="item.icon" size="44" glyph-size="22" variant="inline" :color="form.partyMode === item.value ? '#fff' : item.color" />
               <text>{{ item.label }}</text>
-              <text>{{ item.desc }}</text>
             </view>
           </view>
         </view>
@@ -128,14 +144,14 @@
           <view class="label-row">
             <text class="label">局长问题</text>
             <view class="add-question" @tap="addQuestion">
-              <uni-icons type="plusempty" size="16" color="#3b82f6" />
+              <SuIcon name="navPublish" size="32" glyph-size="16" variant="inline" color="#3b82f6" />
               <text>添加</text>
             </view>
           </view>
           <view v-for="(question, index) in form.questions" :key="index" class="question-row">
             <input class="input question-row__input" v-model="form.questions[index]" adjust-position="false" cursor-spacing="80" placeholder="例如：你会带乐器吗？" placeholder-class="placeholder" />
             <view class="question-row__remove" @tap="removeQuestion(index)">
-              <uni-icons type="trash" size="18" color="#ef4444" />
+              <SuIcon name="trash" size="36" glyph-size="18" variant="inline" color="#ef4444" />
             </view>
           </view>
         </view>
@@ -158,7 +174,7 @@
           <text class="preview__title">{{ form.title || '还没填写活动标题' }}</text>
           <text class="preview__meta">{{ form.date }} {{ form.time }} - {{ form.endTime }}</text>
           <text class="preview__meta">{{ form.location || '待填写地点' }}</text>
-          <text class="preview__desc">{{ form.description || '活动介绍会显示在这里。' }}</text>
+          <text v-if="form.description" class="preview__desc">{{ form.description }}</text>
         </view>
       </view>
     </SuActionSheet>
@@ -180,7 +196,7 @@
             </view>
           </scroll-view>
           <view class="cover-picker__random" @tap.stop="useRandomCover">
-            <uni-icons type="refresh" size="16" color="#0f172a" />
+            <SuIcon name="refresh" size="32" glyph-size="16" variant="inline" color="#0f172a" />
             <text>换一张</text>
           </view>
         </view>
@@ -204,33 +220,35 @@
         </button>
       </view>
     </SuActionSheet>
-
-    <unicloud-city-select ref="citySelectRef" :location="false" :hot-city="hotCities" @select="handleCitySelect" />
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, reactive, ref } from 'vue'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { createActivity } from '@/common/api/activity.js'
 import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
-import { DEFAULT_CITY, DEFAULT_CITY_CODE, HOT_CITY_OPTIONS, findCityOption, inferCityFromLocation, normalizeCityCode, normalizeCityName } from '@/common/utils/city.js'
 import { buildFieldHint, collectMissingFields, isFutureDate, normalizeTimeValue } from '@/common/utils/form.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
 const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
-const CITY_KEY = 'surego_selected_city'
-const CITY_CODE_KEY = 'surego_selected_city_code'
-const hotCities = HOT_CITY_OPTIONS
+const CAMPUS_NAME = '天津大学'
+const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
-  { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
-  { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
-  { value: 'ticket', label: '门票局', desc: '支付锁位', icon: 'paperplane-filled', color: '#8b5cf6' }
+  { value: 'free', label: '免费局', icon: 'checkmarkempty', color: '#22c55e' },
+  { value: 'sincerity', label: '诚意金', icon: 'wallet', color: '#ef4444' },
+  { value: 'ticket', label: '门票局', icon: 'paperplane-filled', color: '#8b5cf6' }
+]
+const intentModes = [
+  { key: 'now', label: '马上成行' },
+  { key: 'plan', label: '先约时间' },
+  { key: 'longterm', label: '长期固定' }
 ]
 
 const categoryIndex = ref(0)
-const citySelectRef = ref(null)
+const intentMode = ref('now')
 const showPreview = ref(false)
 const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
@@ -239,7 +257,6 @@ const fieldErrorText = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
-const initialCity = findCityOption(uni.getStorageSync(CITY_KEY), uni.getStorageSync(CITY_CODE_KEY)) || { name: DEFAULT_CITY, code: DEFAULT_CITY_CODE }
 
 const form = reactive({
   title: '',
@@ -252,9 +269,9 @@ const form = reactive({
   address: '',
   latitude: '',
   longitude: '',
-  city: normalizeCityName(uni.getStorageSync(CITY_KEY) || initialCity.name),
-  cityCode: normalizeCityCode(uni.getStorageSync(CITY_CODE_KEY) || initialCity.code),
-  district: '',
+  city: CAMPUS_NAME,
+  cityCode: CAMPUS_CITY_CODE,
+  district: '北洋园',
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
@@ -285,15 +302,27 @@ function handleCategoryChange(event) {
   }
 }
 
-function openCitySelector() {
-  citySelectRef.value?.open()
+function selectCategory(index) {
+  const event = {
+    detail: {
+      value: index
+    }
+  }
+  handleCategoryChange(event)
 }
 
-function handleCitySelect(city = {}) {
-  const cityName = normalizeCityName(city.name || form.city)
-  form.city = cityName || DEFAULT_CITY
-  form.cityCode = normalizeCityCode(city.code || findCityOption(cityName)?.code || form.cityCode)
-  form.district = ''
+function handleIntentModeChange(key) {
+  intentMode.value = key
+  if (key === 'now') {
+    form.requireApproval = false
+    if (!form.maxParticipants) form.maxParticipants = '6'
+    return
+  }
+  form.requireApproval = true
+  if (key === 'longterm') {
+    form.partyMode = 'free'
+    if (!form.maxParticipants) form.maxParticipants = '12'
+  }
 }
 
 function handleDateChange(event) {
@@ -355,26 +384,14 @@ function chooseLocation() {
       form.address = result.address || result.name || form.location
       form.latitude = result.latitude
       form.longitude = result.longitude
-      syncCityFromLocation(result)
+      form.city = CAMPUS_NAME
+      form.cityCode = CAMPUS_CITY_CODE
+      form.district = '北洋园'
     },
     fail() {
       uni.showToast({ title: '未选择地图地点，可继续手动填写', icon: 'none' })
     }
   })
-}
-
-function syncCityFromLocation(result = {}) {
-  const inferred = inferCityFromLocation(`${result.address || ''} ${result.name || ''}`, {
-    city: form.city,
-    cityCode: form.cityCode,
-    district: form.district
-  })
-  form.city = inferred.city
-  form.cityCode = inferred.cityCode
-  form.district = inferred.district
-  if (!inferred.cityCode) {
-    uni.showToast({ title: '已保留当前城市，可手动修正', icon: 'none' })
-  }
 }
 
 function addQuestion() {
@@ -487,9 +504,7 @@ async function handleSubmit() {
   display: block;
   margin-top: 10rpx;
   color: #0f172a;
-  font-size: 54rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 54rpx; font-weight: 900;
 }
 
 .create__desc {
@@ -499,6 +514,81 @@ async function handleSubmit() {
   font-size: 25rpx;
   font-weight: 700;
   line-height: 1.55;
+}
+
+.composer-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 26rpx;
+  margin: 0 34rpx 26rpx;
+  padding: 30rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 36rpx;
+  background: #fff;
+  box-shadow: 0 18rpx 44rpx rgba(15, 23, 42, 0.05);
+}
+
+.composer-block__label {
+  display: block;
+  margin-bottom: 16rpx;
+  color: #94a3b8;
+  font-size: 21rpx;
+  font-weight: 900;
+}
+
+.compact-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10rpx;
+  padding: 8rpx;
+  border-radius: 28rpx;
+  background: #f3f6fa;
+}
+
+.compact-segmented__item {
+  display: flex;
+  min-width: 0;
+  height: 66rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.compact-segmented__item--active {
+  background: #102033;
+  color: #fff;
+  box-shadow: 0 10rpx 24rpx rgba(16, 32, 51, 0.18);
+}
+
+.scene-scroll-row {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.scene-scroll-row__inner {
+  display: flex;
+  gap: 14rpx;
+}
+
+.scene-filter-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 15rpx 24rpx;
+  border-radius: 999rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.scene-filter-chip--active {
+  background: #dbeafe;
+  color: #2388ff;
 }
 
 .form-card {
@@ -704,10 +794,6 @@ async function handleSubmit() {
 .switch-pill {
   display: flex;
   align-items: center;
-}
-
-.city-select {
-  justify-content: space-between;
 }
 
 .switch-pill {

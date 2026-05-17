@@ -6,6 +6,8 @@ const collection = db.collection('surego-applications');
 const activityCollection = db.collection('surego-activities');
 const uniIdUsers = db.collection('uni-id-users');
 const suregoUsers = db.collection('surego-users');
+const recruitableActivityStatuses = ['published', 'recruiting'];
+const recruitableModerationStatuses = ['approved', 'visible'];
 
 function normalizeRoles(roles) {
   if (!roles) return [];
@@ -55,6 +57,24 @@ function authRequired() {
 async function getActivity(activityId) {
   const result = await activityCollection.doc(String(activityId || '')).get();
   return (result.data || [])[0] || null;
+}
+
+function canApplyToActivity(activity = {}) {
+  const status = normalizeActivityLifecycleStatus(activity.status || activity.lifecycleStatus);
+  const moderationStatus = normalizeModerationStatus(activity.moderation_status || activity.moderationStatus);
+  return recruitableActivityStatuses.includes(status) && recruitableModerationStatuses.includes(moderationStatus);
+}
+
+function normalizeActivityLifecycleStatus(status = 'recruiting') {
+  const value = String(status || 'recruiting');
+  return ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'].includes(value)
+    ? value
+    : 'recruiting';
+}
+
+function normalizeModerationStatus(status = 'pending') {
+  const value = String(status || 'pending');
+  return ['pending', 'approved', 'visible', 'rejected', 'hidden'].includes(value) ? value : 'pending';
 }
 
 async function getSuregoUserProfile(userId) {
@@ -130,6 +150,9 @@ exports.main = async (event) => {
     }
     if (String(activity.creator_id || activity.creatorId || '') === user.uid) {
       return { code: 'FORBIDDEN', message: 'Creator cannot apply to own activity.' };
+    }
+    if (!canApplyToActivity(activity)) {
+      return { code: 'ACTIVITY_NOT_RECRUITING', message: 'Activity is not recruiting.' };
     }
     const existing = await getExistingApplication(activityId, user.uid);
     if (existing) {

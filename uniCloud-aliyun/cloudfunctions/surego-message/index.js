@@ -63,6 +63,8 @@ function normalizeMessage(record = {}) {
     content: record.content || '',
     sender: record.sender || '',
     activityId: record.activity_id || record.activityId || '',
+    partnerPostId: record.partner_post_id || record.partnerPostId || '',
+    conversationId: record.conversation_id || record.conversationId || '',
     read: Boolean(record.read),
     createdAt: record.created_at || record.createdAt || now(),
     updatedAt: record.updated_at || record.updatedAt || ''
@@ -84,7 +86,9 @@ function buildRecord(payload = {}) {
     sender: payload.sender || '',
     read: Boolean(payload.read),
     created_at: payload.createdAt || payload.created_at || now(),
-    updated_at: payload.updatedAt || payload.updated_at || ''
+    updated_at: payload.updatedAt || payload.updated_at || '',
+    partner_post_id: payload.partnerPostId || payload.partner_post_id || '',
+    conversation_id: payload.conversationId || payload.conversation_id || ''
   };
 }
 

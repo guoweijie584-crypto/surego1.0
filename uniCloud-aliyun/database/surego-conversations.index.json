@@ -1,0 +1,34 @@
+[
+  {
+    "IndexName": "post_updated_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "partner_post_id",
+          "Direction": "1"
+        },
+        {
+          "Name": "updated_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "participant_updated_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "participant_ids",
+          "Direction": "1"
+        },
+        {
+          "Name": "updated_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  }
+]

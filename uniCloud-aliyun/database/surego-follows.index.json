@@ -1,0 +1,38 @@
+[
+  {
+    "IndexName": "target_user",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "target_type",
+          "Direction": "1"
+        },
+        {
+          "Name": "target_id",
+          "Direction": "1"
+        },
+        {
+          "Name": "user_id",
+          "Direction": "1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "user_created_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "user_id",
+          "Direction": "1"
+        },
+        {
+          "Name": "created_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  }
+]

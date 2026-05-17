@@ -3,7 +3,7 @@
     <view class="calendar-page__nav" :style="navStyle">
       <view class="calendar-page__nav-row" :style="navRowStyle">
         <view class="calendar-page__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view>
           <text class="calendar-page__eyebrow">CALENDAR</text>
@@ -21,10 +21,10 @@
           </view>
           <view class="month-panel__actions">
             <view class="month-panel__btn" @tap="shiftMonth(-1)">
-              <uni-icons type="left" size="18" color="#111827" />
+              <SuIcon name="left" size="36" glyph-size="18" variant="inline" color="#111827" />
             </view>
             <view class="month-panel__btn" @tap="shiftMonth(1)">
-              <uni-icons type="right" size="18" color="#111827" />
+              <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#111827" />
             </view>
           </view>
         </view>
@@ -89,7 +89,7 @@
             </view>
             <text class="calendar-card__title su-line-2">{{ item.title }}</text>
             <view class="calendar-card__meta">
-              <uni-icons type="location" size="14" color="#94a3b8" />
+              <SuIcon name="location" size="30" glyph-size="14" variant="inline" color="#94a3b8" />
               <text class="su-line-1">{{ getShortLocation(item.location) }}</text>
             </view>
           </view>
@@ -99,7 +99,7 @@
         </view>
 
         <view v-if="visibleActivities.length === 0" class="empty">
-          <uni-icons type="calendar" size="44" color="#cbd5e1" />
+          <SuIcon name="calendar" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
           <text>这一天暂时没有活动</text>
         </view>
       </view>
@@ -108,6 +108,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { getActivityCalendar } from '@/common/api/activity.js'
@@ -116,7 +117,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 const weekLabels = ['日', '一', '二', '三', '四', '五', '六']
 const tabs = [
   { key: 'all', label: '全部' },
-  { key: 'joined', label: '我参与的' },
+  { key: 'joined', label: '我参加的' },
   { key: 'hosting', label: '我主办的' }
 ]
 
@@ -245,7 +246,7 @@ function getCardStatus(item) {
 }
 
 function getShortLocation(location) {
-  return (location || '').split(' 路 ')[0] || location
+  return (location || '').split(' · ')[0] || location
 }
 </script>
 
@@ -296,9 +297,7 @@ function getShortLocation(location) {
   display: block;
   margin-top: 4rpx;
   color: #111827;
-  font-size: 48rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 48rpx; font-weight: 900;
 }
 
 .calendar-page__scroll {
@@ -327,9 +326,7 @@ function getShortLocation(location) {
   display: block;
   margin-top: 8rpx;
   color: #111827;
-  font-size: 40rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 40rpx; font-weight: 900;
 }
 
 .month-panel__actions {
@@ -395,9 +392,7 @@ function getShortLocation(location) {
 .day-cell__num {
   position: relative;
   z-index: 1;
-  font-size: 27rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 27rpx; font-weight: 900;
 }
 
 .day-cell__dots {
@@ -447,9 +442,7 @@ function getShortLocation(location) {
   display: block;
   margin-top: 8rpx;
   color: #fff;
-  font-size: 42rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 42rpx; font-weight: 900;
 }
 
 .calendar-summary__count {
@@ -461,9 +454,7 @@ function getShortLocation(location) {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.24);
   color: #fff;
-  font-size: 38rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 38rpx; font-weight: 900;
 }
 
 .calendar-tabs {
@@ -531,9 +522,7 @@ function getShortLocation(location) {
   display: block;
   margin-top: 10rpx;
   color: #111827;
-  font-size: 29rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 29rpx; font-weight: 900;
   line-height: 1.38;
 }
 

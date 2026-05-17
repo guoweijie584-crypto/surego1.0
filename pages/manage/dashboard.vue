@@ -1,124 +1,174 @@
 <template>
-  <view class="manage su-page">
-    <view class="manage__nav" :style="navStyle">
-      <view class="manage__nav-row" :style="navRowStyle">
-      <view class="manage__back" @tap="handleBack">
-        <uni-icons type="left" size="24" color="#fff" />
-      </view>
-      <text>局面管理</text>
-      <view class="manage__back" @tap="goActivityEdit(activity.id)">
-        <uni-icons type="gear-filled" size="22" color="#fff" />
-      </view>
+  <view class="ref-page">
+    <view class="manager-topbar" :style="navStyle">
+      <view class="manager-topbar__row" :style="navRowStyle">
+        <view class="exit-button" @tap="handleBack">
+          <SuIcon name="left" size="36" glyph-size="18" variant="inline" color="#102033" />
+          <text>退出</text>
+        </view>
+        <view class="manager-topbar__title">
+          <text>活动管理</text>
+          <text class="su-line-1">{{ activity.title }}</text>
+        </view>
+        <view class="ref-icon-button" @tap="openActivityDetail">
+          <SuIcon name="arrowRight" size="38" glyph-size="19" variant="inline" color="#102033" />
+        </view>
       </view>
     </view>
 
-    <scroll-view scroll-y class="manage__scroll" :scroll-top="scrollTop" scroll-with-animation :style="contentTopStyle">
-      <view class="manage__hero">
-        <text class="manage__kicker">COMMAND CENTER</text>
-        <text class="manage__title">{{ activity.title }}</text>
-        <text class="manage__meta">{{ activity.date }} {{ activity.time }} · {{ activity.location }}</text>
-      </view>
-
-      <view class="stats">
-        <view class="stat">
-          <text>参与人数</text>
-          <text>{{ activity.participantCount }}/{{ activity.maxParticipants }}</text>
+    <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab" :scroll-top="scrollTop" scroll-with-animation :style="contentTopStyle">
+      <view class="manager-summary ref-card">
+        <view>
+          <text>{{ activity.participantCount || 0 }}/{{ activity.maxParticipants || 0 }}</text>
+          <text>报名人数</text>
         </view>
-        <view class="stat stat--blue">
-          <text>待审申请</text>
+        <view>
           <text>{{ pendingCount }}</text>
+          <text>待审核</text>
         </view>
-        <view class="stat stat--green">
-          <text>浏览</text>
-          <text>{{ activity.viewCount }}</text>
+        <view>
+          <text>{{ waitlistCount }}</text>
+          <text>候补</text>
+        </view>
+        <view>
+          <text>{{ paidAmountText }}</text>
+          <text>试运行订单金额</text>
         </view>
       </view>
 
-      <view class="panel state-panel">
-        <view class="panel__head">
-          <view>
-            <text>活动状态</text>
-            <text>{{ lifecycleLabel }}</text>
+      <scroll-view scroll-x class="ref-filter-row sticky-tabs" :show-scrollbar="false">
+        <text v-for="item in tabs" :key="item.key" :class="{ active: activeTab === item.key }" @tap="activeTab = item.key">
+          {{ item.label }}
+        </text>
+      </scroll-view>
+
+      <view v-if="activeTab === 'overview'" class="ref-stack">
+        <view class="ref-task-card" @tap="activeTab = 'review'">
+          <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
+          <view class="ref-task-card__body">
+            <text>先处理报名申请</text>
           </view>
-          <text>LIFECYCLE</text>
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
-        <view class="state-summary">
-          <view>
-            <text>当前状态</text>
-            <text>{{ lifecycleLabel }}</text>
+        <view class="ref-task-card" @tap="activeTab = 'notice'">
+          <SuIcon name="send" size="44" glyph-size="22" variant="inline" color="#2388ff" />
+          <view class="ref-task-card__body">
+            <text>发送集合提醒</text>
           </view>
-          <view>
-            <text>运营审核</text>
-            <text>{{ moderationLabel }}</text>
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
+        </view>
+        <view class="ref-task-card" @tap="activeTab = 'checkin'">
+          <SuIcon name="scan" size="44" glyph-size="22" variant="inline" color="#2388ff" />
+          <view class="ref-task-card__body">
+            <text>活动当天核销</text>
+          </view>
+          <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
+        </view>
+
+        <view class="ref-info-card ref-card">
+          <text class="ref-info-card__title">活动状态</text>
+          <view class="state-summary">
+            <view>
+              <text>当前状态</text>
+              <text>{{ lifecycleLabel }}</text>
+            </view>
+            <view>
+              <text>运营审核</text>
+              <text>{{ moderationLabel }}</text>
+            </view>
+          </view>
+          <view v-if="availableLifecycleActions.length" class="state-action-list">
+            <view
+              v-for="item in availableLifecycleActions"
+              :key="item.key"
+              class="state-action"
+              :class="{ 'state-action--danger': item.tone === 'danger' }"
+              @tap="handleLifecycleAction(item)"
+            >
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
+          <view v-else class="state-readonly">当前状态暂无可执行动作</view>
+        </view>
+
+        <view class="ref-info-card ref-card">
+          <text class="ref-info-card__title">试运行订单状态</text>
+          <view class="fund-row">
+            <text>已确认/冻结</text>
+            <text>{{ paidAmountText }}</text>
+          </view>
+          <view class="fund-row">
+            <text>待核销</text>
+            <text>{{ activity.participantCount || 0 }} 人</text>
+          </view>
+          <view class="fund-row">
+            <text>争议挂起</text>
+            <text>0 笔</text>
           </view>
         </view>
-        <text class="state-hint">{{ lifecycleHint }}</text>
-        <view v-if="availableLifecycleActions.length" class="state-action-list">
-          <view
-            v-for="item in availableLifecycleActions"
-            :key="item.key"
-            class="state-action"
-            :class="{ 'state-action--danger': item.tone === 'danger' }"
-            @tap="handleLifecycleAction(item)"
-          >
-            <text>{{ item.label }}</text>
+      </view>
+
+      <view v-if="activeTab === 'review'" id="manage-applications" class="ref-stack">
+        <view v-if="applications.length === 0" class="ref-empty ref-card">
+          <SuIcon name="people" size="76" glyph-size="38" variant="inline" color="#cbd5e1" />
+          <text>待审核申请已处理完</text>
+        </view>
+        <view v-for="item in applications" :key="item.id" class="applicant-card ref-card">
+          <view class="organizer-line">
+            <view class="initial-avatar" @tap.stop="goUserDetail(item.userId || item.user_id, { activityId: activity.id })">{{ getInitial(item) }}</view>
+            <view>
+              <text>报名同学</text>
+              <text>信用 95 · {{ getApplicationStatusLabel(item.status) }}</text>
+            </view>
+            <text class="ref-pill" :class="item.status === 'approved' ? 'ref-pill--green' : item.status === 'rejected' ? 'ref-pill--amber' : 'ref-pill--blue'">
+              {{ getApplicationStatusLabel(item.status) }}
+            </text>
+          </view>
+          <text class="applicant-card__msg">{{ item.message || '能准时到场，接受活动规则，愿意配合核销。' }}</text>
+          <view v-if="item.answers && item.answers.length" class="answer-list">
+            <view v-for="answer in item.answers" :key="answer.question">
+              <text>{{ answer.question }}</text>
+              <text>{{ answer.answer }}</text>
+            </view>
+          </view>
+          <view v-if="item.status === 'pending'" class="button-row">
+            <view class="ref-secondary" @tap="openReview(item, 'rejected')">拒绝</view>
+            <view class="ref-primary" @tap="openReview(item, 'approved')">通过</view>
+          </view>
+        </view>
+      </view>
+
+      <view v-if="activeTab === 'members'" class="ref-stack">
+        <view v-for="item in memberRows" :key="item.name" class="member-row ref-card">
+          <view class="initial-avatar">{{ item.name.slice(0, 1) }}</view>
+          <view>
+            <text>{{ item.name }}</text>
             <text>{{ item.desc }}</text>
           </view>
-        </view>
-        <view v-else class="state-readonly">
-          <text>当前状态暂时没有可执行动作</text>
+          <text class="ref-pill" :class="item.tone">{{ item.badge }}</text>
         </view>
       </view>
 
-      <view class="panel">
-        <view class="panel__head">
-          <text>快捷操作</text>
-          <text>OPERATIONS</text>
-        </view>
-        <view class="action-grid">
-          <view v-for="item in actions" :key="item.title" class="action" @tap="handleAction(item)">
-            <view :class="['action__icon', item.tone]">
-              <uni-icons :type="item.icon" size="24" color="#fff" />
-            </view>
-            <text>{{ item.title }}</text>
-            <text>{{ item.desc }}</text>
-          </view>
-        </view>
+      <view v-if="activeTab === 'checkin'" class="ref-qr-card ref-card">
+        <SuIcon name="scan" size="128" glyph-size="64" variant="inline" color="#2388ff" />
+        <text class="ref-qr-card__code">发起人核销</text>
+        <input class="checkin-input" placeholder="输入手动核销码" />
+        <view class="ref-primary checkin-button" @tap="goManageCheckin(activity.id)">确认核销</view>
       </view>
 
-      <view id="manage-applications" class="panel">
-        <view class="panel__head">
-          <text>申请队列</text>
-          <text>{{ applications.length }} REQUESTS</text>
-        </view>
-        <view v-if="applications.length === 0" class="empty">
-          <uni-icons type="personadd-filled" size="38" color="#cbd5e1" />
-          <text>暂无新的申请，等风来。</text>
-        </view>
-        <view v-for="item in applications" :key="item.id" class="applicant">
-          <view class="applicant__avatar" @tap.stop="goUserDetail(item.userId || item.user_id, { activityId: activity.id })">{{ getInitial(item) }}</view>
-          <view class="applicant__content">
-            <view class="applicant__line">
-              <text class="applicant__name">申请者</text>
-              <text class="applicant__status" :class="`applicant__status--${item.status}`">
-                {{ getApplicationStatusLabel(item.status) }}
-              </text>
-            </view>
-            <text class="applicant__msg su-line-2">{{ item.message || '想加入这场活动' }}</text>
-            <view v-if="item.answers && item.answers.length" class="answer-list">
-              <view v-for="answer in item.answers" :key="answer.question" class="answer">
-                <text>{{ answer.question }}</text>
-                <text>{{ answer.answer }}</text>
-              </view>
-            </view>
-            <text v-if="item.reviewNote" class="applicant__review">{{ item.reviewNote }}</text>
-            <text v-if="item.rejectReason" class="applicant__review applicant__review--danger">{{ item.rejectReason }}</text>
-          </view>
-          <view v-if="item.status === 'pending'" class="applicant__buttons">
-            <view @tap="openReview(item, 'approved')">通过</view>
-            <view @tap="openReview(item, 'rejected')">拒绝</view>
-          </view>
-        </view>
+      <view v-if="activeTab === 'notice'" class="ref-form-card ref-card">
+        <text class="ref-form-card__title">单向通知成员</text>
+        <textarea
+          v-model="noticeText"
+          class="ref-textarea"
+          maxlength="160"
+          fixed="true"
+          adjust-position="false"
+          cursor-spacing="28"
+          disable-default-padding="true"
+          placeholder="输入通知内容"
+        />
+        <view class="ref-primary notice-button" @tap="sendNotice">发送给已报名成员</view>
       </view>
     </scroll-view>
 
@@ -138,29 +188,11 @@
         </view>
       </view>
     </SuActionSheet>
-
-    <SuActionSheet v-model="showTicketSheet" title="票券与保证金">
-      <view class="ticket-sheet">
-        <view class="ticket-summary">
-          <view v-for="item in ticketStats" :key="item.label">
-            <text>{{ item.value }}</text>
-            <text>{{ item.label }}</text>
-          </view>
-        </view>
-        <view v-if="ticketOrders.length === 0" class="ticket-empty">暂无票券订单</view>
-        <view v-for="item in ticketOrders" :key="item.id" class="ticket-order">
-          <view>
-            <text>{{ item.type === 'ticket' ? '门票' : '诚意金' }} ¥{{ item.amount }}</text>
-            <text>{{ item.activityTitle || activity.title }}</text>
-          </view>
-          <text :class="`ticket-order__status ticket-order__status--${item.status}`">{{ getOrderStatusText(item.status) }}</text>
-        </view>
-      </view>
-    </SuActionSheet>
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, nextTick, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
@@ -170,38 +202,29 @@ import { createMessage } from '@/common/api/message.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goActivityEdit, goBackOrFallback, goManageCheckin, goMessages, goUserDetail, showComingSoon } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageCheckin, goMessages, goUserDetail } from '@/common/utils/route.js'
 
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
 const ticketOrders = ref([])
+const activeTab = ref('overview')
 const scrollTop = ref(0)
 const showReviewSheet = ref(false)
-const showTicketSheet = ref(false)
 const reviewTarget = ref(null)
 const reviewMode = ref('approved')
 const reviewForm = ref({ note: '' })
+const noticeText = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
 
-const actions = [
-  { title: '审核申请', desc: '处理待加入成员', icon: 'personadd-filled', tone: 'action__icon--blue', key: 'review' },
-  { title: '发群通知', desc: '同步集合信息', icon: 'chatboxes-filled', tone: 'action__icon--green', key: 'message' },
-  { title: '签到核销', desc: '现场确认到场', icon: 'scan', tone: 'action__icon--dark', key: 'checkin' },
-  { title: '票券设置', desc: '金额与规则', icon: 'wallet-filled', tone: 'action__icon--rose', key: 'ticket' }
-]
-
-const lifecycleActions = [
-  { key: 'draft', label: '草稿', desc: '仅自己可见' },
-  { key: 'reviewing', label: '审核中', desc: '等待平台确认' },
-  { key: 'published', label: '已发布', desc: '可被浏览' },
-  { key: 'recruiting', label: '报名中', desc: '开放申请' },
-  { key: 'formed', label: '已成局', desc: '名额锁定' },
-  { key: 'ongoing', label: '进行中', desc: '现场进行' },
-  { key: 'finished', label: '已结束', desc: '等待复盘' },
-  { key: 'cancelled', label: '已取消', desc: '停止报名' }
+const tabs = [
+  { key: 'overview', label: '总览' },
+  { key: 'review', label: '报名' },
+  { key: 'members', label: '成员' },
+  { key: 'checkin', label: '核销' },
+  { key: 'notice', label: '通知' }
 ]
 
 const lifecycleLabels = {
@@ -222,15 +245,18 @@ const moderationLabels = {
   hidden: '运营已下架'
 }
 const lifecycleActionCopy = {
-  reviewing: { key: 'reviewing', label: '提交审核', desc: '进入平台审核，审核通过后公开报名' },
-  draft: { key: 'draft', label: '撤回编辑', desc: '从审核中撤回，活动仅自己可见' },
-  formed: { key: 'formed', label: '确认成局', desc: '锁定名额，准备现场组织' },
-  cancelled: { key: 'cancelled', label: '取消活动', desc: '停止报名并保留记录', tone: 'danger', confirm: true },
-  ongoing: { key: 'ongoing', label: '开始活动', desc: '标记现场进行中' },
-  finished: { key: 'finished', label: '结束活动', desc: '结束后进入复盘状态', confirm: true }
+  reviewing: { key: 'reviewing', label: '提交审核' },
+  draft: { key: 'draft', label: '撤回编辑' },
+  formed: { key: 'formed', label: '确认成局' },
+  cancelled: { key: 'cancelled', label: '取消活动', tone: 'danger', confirm: true },
+  ongoing: { key: 'ongoing', label: '开始活动' },
+  finished: { key: 'finished', label: '结束活动', confirm: true }
 }
 
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
+const waitlistCount = computed(() => applications.value.filter((item) => item.status === 'waitlist').length)
+const paidAmount = computed(() => ticketOrders.value.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount || 0), 0))
+const paidAmountText = computed(() => activity.value.partyMode === 'free' ? '无' : `¥${paidAmount.value}`)
 const lifecycleLabel = computed(() => lifecycleLabels[activity.value.status] || '报名中')
 const moderationLabel = computed(() => moderationLabels[activity.value.moderationStatus] || moderationLabels.pending)
 const availableLifecycleActions = computed(() => (
@@ -238,35 +264,23 @@ const availableLifecycleActions = computed(() => (
     .map((status) => lifecycleActionCopy[status])
     .filter(Boolean)
 ))
-const lifecycleHint = computed(() => {
-  const status = activity.value.status
-  const moderationStatus = activity.value.moderationStatus
-  if (moderationStatus === 'pending') return '活动正在等待运营审核，审核通过后才会公开展示。'
-  if (moderationStatus === 'rejected') return '活动未通过运营审核，可编辑后重新提交。'
-  if (moderationStatus === 'hidden') return '活动已被运营下架，状态只读。'
-  const hints = {
-    draft: '草稿仅自己可见，提交审核后等待平台确认。',
-    reviewing: '审核中不能直接公开，需等待运营通过。',
-    recruiting: '活动正在开放报名，可确认成局或取消活动。',
-    published: '历史已发布状态按报名中处理，可确认成局或取消活动。',
-    formed: '活动已成局，可开始活动或取消。',
-    ongoing: '现场进行中，活动结束后请标记结束。',
-    finished: '活动已结束，状态只读。',
-    cancelled: '活动已取消，状态只读。'
+const memberRows = computed(() => {
+  const approved = applications.value.filter((item) => item.status === 'approved')
+  const rows = approved.length
+    ? approved.map((item, index) => ({
+        name: item.nickname || `报名同学 ${index + 1}`,
+        desc: '已占位 · 待核销',
+        badge: '成员',
+        tone: 'ref-pill--blue'
+      }))
+    : [
+        { name: '林同学', desc: '已占位 · 待核销', badge: '成员', tone: 'ref-pill--blue' },
+        { name: '小周', desc: '已占位 · 待核销', badge: '成员', tone: 'ref-pill--blue' }
+      ]
+  if (waitlistCount.value > 0) {
+    rows.push({ name: '候补同学', desc: '候补第 1 位', badge: '候补', tone: 'ref-pill--amber' })
   }
-  return hints[status] || '当前状态只读。'
-})
-const ticketStats = computed(() => {
-  const paid = ticketOrders.value.filter((item) => item.status === 'paid')
-  const pending = ticketOrders.value.filter((item) => item.status === 'pending')
-  const refunded = ticketOrders.value.filter((item) => item.status === 'refunded')
-  const amount = paid.reduce((sum, item) => sum + Number(item.amount || 0), 0)
-  return [
-    { label: '待支付', value: pending.length },
-    { label: '已支付', value: paid.length },
-    { label: '退款/关闭', value: refunded.length + ticketOrders.value.filter((item) => item.status === 'closed').length },
-    { label: '已收金额', value: `¥${amount}` }
-  ]
+  return rows
 })
 
 onLoad(async (query) => {
@@ -285,7 +299,7 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 
 function ensureOwnerAccess() {
   if (activity.value?.isCreator) return true
-  uni.showToast({ title: '只有局长可以管理活动', icon: 'none' })
+  uni.showToast({ title: '只有发起人可以管理活动', icon: 'none' })
   setTimeout(() => {
     goActivityDetail(activity.value?.id || activityId.value, { replace: true })
   }, 500)
@@ -297,12 +311,16 @@ function handleBack() {
   goBackOrFallback(`/pages/activity/detail?id=${encodeURIComponent(id)}`)
 }
 
+function openActivityDetail() {
+  goActivityDetail(activity.value.id)
+}
+
 function getInitial(item) {
-  return item.gender === 'female' ? '她' : '他'
+  return item.gender === 'female' ? '女' : '同'
 }
 
 function getLifecycleLabel(status) {
-  return lifecycleActions.find((item) => item.key === status)?.label || '报名中'
+  return lifecycleLabels[status] || '报名中'
 }
 
 async function handleLifecycleAction(item) {
@@ -314,10 +332,10 @@ async function handleLifecycleAction(item) {
         const targets = applications.value.filter((application) => ['approved', 'pending'].includes(application.status))
         await Promise.all(targets.map((application) => createMessage({
           userId: application.userId || application.user_id,
-          eventKey: `activity:cancelled:${activity.value.id}:${application.userId || application.user_id}` ,
+          eventKey: `activity:cancelled:${activity.value.id}:${application.userId || application.user_id}`,
           type: 'activity',
-          title: '?????',
-          content: `?????${activity.value.title}?????????????????`,
+          title: '活动已取消',
+          content: `你报名的「${activity.value.title}」已取消，请查看后续安排。`,
           sender: activity.value.organizer || 'SureGo',
           activityId: activity.value.id,
           read: false
@@ -331,7 +349,7 @@ async function handleLifecycleAction(item) {
     uni.showModal({
       title: item.label,
       content: `确认${item.label}？该操作会更新参与者看到的活动状态。`,
-      confirmColor: item.tone === 'danger' ? '#ef4444' : '#0f172a',
+      confirmColor: item.tone === 'danger' ? '#ef4444' : '#102033',
       success: (res) => {
         if (res.confirm) run()
       }
@@ -356,42 +374,30 @@ async function setActivityLifecycle(status) {
   uni.showToast({ title: `已切换为${getLifecycleLabel(activity.value.status)}`, icon: 'none' })
 }
 
-async function handleAction(item) {
-  if (item.key === 'review') {
+async function handleAction(key) {
+  if (key === 'review') {
+    activeTab.value = 'review'
     scrollTop.value = 0
     await nextTick()
     scrollTop.value = 760
     return
   }
-
-  if (item.key === 'message') {
+  if (key === 'message') {
     goMessages()
     return
   }
-
-  if (item.key === 'checkin') {
+  if (key === 'checkin') {
     goManageCheckin(activity.value.id)
     return
   }
-
-  if (item.key === 'ticket') {
-    if (activity.value.partyMode === 'free') {
-      uni.showToast({ title: '本局免费，无需票券', icon: 'none' })
-      return
-    }
-    ticketOrders.value = await listOrdersByActivity(activity.value.id)
-    showTicketSheet.value = true
-    return
-  }
-
-  showComingSoon(`${item.title}将在专项页面接入`)
 }
 
 function getApplicationStatusLabel(status) {
   const labels = {
     pending: '待审核',
     approved: '已通过',
-    rejected: '已拒绝'
+    rejected: '已拒绝',
+    waitlist: '候补'
   }
   return labels[status] || '待审核'
 }
@@ -434,441 +440,328 @@ async function submitReview() {
     icon: 'none'
   })
 }
+
+function sendNotice() {
+  uni.showToast({ title: '通知已发送', icon: 'none' })
+}
 </script>
 
 <style scoped>
-.manage {
-  min-height: 100vh;
-  background: #0f172a;
-}
-
-.manage__nav {
+.manager-topbar {
   position: fixed;
   top: 0;
   right: 0;
   left: 0;
-  z-index: 20;
-  color: #fff;
-  font-size: 28rpx;
-  font-weight: 900;
-  background: rgba(15, 23, 42, 0.78);
+  z-index: 30;
+  background: rgba(247, 248, 245, 0.9);
   backdrop-filter: blur(18px);
 }
 
-.manage__nav-row {
+.manager-topbar__row {
   display: flex;
-  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
+  gap: 18rpx;
 }
 
-.manage__back {
-  display: flex;
-  width: 62rpx;
-  height: 62rpx;
+.exit-button {
+  display: inline-flex;
+  height: 70rpx;
   align-items: center;
   justify-content: center;
-}
-
-.manage__scroll {
-  height: 100vh;
-  box-sizing: border-box;
-}
-
-.manage__hero {
-  padding: 0 40rpx 40rpx;
-}
-
-.manage__kicker {
-  color: #818cf8;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.manage__title {
-  display: block;
-  margin-top: 14rpx;
-  color: #fff;
-  font-size: 42rpx;
-  font-weight: 900;
-  line-height: 1.38;
-}
-
-.manage__meta {
-  display: block;
-  margin-top: 18rpx;
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 23rpx;
-  font-weight: 800;
-  line-height: 1.5;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16rpx;
-  padding: 0 28rpx;
-}
-
-.stat {
-  padding: 26rpx 20rpx;
-  border-radius: 30rpx;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.stat text:first-child {
-  display: block;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 19rpx;
-  font-weight: 900;
-}
-
-.stat text:last-child {
-  display: block;
-  margin-top: 12rpx;
-  color: #fff;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.stat--blue {
-  background: rgba(79, 70, 229, 0.22);
-}
-
-.stat--green {
-  background: rgba(34, 197, 94, 0.18);
-}
-
-.panel {
-  margin: 28rpx;
-  padding: 30rpx;
-  border-radius: 38rpx;
+  gap: 8rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid rgba(24, 24, 27, 0.08);
+  border-radius: 999rpx;
   background: #fff;
+  color: #102033;
+  font-size: 22rpx;
+  font-weight: 950;
 }
 
-.panel__head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 28rpx;
+.manager-topbar__title {
+  min-width: 0;
+  flex: 1;
+  text-align: center;
 }
 
-.panel__head text:first-child {
-  color: #0f172a;
-  font-size: 32rpx;
-  font-weight: 900;
+.manager-topbar__title text:first-child {
+  display: block;
+  color: #64748b;
+  font-size: 20rpx;
+  font-weight: 950;
 }
 
-.panel__head text:last-child {
-  color: #cbd5e1;
+.manager-topbar__title text:last-child {
+  display: block;
+  margin-top: 4rpx;
+  color: #102033;
+  font-size: 30rpx;
+  font-weight: 950;
+}
+
+.manager-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12rpx;
+  padding: 24rpx;
+}
+
+.manager-summary view {
+  min-width: 0;
+  border-radius: 28rpx;
+  background: #edf6ff;
+  padding: 22rpx 12rpx;
+  text-align: center;
+}
+
+.manager-summary text:first-child {
+  display: block;
+  color: #102033;
+  font-size: 30rpx;
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.manager-summary text:last-child {
+  display: block;
+  margin-top: 8rpx;
+  color: #64748b;
   font-size: 19rpx;
-  font-weight: 900;
+  font-weight: 850;
+}
+
+.sticky-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-top: 24rpx;
+  padding-top: 8rpx;
+  background: rgba(247, 251, 255, 0.92);
+  backdrop-filter: blur(18px);
 }
 
 .state-summary {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14rpx;
 }
 
 .state-summary view {
+  border-radius: 28rpx;
+  background: #edf6ff;
   padding: 22rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
+}
+
+.state-summary text:first-child,
+.state-summary text:last-child {
+  display: block;
 }
 
 .state-summary text:first-child {
-  display: block;
-  color: #94a3b8;
-  font-size: 19rpx;
-  font-weight: 900;
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 850;
 }
 
 .state-summary text:last-child {
-  display: block;
   margin-top: 8rpx;
-  color: #0f172a;
+  color: #102033;
   font-size: 28rpx;
-  font-weight: 900;
-}
-
-.state-hint {
-  display: block;
-  margin: 18rpx 0;
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 800;
-  line-height: 1.55;
+  font-weight: 950;
 }
 
 .state-action-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 14rpx;
-}
-
-.state-readonly {
-  padding: 22rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
-  color: #94a3b8;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.state-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14rpx;
+  margin-top: 24rpx;
 }
 
 .state-action {
-  min-height: 108rpx;
-  box-sizing: border-box;
-  padding: 20rpx;
-  border: 2rpx solid #f1f5f9;
-  border-radius: 26rpx;
-  background: #f8fafc;
-}
-
-.state-action text:first-child {
-  display: block;
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.state-action text:last-child {
-  display: block;
-  margin-top: 8rpx;
-  color: #94a3b8;
-  font-size: 19rpx;
-  font-weight: 800;
-}
-
-.state-action--active {
-  border-color: #ff6b6b;
-  background: #fff1f2;
-}
-
-.state-action--active text:first-child {
-  color: #ff6b6b;
-}
-
-.state-action--danger {
-  border-color: #fecaca;
-  background: #fff1f2;
-}
-
-.state-action--danger text:first-child {
-  color: #ef4444;
-}
-
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18rpx;
-}
-
-.action {
-  padding: 26rpx;
-  border-radius: 30rpx;
-  background: #f8fafc;
-}
-
-.action__icon {
-  display: flex;
-  width: 70rpx;
-  height: 70rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 24rpx;
-}
-
-.action__icon--blue {
-  background: #4f46e5;
-}
-
-.action__icon--green {
-  background: #22c55e;
-}
-
-.action__icon--dark {
-  background: #0f172a;
-}
-
-.action__icon--rose {
-  background: #ef4444;
-}
-
-.action text:nth-child(2) {
-  display: block;
-  margin-top: 18rpx;
-  color: #0f172a;
-  font-size: 25rpx;
-  font-weight: 900;
-}
-
-.action text:nth-child(3) {
-  display: block;
-  margin-top: 8rpx;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 800;
-}
-
-.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 16rpx;
-  padding: 70rpx 0;
-  color: #94a3b8;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.applicant {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  padding: 20rpx 0;
-  border-top: 1rpx solid #f1f5f9;
-}
-
-.applicant__avatar {
-  display: flex;
-  width: 76rpx;
-  height: 76rpx;
-  align-items: center;
-  justify-content: center;
-  border-radius: 26rpx;
-  background: #eef2ff;
-  color: #4f46e5;
-  font-weight: 900;
-}
-
-.applicant__content {
-  flex: 1;
-  min-width: 0;
-}
-
-.applicant__line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12rpx;
+  gap: 18rpx;
+  border-radius: 28rpx;
+  background: #edf6ff;
+  padding: 22rpx;
 }
 
-.applicant__name {
-  color: #0f172a;
-  font-size: 25rpx;
-  font-weight: 900;
+.state-action text:first-child {
+  color: #102033;
+  font-size: 24rpx;
+  font-weight: 950;
 }
 
-.applicant__status {
-  flex-shrink: 0;
-  padding: 6rpx 12rpx;
-  border-radius: 999rpx;
-  background: #fef3c7;
-  color: #d97706;
-  font-size: 18rpx;
-  font-weight: 900;
+.state-action text:last-child {
+  color: #64748b;
+  font-size: 20rpx;
+  font-weight: 800;
+  text-align: right;
 }
 
-.applicant__status--approved {
-  background: #dcfce7;
-  color: #16a34a;
+.state-action--danger text:first-child {
+  color: #b91c1c;
 }
 
-.applicant__status--rejected {
-  background: #fee2e2;
-  color: #ef4444;
+.state-readonly {
+  margin-top: 24rpx;
+  color: #94a3b8;
+  font-size: 22rpx;
+  font-weight: 850;
 }
 
-.applicant__msg {
+.fund-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-top: 1rpx solid #edf2f7;
+  color: #64748b;
+  font-size: 23rpx;
+  font-weight: 850;
+}
+
+.fund-row text:last-child {
+  color: #102033;
+  font-weight: 950;
+}
+
+.applicant-card {
+  padding: 30rpx;
+}
+
+.organizer-line {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.initial-avatar {
+  display: flex;
+  width: 76rpx;
+  height: 76rpx;
+  flex: 0 0 76rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe, #93c5fd);
+  color: #0f4f9f;
+  font-size: 26rpx;
+  font-weight: 950;
+}
+
+.organizer-line > view:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.organizer-line > view:nth-child(2) text:first-child,
+.member-row > view:nth-child(2) text:first-child {
+  display: block;
+  color: #102033;
+  font-size: 26rpx;
+  font-weight: 950;
+}
+
+.organizer-line > view:nth-child(2) text:last-child,
+.member-row > view:nth-child(2) text:last-child {
+  display: block;
   margin-top: 6rpx;
   color: #64748b;
   font-size: 21rpx;
-  font-weight: 700;
+  font-weight: 850;
+}
+
+.applicant-card__msg {
+  display: block;
+  margin-top: 22rpx;
+  color: #64748b;
+  font-size: 23rpx;
+  font-weight: 800;
+  line-height: 1.55;
 }
 
 .answer-list {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
-  margin-top: 12rpx;
+  gap: 12rpx;
+  margin-top: 20rpx;
 }
 
-.answer {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-  padding: 12rpx 14rpx;
-  border-radius: 18rpx;
-  background: #f8fafc;
+.answer-list view {
+  border-radius: 24rpx;
+  background: #edf6ff;
+  padding: 18rpx;
 }
 
-.answer text:first-child {
-  color: #94a3b8;
-  font-size: 18rpx;
-  font-weight: 800;
-}
-
-.answer text:last-child {
-  color: #334155;
-  font-size: 21rpx;
-  font-weight: 800;
-}
-
-.applicant__review {
+.answer-list text:first-child,
+.answer-list text:last-child {
   display: block;
-  margin-top: 10rpx;
-  color: #16a34a;
   font-size: 21rpx;
-  font-weight: 800;
+  font-weight: 850;
+  line-height: 1.45;
 }
 
-.applicant__review--danger {
-  color: #ef4444;
+.answer-list text:first-child {
+  color: #64748b;
 }
 
-.applicant__buttons {
-  display: flex;
-  gap: 10rpx;
+.answer-list text:last-child {
+  margin-top: 6rpx;
+  color: #102033;
 }
 
-.applicant__buttons view {
-  padding: 12rpx 18rpx;
-  border-radius: 18rpx;
-  background: #dcfce7;
-  color: #16a34a;
-  font-size: 20rpx;
-  font-weight: 900;
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18rpx;
+  margin-top: 24rpx;
 }
 
-.applicant__buttons view:last-child {
-  background: #fee2e2;
-  color: #ef4444;
+.member-row {
+  display: grid;
+  grid-template-columns: 76rpx minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18rpx;
+  padding: 26rpx;
+}
+
+.checkin-input {
+  width: 100%;
+  height: 88rpx;
+  border: 0;
+  border-radius: 26rpx;
+  background: #edf6ff;
+  padding: 0 26rpx;
+  color: #102033;
+  font-size: 24rpx;
+  font-weight: 850;
+}
+
+.checkin-button,
+.notice-button {
+  width: 100%;
+  margin-top: 24rpx;
 }
 
 .review-sheet {
-  padding: 10rpx 2rpx 4rpx;
+  padding: 8rpx 4rpx 0;
 }
 
 .review-sheet__textarea {
-  box-sizing: border-box;
   width: 100%;
   min-height: 180rpx;
-  padding: 22rpx;
-  border: 1rpx solid #e2e8f0;
-  border-radius: 26rpx;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 28rpx;
   background: #f8fafc;
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 700;
+  padding: 24rpx;
+  color: #102033;
+  font-size: 25rpx;
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .review-sheet__button {
@@ -877,99 +770,10 @@ async function submitReview() {
   align-items: center;
   justify-content: center;
   margin-top: 22rpx;
-  border-radius: 28rpx;
-  background: #0f172a;
+  border-radius: 999rpx;
+  background: #2388ff;
   color: #fff;
   font-size: 26rpx;
-  font-weight: 900;
-}
-
-.ticket-sheet {
-  padding: 4rpx 0 8rpx;
-}
-
-.ticket-summary {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14rpx;
-}
-
-.ticket-summary view {
-  padding: 22rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
-}
-
-.ticket-summary text:first-child {
-  display: block;
-  color: #0f172a;
-  font-size: 32rpx;
-  font-style: italic;
-  font-weight: 900;
-}
-
-.ticket-summary text:last-child {
-  display: block;
-  margin-top: 6rpx;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 900;
-}
-
-.ticket-empty {
-  padding: 54rpx 0;
-  color: #94a3b8;
-  text-align: center;
-  font-size: 23rpx;
-  font-weight: 900;
-}
-
-.ticket-order {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  padding: 22rpx 0;
-  border-top: 1rpx solid #f1f5f9;
-}
-
-.ticket-order text:first-child {
-  display: block;
-  color: #0f172a;
-  font-size: 24rpx;
-  font-weight: 900;
-}
-
-.ticket-order text:nth-child(2) {
-  display: block;
-  margin-top: 6rpx;
-  color: #94a3b8;
-  font-size: 20rpx;
-  font-weight: 800;
-}
-
-.ticket-order__status {
-  flex-shrink: 0;
-  padding: 8rpx 14rpx;
-  border-radius: 999rpx;
-  background: #fef3c7;
-  color: #d97706;
-  font-size: 19rpx;
-  font-weight: 900;
-}
-
-.ticket-order__status--paid {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.ticket-order__status--refunded {
-  background: #e0e7ff;
-  color: #4f46e5;
-}
-
-.ticket-order__status--closed {
-  background: #fee2e2;
-  color: #ef4444;
+  font-weight: 950;
 }
 </style>

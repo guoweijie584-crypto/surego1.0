@@ -1,4 +1,4 @@
-import { USE_UNICLOUD, shouldUseCloudFallback } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserId, getCurrentUserProfile, isLoggedIn, saveCurrentUserProfile, setMockLogin } from '@/common/api/auth.js'
 import { isPubliclyVisibleActivity, listAllActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
@@ -21,6 +21,37 @@ const defaultUser = {
   bio: '爱摄影、爱生活的斜杠青年',
   quote: '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。'
 }
+const PROFILE_EXTRA_KEYS = [
+  'followingCount',
+  'following_count',
+  'followerCount',
+  'follower_count',
+  'fansCount',
+  'fans_count',
+  'fulfillmentSuccessRate',
+  'fulfillment_success_rate',
+  'fulfillmentRate',
+  'fulfillment_rate',
+  'fulfillmentSuccessCount',
+  'fulfillment_success_count',
+  'fulfillmentTotalCount',
+  'fulfillment_total_count',
+  'partnerMatchedCount',
+  'partner_matched_count',
+  'partnerMatchSuccessCount',
+  'partner_match_success_count',
+  'reputationReviewCount',
+  'reputation_review_count',
+  'reviewCount',
+  'review_count',
+  'reputationTags',
+  'reputation_tags',
+  'impressionTags',
+  'impression_tags',
+  'reputationReviews',
+  'reputation_reviews',
+  'reviews'
+]
 
 function sanitizeNickname(value, fallback = DEFAULT_USER_NICKNAME) {
   const nickname = String(value || '').trim()
@@ -71,7 +102,7 @@ function readLocalUser() {
 
 function buildUserPayload(payload = {}) {
   const current = readLocalUser()
-  return {
+  const next = {
     ...current,
     uid: payload.uid || payload.userId || getCurrentUserId(),
     userId: payload.userId || payload.uid || getCurrentUserId(),
@@ -86,6 +117,14 @@ function buildUserPayload(payload = {}) {
     roles: normalizeRoles(payload.roles || payload.role || current.roles || current.role),
     role: normalizeRoles(payload.roles || payload.role || current.roles || current.role)
   }
+  for (const key of PROFILE_EXTRA_KEYS) {
+    if (payload[key] !== undefined) {
+      next[key] = payload[key]
+    } else if (current[key] !== undefined) {
+      next[key] = current[key]
+    }
+  }
+  return next
 }
 
 function writeLocalUser(payload) {
@@ -100,7 +139,7 @@ export async function syncCurrentUserProfile(payload = {}) {
     ...payload,
     profileCompletedAt: payload.profileCompletedAt || payload.profile_completed_at || Date.now()
   })
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const user = await callSuregoFunction('surego-user', 'updateProfile', next)
       return writeLocalUser(user || next)
@@ -115,7 +154,10 @@ export async function syncCurrentUserProfile(payload = {}) {
   return saved
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(options = {}) {
+  if (shouldUseReferenceMockPreview()) {
+    return readLocalUser()
+  }
   if (USE_UNICLOUD && !isLoggedIn()) {
     return getCurrentUserProfile()
   }
@@ -124,6 +166,9 @@ export async function getCurrentUser() {
       const user = await callSuregoFunction('surego-user', 'profile', { userId: getCurrentUserId() })
       return user ? writeLocalUser(user) : readLocalUser()
     } catch (error) {
+      if (options.allowFallback === false) {
+        throw error
+      }
       return handleSuregoCloudError(error, readLocalUser)
     }
   }

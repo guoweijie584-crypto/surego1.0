@@ -7,7 +7,7 @@
         <text class="my__title">我的活动</text>
       </view>
       <view class="my__create" @tap="goActivityCreate">
-        <uni-icons type="plusempty" size="22" color="#fff" />
+        <SuIcon name="navPublish" size="44" glyph-size="22" variant="inline" color="#fff" />
       </view>
       </view>
     </view>
@@ -28,7 +28,7 @@
 
     <scroll-view scroll-y class="my__scroll">
       <view v-if="currentList.length === 0" class="empty">
-        <uni-icons type="calendar" size="44" color="#cbd5e1" />
+        <SuIcon name="calendar" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
         <text>这里还没有活动</text>
       </view>
       <view v-for="item in currentList" :key="item.id" class="activity" @tap="openActivity(item)">
@@ -37,11 +37,10 @@
           <view class="activity__head">
             <text class="activity__badge">{{ getBadge(item) }}</text>
             <text class="activity__mode">{{ getMode(item) }}</text>
-            <text class="activity__status" :class="`activity__status--${getActivityCardStatusMeta(item).tone}`">{{ getActivityCardStatusMeta(item).label }}</text>
+            <text class="activity__status" :class="`activity__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
           </view>
           <text class="activity__title su-line-2">{{ item.title }}</text>
           <text class="activity__meta">{{ item.date }} {{ item.time }}</text>
-          <text class="activity__meta">{{ getActivityCountdownMeta(item).label }} {{ getActivityCountdownMeta(item).text }}</text>
           <text class="activity__meta">{{ item.location }}</text>
         </view>
       </view>
@@ -51,9 +50,10 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
-import { getActivityCardStatusMeta, getActivityCountdownMeta, getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goManageDashboard, goParticipantDashboard } from '@/common/utils/route.js'
 
 const activeTab = ref('hosting')
@@ -63,19 +63,29 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const lists = ref({
   hosting: [],
   joined: [],
+  invited: [],
   pending: []
 })
 
 const tabs = [
   { key: 'hosting', label: '主办' },
   { key: 'joined', label: '参加' },
+  { key: 'invited', label: '邀请' },
   { key: 'pending', label: '申请中' }
 ]
+
+onLoad((options = {}) => {
+  const targetTab = options.tab || ''
+  if (tabs.some((item) => item.key === targetTab)) {
+    activeTab.value = targetTab
+  }
+})
 
 const currentList = computed(() => sortActivitiesByStatusPriority(lists.value[activeTab.value] || []))
 const counts = computed(() => ({
   hosting: lists.value.hosting.length,
   joined: lists.value.joined.length,
+  invited: lists.value.invited?.length || 0,
   pending: lists.value.pending.length
 }))
 
@@ -86,6 +96,7 @@ onShow(async () => {
 function getBadge(item) {
   if (item.isCreator) return '局长'
   if (item.applicationStatus === 'approved') return '已加入'
+  if (item.applicationStatus === 'invited') return '待确认'
   return '审核中'
 }
 
@@ -148,9 +159,7 @@ function openActivity(item) {
   display: block;
   margin-top: 8rpx;
   color: #0f172a;
-  font-size: 48rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 48rpx; font-weight: 900;
 }
 
 .my__create {
@@ -166,7 +175,7 @@ function openActivity(item) {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14rpx;
   padding: 0 40rpx 24rpx;
 }

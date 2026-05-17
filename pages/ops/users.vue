@@ -3,14 +3,13 @@
     <view class="ops-users__nav" :style="navStyle">
       <view class="ops-users__nav-row" :style="navRowStyle">
       <view class="ops-users__back" @tap="handleBack">
-        <uni-icons type="left" size="24" color="#111827" />
+        <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
       </view>
       <view>
         <text class="ops-users__title">用户与权限</text>
-        <text class="ops-users__sub">User Roles</text>
       </view>
       <view class="ops-users__refresh" @tap="loadUsers">
-        <uni-icons type="refresh" size="20" color="#111827" />
+        <SuIcon name="refresh" size="40" glyph-size="20" variant="inline" color="#111827" />
       </view>
       </view>
     </view>
@@ -19,17 +18,16 @@
       <view class="hero">
         <text class="hero__eyebrow">ADMIN ONLY</text>
         <text class="hero__title">设置用户角色，控制运营台访问权限</text>
-        <text class="hero__desc">普通用户默认无法进入运营台；运营人员可处理内容；管理员可继续分配角色。</text>
       </view>
 
       <view v-if="!isAdmin" class="empty">
-        <uni-icons type="locked-filled" size="42" color="#cbd5e1" />
+        <SuIcon name="locked-filled" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
         <text>只有管理员可以设置用户角色</text>
       </view>
 
       <view v-else class="user-list">
         <view v-if="users.length === 0" class="empty">
-          <uni-icons type="person-filled" size="42" color="#cbd5e1" />
+          <SuIcon name="navProfile" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
           <text>暂无用户</text>
         </view>
 
@@ -61,6 +59,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCurrentUser, getRoleLabel, isAdminUser, listUsers, updateUserRoles } from '@/common/api/user.js'
@@ -80,7 +79,7 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPadd
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 onShow(async () => {
-  const current = await getCurrentUser()
+  const current = await getCurrentUser({ allowFallback: false })
   isAdmin.value = isAdminUser(current)
   if (!isAdmin.value) {
     uni.showToast({ title: '无权设置用户角色', icon: 'none' })

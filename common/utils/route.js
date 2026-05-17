@@ -1,10 +1,31 @@
 ﻿import { isLoggedIn } from '@/common/api/auth.js'
 
+import { hasOpsRole } from '@/common/api/auth.js'
+import { getCurrentUser, isAdminUser } from '@/common/api/user.js'
+
 function buildQuery(params = {}) {
   return Object.entries(params)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
     .join('&')
+}
+
+function isTapEventPayload(value = {}) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      typeof value.type === 'string' &&
+      (value.currentTarget || value.target || value.detail)
+  )
+}
+
+function isNavigationOptions(value = {}) {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      !isTapEventPayload(value) &&
+      (Object.prototype.hasOwnProperty.call(value, 'replace') || Object.prototype.hasOwnProperty.call(value, 'root'))
+  )
 }
 
 function goToUrl(url, options = {}) {
@@ -182,6 +203,22 @@ export function goActivityCreate() {
   guardLoginAction('/pages/activity/create')
 }
 
+export function goPartnerCreate(params = {}, options = {}) {
+  if (isTapEventPayload(params)) {
+    guardLoginAction('/pages/partner/create')
+    return
+  }
+
+  const queryParams = isNavigationOptions(params) ? {} : params
+  const navigationOptions = isNavigationOptions(params) ? params : options
+  const query = buildQuery(queryParams)
+  guardLoginAction(`/pages/partner/create${query ? `?${query}` : ''}`, navigationOptions)
+}
+
+export function goPublishCenter(options = {}) {
+  guardLoginAction('/pages/publish/index', options)
+}
+
 export function goDiscover() {
   goDiscoverRoot()
 }
@@ -206,16 +243,46 @@ export function goCalendar(date = '') {
   })
 }
 
-export function goMessages() {
-  uni.navigateTo({
-    url: '/pages/messages/index'
+export function goGraduation(options = {}) {
+  goToUrl('/pages/graduation/index', options)
+}
+
+export function goHackathon(options = {}) {
+  goToUrl('/pages/hackathon/index', options)
+}
+
+export function goHackathonTeam(id, options = {}) {
+  goToUrl(`/pages/hackathon/team?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goVerify(options = {}) {
+  goToUrl('/pages/verify/index', options)
+}
+
+export function goPartnersRoot() {
+  uni.reLaunch({
+    url: '/pages/partners/index'
   })
 }
 
-export function goUserProfile() {
-  uni.navigateTo({
-    url: '/pages/user/profile'
-  })
+export function goPartnerDetail(id, options = {}) {
+  goToUrl(`/pages/partner/detail?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goPartnerWorkbench(id, options = {}) {
+  guardLoginAction(`/pages/partner/workbench?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goPartnerConversation(id, options = {}) {
+  guardLoginAction(`/pages/partner/conversation?id=${encodeURIComponent(id)}`, options)
+}
+
+export function goMessages(options = {}) {
+  goToUrl('/pages/messages/index', options)
+}
+
+export function goUserProfile(options = {}) {
+  goToUrl('/pages/user/profile', options)
 }
 
 
@@ -223,17 +290,51 @@ export function goUserEdit() {
   guardLoginAction('/pages/user/edit')
 }
 
+async function guardOpsAction(url, options = {}) {
+  if (!isLoggedIn()) {
+    guardLoginAction(url, options)
+    return
+  }
+  try {
+    const profile = await getCurrentUser({ allowFallback: false })
+    if (!hasOpsRole(profile)) {
+      uni.showToast({ title: '无运营权限', icon: 'none' })
+      return
+    }
+    goToUrl(url, options)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '权限校验失败', icon: 'none' })
+  }
+}
+
+async function guardAdminAction(url, options = {}) {
+  if (!isLoggedIn()) {
+    guardLoginAction(url, options)
+    return
+  }
+  try {
+    const profile = await getCurrentUser({ allowFallback: false })
+    if (!isAdminUser(profile)) {
+      uni.showToast({ title: '仅管理员可操作', icon: 'none' })
+      return
+    }
+    goToUrl(url, options)
+  } catch (error) {
+    uni.showToast({ title: error?.message || '权限校验失败', icon: 'none' })
+  }
+}
+
 export function goOpsDashboard(options = {}) {
-  guardLoginAction('/pages/ops/dashboard', options)
+  guardOpsAction('/pages/ops/dashboard', options)
 }
 
 export function goOpsReports(status = '', options = {}) {
   const query = buildQuery({ status })
-  guardLoginAction(`/pages/ops/reports${query ? `?${query}` : ''}`, options)
+  guardOpsAction(`/pages/ops/reports${query ? `?${query}` : ''}`, options)
 }
 
 export function goOpsUsers(options = {}) {
-  guardLoginAction('/pages/ops/users', options)
+  guardAdminAction('/pages/ops/users', options)
 }
 
 export function goActivityEdit(id) {
@@ -257,7 +358,7 @@ export function goParticipantDashboard(id, options = {}) {
 export function goUserDetail(userId, options = {}) {
   const id = String(userId || '').trim()
   if (!id) {
-    uni.showToast({ title: '鏆傛棤鐢ㄦ埛淇℃伅', icon: 'none' })
+    uni.showToast({ title: '暂无用户信息', icon: 'none' })
     return
   }
   const activityId = options.activityId || options.activity_id || ''
@@ -283,9 +384,10 @@ export function goSharePoster(id) {
   })
 }
 
-export function goMyActivities() {
+export function goMyActivities(params = {}) {
+  const query = buildQuery(params)
   uni.navigateTo({
-    url: '/pages/my/activities'
+    url: `/pages/my/activities${query ? `?${query}` : ''}`
   })
 }
 
@@ -309,7 +411,7 @@ export function goHomeRoot() {
 
 export function goDiscoverRoot() {
   uni.reLaunch({
-    url: '/pages/discover/index'
+    url: '/pages/home/index'
   })
 }
 
@@ -326,8 +428,8 @@ export function goBackOrFallback(fallbackUrl = '/pages/home/index') {
     return
   }
 
-  if (safeFallbackUrl === '/pages/discover/index') {
-    goDiscoverRoot()
+  if (safeFallbackUrl === '/pages/partners/index') {
+    goPartnersRoot()
     return
   }
 

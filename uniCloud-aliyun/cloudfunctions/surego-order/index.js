@@ -4,7 +4,7 @@ const db = uniCloud.database();
 const collection = db.collection('surego-orders');
 const activityCollection = db.collection('surego-activities');
 const uniIdUsers = db.collection('uni-id-users');
-const ORDER_STATUSES = ['pending', 'paid', 'refunded', 'closed'];
+const ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'frozen', 'refunding', 'refunded', 'settled', 'disputed', 'closed'];
 
 function normalizeRoles(roles) {
   if (!roles) return [];
@@ -198,8 +198,12 @@ exports.main = async (event) => {
       updated_at: Date.now()
     };
     if (status === 'paid') patch.paid_at = Date.now();
+    if (status === 'frozen') patch.paid_at = Date.now();
     if (status === 'refunded') {
       patch.refunded_at = Date.now();
+      patch.refund_note = payload.refundNote || payload.refund_note || '';
+    }
+    if (status === 'refunding') {
       patch.refund_note = payload.refundNote || payload.refund_note || '';
     }
     if (status === 'closed') {
@@ -223,7 +227,7 @@ exports.main = async (event) => {
     const refundedAt = Date.now();
     const patch = {
       status: 'refunded',
-      refund_note: payload.refundNote || payload.refund_note || '模拟退款已记录',
+      refund_note: payload.refundNote || payload.refund_note || '试运行退款记录已登记',
       refunded_at: refundedAt,
       updated_at: refundedAt
     };

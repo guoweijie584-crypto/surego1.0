@@ -1,19 +1,19 @@
 ﻿<template>
   <view v-if="isPageLoading" class="members-page">
-    <SuPageLoading :style="contentTopStyle" text="???????..." />
+    <SuPageLoading :style="contentTopStyle" text="成员加载中..." />
   </view>
   <view v-else class="members-page">
     <view class="topbar" :style="navStyle">
       <view class="topbar__row" :style="navRowStyle">
         <view class="topbar__button" @tap="goBackOrFallback">
-          <uni-icons type="left" size="20" color="#0f172a" />
+          <SuIcon name="left" size="40" glyph-size="20" variant="inline" color="#0f172a" />
         </view>
         <view class="topbar__title">
           <text>成员列表</text>
           <text>{{ confirmedMembers.length }} CONFIRMED</text>
         </view>
         <view class="topbar__button" @tap="refreshMembers">
-          <uni-icons type="refresh" size="18" color="#0f172a" />
+          <SuIcon name="refresh" size="36" glyph-size="18" variant="inline" color="#0f172a" />
         </view>
       </view>
     </view>
@@ -50,7 +50,6 @@
         <view class="section__head">
           <view>
             <text class="section__title">已确认成员</text>
-            <text class="section__sub">APPROVED MEMBERS</text>
           </view>
         </view>
 
@@ -63,7 +62,7 @@
             </view>
             <text class="member-card__desc su-line-1">{{ member.desc }}</text>
           </view>
-          <uni-icons type="right" size="16" color="#cbd5e1" />
+          <SuIcon name="arrowRight" size="32" glyph-size="16" variant="inline" color="#cbd5e1" />
         </view>
       </view>
 
@@ -71,12 +70,11 @@
         <view class="section__head">
           <view>
             <text class="section__title">申请动态</text>
-            <text class="section__sub">APPLICATION QUEUE</text>
           </view>
         </view>
 
         <view v-if="pendingMembers.length === 0" class="empty">
-          <uni-icons type="personadd-filled" size="34" color="#cbd5e1" />
+          <SuIcon name="people" size="68" glyph-size="34" variant="inline" color="#cbd5e1" />
           <text>暂无待审核申请</text>
         </view>
         <view v-for="item in pendingMembers" :key="item.id" class="pending-card">
@@ -104,6 +102,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
@@ -139,7 +138,7 @@ const confirmedMembers = computed(() => {
     name: activity.value.organizer || '局长',
     role: '局长',
     avatar: activity.value.organizerAvatar || members[0].avatar,
-    desc: '本局发起人，负责审核、集合和现场节奏'
+    desc: '发起人'
   }
   const approved = applications.value
     .filter((item) => item.status === 'approved')

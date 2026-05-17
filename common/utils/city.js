@@ -1,10 +1,10 @@
-export const DEFAULT_CITY = '杭州'
-export const DEFAULT_CITY_CODE = '330100'
+export const DEFAULT_CITY = '天津'
+export const DEFAULT_CITY_CODE = '120100'
 
 export const CITY_OPTIONS = [
+  { name: '天津', code: '120100', desc: '天大、南开和海河周边正在成行' },
   { name: '北京', code: '110100', desc: '读书会与运动局预热' },
   { name: '上海', code: '310100', desc: '周末展览与城市漫游' },
-  { name: '杭州', code: '330100', desc: '西湖、武林、滨江正在成行' },
   { name: '广州', code: '440100', desc: '城市漫游和周末饭局' },
   { name: '深圳', code: '440300', desc: '运动、展览和夜生活' },
   { name: '南京', code: '320100', desc: '咖啡、徒步、夜游小局' },

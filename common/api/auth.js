@@ -1,4 +1,4 @@
-import { USE_UNICLOUD, isTrialMode, shouldUseCloudFallback } from '../config/runtime.js'
+import { USE_UNICLOUD, isTrialMode, isTrialStrictCloudAuthMode, shouldUseCloudFallback, shouldUseReferenceMockPreview } from '../config/runtime.js'
 
 export const MOCK_USER_ID = 'mock_user'
 
@@ -7,6 +7,7 @@ const UNI_ID_TOKEN_KEY = 'uni_id_token'
 const UNI_ID_TOKEN_EXPIRED_KEY = 'uni_id_token_expired'
 const LOCAL_USER_KEY = 'surego_current_user'
 const MOCK_LOGIN_KEY = 'surego_mock_login'
+const LOGIN_DIAGNOSTIC_KEY = 'surego_login_diagnostic'
 const OPS_ROLES = ['admin', 'operator']
 const LEGACY_MOCK_NICKNAME = String.fromCharCode(21556, 21704, 21704)
 export const DEFAULT_USER_NICKNAME = '微信用户'
@@ -23,6 +24,20 @@ const ANONYMOUS_USER = {
   quote: '授权微信登录后即可发起活动、报名入局和查看入场凭证。',
   role: [],
   isAnonymous: true
+}
+const REFERENCE_PREVIEW_USER = {
+  uid: MOCK_USER_ID,
+  _id: MOCK_USER_ID,
+  userId: MOCK_USER_ID,
+  nickname: '天大学生',
+  avatar: DEFAULT_USER_AVATAR,
+  credit: 98,
+  mbti: 'ENFP',
+  bio: '天津大学学生，饭搭子雷达，也会参加约拍和自习局',
+  quote: '希望在毕业季前多认识几个靠谱同学，一起把想做的事认真成行。',
+  profileCompletedAt: 1,
+  role: ['user'],
+  roles: ['user']
 }
 
 function sanitizeNickname(value, fallback = DEFAULT_USER_NICKNAME) {
@@ -90,7 +105,36 @@ function readUniIdToken() {
 }
 
 function isStrictCloudAuthMode() {
-  return USE_UNICLOUD && isTrialMode()
+  return USE_UNICLOUD && isTrialMode() && !shouldUseReferenceMockPreview() && !shouldUseCloudFallback()
+}
+
+function getErrorMessage(error, fallback = '') {
+  return String(error?.message || error?.errMsg || error?.code || fallback || '').trim()
+}
+
+export function recordLoginDiagnostic(stage, detail = {}) {
+  const diagnostic = {
+    stage,
+    mode: detail.mode || '',
+    code: detail.code || '',
+    message: detail.message || '',
+    cloudFallbackAllowed: shouldUseCloudFallback(),
+    strictTrialCloudAuth: isTrialStrictCloudAuthMode(),
+    createdAt: Date.now()
+  }
+  try {
+    uni.setStorageSync(LOGIN_DIAGNOSTIC_KEY, diagnostic)
+  } catch (error) {
+    // Storage can be unavailable in isolated tests.
+  }
+  if (diagnostic.cloudFallbackAllowed && stage === 'mock-fallback-used') {
+    console.warn('[surego-auth] local mock login fallback is active', diagnostic)
+  }
+  return diagnostic
+}
+
+export function getLastLoginDiagnostic() {
+  return readStorage(LOGIN_DIAGNOSTIC_KEY)
 }
 
 function pickToken(payload = {}) {
@@ -103,11 +147,14 @@ function pickTokenExpired(payload = {}) {
 
 function normalizeUniIdUser(payload = {}, fallback = {}) {
   const user = payload.userInfo || payload.user || payload
-  const uid = pickUserId(
+  const uid = pickOptionalUserId(
     { uid: payload.uid, _id: payload.uid },
     user,
     fallback
   )
+  if (!uid) {
+    throw new Error('Weixin login did not return a stable uid.')
+  }
   return {
     uid,
     _id: uid,
@@ -126,7 +173,7 @@ function requestWeixinLoginCode() {
       reject(new Error('uni.login is unavailable'))
       return
     }
-    uni.login({
+    const loginTask = uni.login({
       provider: 'weixin',
       success(res = {}) {
         if (res.code) {
@@ -139,6 +186,9 @@ function requestWeixinLoginCode() {
         reject(error)
       }
     })
+    if (loginTask && typeof loginTask.catch === 'function') {
+      loginTask.catch(() => {})
+    }
   })
 }
 
@@ -153,6 +203,7 @@ export function getCurrentUserId() {
 }
 
 export function isLoggedIn() {
+  if (shouldUseReferenceMockPreview()) return true
   const cloudUser = readCloudUserInfo()
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const mockLogin = readStorage(MOCK_LOGIN_KEY)
@@ -182,11 +233,28 @@ export function isOpsUser() {
     return false
   }
   const uid = pickUserId(cloudUser, uniIdUser, mockLogin, localUser)
-  if (uid === MOCK_USER_ID) return shouldUseCloudFallback()
+  if (uid === MOCK_USER_ID) return shouldUseCloudFallback() && !shouldUseReferenceMockPreview()
   return getUserRoles(cloudUser, uniIdUser, mockLogin, localUser).some((role) => OPS_ROLES.includes(role))
 }
 
 export function getCurrentUserProfile() {
+  if (shouldUseReferenceMockPreview()) {
+    const localUser = readStorage(LOCAL_USER_KEY)
+    const mockLogin = readStorage(MOCK_LOGIN_KEY)
+    return {
+      ...REFERENCE_PREVIEW_USER,
+      ...mockLogin,
+      ...localUser,
+      uid: localUser.uid || mockLogin.uid || MOCK_USER_ID,
+      _id: localUser._id || localUser.uid || mockLogin.uid || MOCK_USER_ID,
+      userId: localUser.userId || localUser.uid || mockLogin.userId || mockLogin.uid || MOCK_USER_ID,
+      nickname: sanitizeNickname(localUser.nickname || mockLogin.nickname || REFERENCE_PREVIEW_USER.nickname),
+      avatar: sanitizeAvatar(localUser.avatar || mockLogin.avatar || REFERENCE_PREVIEW_USER.avatar),
+      profileCompletedAt: localUser.profileCompletedAt || mockLogin.profileCompletedAt || REFERENCE_PREVIEW_USER.profileCompletedAt,
+      role: localUser.role || localUser.roles || mockLogin.role || mockLogin.roles || REFERENCE_PREVIEW_USER.role,
+      roles: localUser.roles || localUser.role || mockLogin.roles || mockLogin.role || REFERENCE_PREVIEW_USER.roles
+    }
+  }
   const cloudUser = readCloudUserInfo()
   const uniIdUser = readStorage(UNI_ID_USER_KEY)
   const localUser = readStorage(LOCAL_USER_KEY)
@@ -320,9 +388,20 @@ async function loginWithUserCenter(code, profile = {}) {
 
 export function loginWithMockFallback(profile = {}) {
   if (!shouldUseCloudFallback()) {
+    recordLoginDiagnostic('mock-fallback-blocked', {
+      mode: 'mock',
+      code: 'AUTH_REQUIRED',
+      message: 'Mock login fallback is disabled.'
+    })
     return Promise.reject(new Error('AUTH_REQUIRED'))
   }
   const user = setMockLogin(profile)
+  recordLoginDiagnostic('mock-fallback-used', {
+    mode: 'mock',
+    uid: user.uid,
+    message: 'Local development mock login fallback was used.',
+    cloudFallbackAllowed: true
+  })
   return Promise.resolve({
     mode: 'mock',
     uid: user.uid,
@@ -336,17 +415,45 @@ export async function loginWithWeixin(profile = {}) {
   try {
     code = await requestWeixinLoginCode()
   } catch (error) {
+    recordLoginDiagnostic('weixin-code-failed', {
+      mode: 'weixin-code',
+      message: getErrorMessage(error, 'Weixin login code failed.')
+    })
     return loginWithMockFallback(profile)
   }
 
+  let userCenterError = null
   try {
-    return await loginWithUniIdCo(code, profile)
+    const result = await loginWithUserCenter(code, profile)
+    recordLoginDiagnostic('user-center-success', {
+      mode: result.mode,
+      uid: result.uid,
+      message: 'user-center loginByWeixin succeeded.'
+    })
+    return result
   } catch (error) {
-    try {
-      return await loginWithUserCenter(code, profile)
-    } catch (fallbackError) {
-      return loginWithMockFallback(profile)
-    }
+    userCenterError = error
+    recordLoginDiagnostic('user-center-failed', {
+      mode: 'user-center',
+      message: getErrorMessage(error, 'user-center loginByWeixin failed.')
+    })
+  }
+
+  try {
+    const result = await loginWithUniIdCo(code, profile)
+    recordLoginDiagnostic('uni-id-co-success', {
+      mode: result.mode,
+      uid: result.uid,
+      message: 'uni-id-co loginByWeixin succeeded.'
+    })
+    return result
+  } catch (fallbackError) {
+    recordLoginDiagnostic('uni-id-co-failed', {
+      mode: 'uni-id-co',
+      message: getErrorMessage(fallbackError, 'uni-id-co loginByWeixin failed.'),
+      code: getErrorMessage(userCenterError)
+    })
+    return loginWithMockFallback(profile)
   }
 }
 
@@ -375,6 +482,7 @@ export function saveCurrentUserProfile(profile = {}) {
 
 export function clearAuthSession() {
   uni.removeStorageSync(MOCK_LOGIN_KEY)
+  uni.removeStorageSync(LOGIN_DIAGNOSTIC_KEY)
   uni.removeStorageSync(UNI_ID_USER_KEY)
   uni.removeStorageSync(UNI_ID_TOKEN_KEY)
   uni.removeStorageSync(LOCAL_USER_KEY)

@@ -9,8 +9,6 @@
     <view class="login__hero">
       <view class="login__logo">成</view>
       <text class="login__eyebrow">SureGo 成行</text>
-      <text class="login__title">先认识一下，再一起出发</text>
-      <text class="login__desc">授权后可以发起活动、报名入局、查看票券和现场签到。</text>
     </view>
 
     <view class="login__panel">
@@ -71,6 +69,9 @@ async function handleLogin() {
   isLoggingIn.value = true
   try {
     const result = await loginWithWeixin()
+    if (result.mode === 'mock') {
+      uni.showToast({ title: '本地开发登录兜底已启用', icon: 'none' })
+    }
     const currentProfile = await getCurrentUser().catch(() => result.user || getCurrentUserProfile())
     profile.value = {
       ...profile.value,

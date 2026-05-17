@@ -3,14 +3,13 @@
     <view class="reports__nav" :style="navStyle">
       <view class="reports__nav-row" :style="navRowStyle">
       <view class="reports__back" @tap="handleBack">
-        <uni-icons type="left" size="24" color="#111827" />
+        <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
       </view>
       <view>
         <text class="reports__title">举报处理</text>
-        <text class="reports__sub">Reports Queue</text>
       </view>
       <view class="reports__refresh" @tap="loadReports">
-        <uni-icons type="refreshempty" size="22" color="#111827" />
+        <SuIcon name="refresh" size="44" glyph-size="22" variant="inline" color="#111827" />
       </view>
       </view>
     </view>
@@ -29,7 +28,7 @@
       </view>
 
       <view v-if="reports.length === 0" class="empty">
-        <uni-icons type="flag" size="44" color="#cbd5e1" />
+        <SuIcon name="flag" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
         <text>暂无举报记录</text>
       </view>
 
@@ -44,7 +43,7 @@
               {{ statusLabel(item.status) }}
             </text>
           </view>
-          <text class="report-card__note">{{ item.note || '用户未填写补充说明' }}</text>
+          <text v-if="item.note" class="report-card__note">{{ item.note }}</text>
           <text v-if="item.reviewNote" class="report-card__review">处理备注：{{ item.reviewNote }}</text>
 
           <view v-if="activeReportId === item.id" class="review-box">
@@ -74,6 +73,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { listReports, updateReportStatus } from '@/common/api/moderation.js'

@@ -1,4 +1,4 @@
-import { USE_UNICLOUD } from '../config/runtime.js'
+import { USE_UNICLOUD, shouldUseReferenceMockPreview } from '../config/runtime.js'
 import { callSuregoFunction, handleSuregoCloudError } from '@/common/api/cloud.js'
 import { getCurrentUserId, getCurrentUserProfile } from '@/common/api/auth.js'
 import { createMessage } from '@/common/api/message.js'
@@ -162,7 +162,7 @@ function submitLocalApplication(payload) {
 
 export async function submitApplication(payload) {
   let application
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       application = await callSuregoFunction('surego-application', 'submit', buildApplication(payload, ''))
       application = normalizeApplication(application)
@@ -208,7 +208,7 @@ function listCurrentUserLocalApplications(userId = getCurrentUserId()) {
 export async function listMyApplications() {
   const userId = getCurrentUserId()
   if (!userId) return []
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-application', 'listMine', { userId, limit: 100 })
       const applications = (items || []).map(normalizeApplication)
@@ -224,7 +224,7 @@ export async function listMyApplications() {
 export async function getApplicationForActivity(activityId) {
   const userId = getCurrentUserId()
   if (!activityId || !userId) return null
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const application = await callSuregoFunction('surego-application', 'getMineByActivity', { activityId, userId })
       if (application) {
@@ -245,7 +245,7 @@ function listLocalApplications(activityId) {
 }
 
 export async function listApplications(activityId) {
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-application', 'listByActivity', { activityId })
       return (items || []).map(normalizeApplication)
@@ -288,7 +288,7 @@ export async function reviewApplication(id, status, options = {}) {
   const review = buildReviewPayload({ id, status, ...options })
   const sourceApplication = options.application || {}
   let reviewed
-  if (USE_UNICLOUD) {
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       reviewed = await callSuregoFunction('surego-application', 'review', review)
       const local = await reviewLocalApplication(review)

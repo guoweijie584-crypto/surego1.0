@@ -1,9 +1,9 @@
-﻿<template>
+<template>
   <view class="city su-page">
     <view class="city__nav" :style="navStyle">
       <view class="city__nav-row" :style="navRowStyle">
         <view class="city__back" @tap="goBackOrFallback">
-          <uni-icons type="left" size="24" color="#111827" />
+          <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
         <view>
           <text class="city__eyebrow">CITY</text>
@@ -20,7 +20,7 @@
           <text class="city__located">手动选择，暂不使用实时定位</text>
         </view>
         <view class="city__locate" @tap="openCitySelector">
-          <uni-icons type="location-filled" size="18" color="#fff" />
+          <SuIcon name="location" size="36" glyph-size="18" variant="inline" color="#fff" />
           <text>选择</text>
         </view>
       </view>
@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { getCityActivityStats } from '@/common/api/activity.js'
@@ -59,7 +60,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 
 const CITY_KEY = 'surego_selected_city'
 const CITY_CODE_KEY = 'surego_selected_city_code'
-const selectedCity = ref('杭州')
+const selectedCity = ref('天津')
 const selectedCityCode = ref('330100')
 const cities = ref([])
 const citySelectRef = ref(null)
@@ -67,14 +68,14 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const hotCities = [
-  { code: '330100', name: '杭州市' },
+  { code: '120100', name: '天津市' },
   { code: '310100', name: '上海市' },
   { code: '320100', name: '南京市' },
   { code: '110100', name: '北京市' }
 ]
 
 onShow(async () => {
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   cities.value = await getCityActivityStats()
 })
@@ -95,7 +96,7 @@ function selectCity(city, code = '') {
     if (pages.length > 1) {
       uni.navigateBack()
     } else {
-      uni.redirectTo({ url: '/pages/discover/index' })
+      uni.redirectTo({ url: '/pages/home/index' })
     }
   }, 260)
 }
@@ -156,9 +157,7 @@ function handlePluginSelect(city = {}) {
   display: block;
   margin-top: 4rpx;
   color: #111827;
-  font-size: 48rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 48rpx; font-weight: 900;
 }
 
 .city__scroll {
@@ -182,9 +181,7 @@ function handlePluginSelect(city = {}) {
   display: block;
   margin-top: 8rpx;
   color: #fff;
-  font-size: 42rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 42rpx; font-weight: 900;
 }
 
 .city__located {
@@ -220,9 +217,7 @@ function handlePluginSelect(city = {}) {
 
 .city__section-head text:first-child {
   color: #111827;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 34rpx; font-weight: 900;
 }
 
 .city__grid {
@@ -251,9 +246,7 @@ function handlePluginSelect(city = {}) {
 .city-card__name {
   display: block;
   color: #111827;
-  font-size: 32rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 32rpx; font-weight: 900;
 }
 
 .city-card__desc {

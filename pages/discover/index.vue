@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="discover su-page">
     <view class="discover__top" :style="navStyle">
       <view class="discover__top-row" :style="navRowStyle">
@@ -7,14 +7,14 @@
         </view>
         <view class="discover__tools" :style="navActionsStyle">
           <view class="discover__city" @tap="goCityPicker">
-            <uni-icons type="location-filled" size="18" color="#111827" />
+            <SuIcon name="location" size="36" glyph-size="18" variant="inline" color="#111827" />
             <text>{{ selectedCity }}</text>
           </view>
           <view class="discover__tool" @tap="goCalendar()">
-            <uni-icons type="calendar" size="21" color="#111827" />
+            <SuIcon name="calendar" size="42" glyph-size="21" variant="inline" color="#111827" />
           </view>
           <view class="discover__tool" @tap="goMessages">
-            <uni-icons type="notification-filled" size="21" color="#111827" />
+            <SuIcon name="bell" size="42" glyph-size="21" variant="inline" color="#111827" />
             <view v-if="unreadCount > 0" class="discover__badge">
               <text>{{ unreadLabel }}</text>
             </view>
@@ -25,11 +25,10 @@
 
     <scroll-view scroll-y class="discover__scroll">
       <view class="discover__hero" :style="contentTopStyle">
-        <text class="discover__kicker">DISCOVER</text>
-        <text class="discover__title">发现好局</text>
-        <text class="discover__desc">按城市、分类和热度探索附近正在成行的活动。</text>
+        <text class="discover__kicker">成行</text>
+        <text class="discover__title">本校正在约</text>
         <view class="discover__search" @tap="goSearch()">
-          <uni-icons type="search" size="20" color="#94a3b8" />
+          <SuIcon name="search" size="40" glyph-size="20" variant="inline" color="#94a3b8" />
           <text>搜索活动、兴趣、地点</text>
         </view>
       </view>
@@ -37,7 +36,6 @@
       <view class="section section--compact">
         <view class="section__head">
           <text class="section__title">热门主题</text>
-          <text class="section__sub">TRENDING</text>
         </view>
         <scroll-view scroll-x class="topic-scroll" :show-scrollbar="false">
           <view class="topic-list">
@@ -52,12 +50,11 @@
 
       <view class="blind-box" @tap="openBlindPick">
         <view>
-          <text class="blind-box__kicker">BLIND PICK</text>
+          <text class="blind-box__kicker">随机推荐</text>
           <text class="blind-box__title">不知道去哪？随机开一局</text>
-          <text class="blind-box__desc">根据当前城市和热门活动，给你一个轻松的选择。</text>
         </view>
         <view class="blind-box__button">
-          <uni-icons type="paperplane-filled" size="22" color="#fff" />
+          <SuIcon name="send" size="44" glyph-size="22" variant="inline" color="#fff" />
         </view>
       </view>
 
@@ -72,23 +69,23 @@
       <view class="section">
         <view class="section__head">
           <text class="section__title">{{ activeCategory === '全部' ? '附近推荐' : activeCategory }}</text>
-          <text class="section__sub">{{ filteredActivities.length }} SPOTS</text>
         </view>
         <view class="discover__list">
           <SuActivityCard v-for="item in filteredActivities" :key="item.id" :activity="item" />
         </view>
         <view v-if="filteredActivities.length === 0" class="empty">
-          <uni-icons type="map-pin-ellipse" size="42" color="#cbd5e1" />
+          <SuIcon name="location" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
           <text>这个筛选暂时没有活动</text>
         </view>
       </view>
     </scroll-view>
 
-    <SuBottomDock active="discover" />
+    <SuBottomDock active="home" />
   </view>
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import SuActivityCard from '@/components/surego/SuActivityCard.vue'
@@ -111,7 +108,7 @@ const topics = [
 ]
 
 const activeCategory = ref('全部')
-const selectedCity = ref('杭州')
+const selectedCity = ref('天津')
 const selectedCityCode = ref('330100')
 const currentAvatar = ref(DEFAULT_AVATAR)
 const unreadCount = ref(0)
@@ -126,7 +123,7 @@ const unreadLabel = computed(() => (unreadCount.value > 99 ? '99+' : String(unre
 
 async function loadData() {
   refreshCurrentAvatar()
-  selectedCity.value = uni.getStorageSync(CITY_KEY) || '杭州'
+  selectedCity.value = uni.getStorageSync(CITY_KEY) || '天津'
   selectedCityCode.value = uni.getStorageSync(CITY_CODE_KEY) || '330100'
   const [items, unread] = await Promise.all([
     listActivitiesByCity(selectedCity.value, selectedCityCode.value),
@@ -174,22 +171,22 @@ function openBlindPick() {
 .discover__scroll { height: 100vh; }
 .discover__hero { padding-right: 40rpx; padding-bottom: 32rpx; padding-left: 40rpx; }
 .discover__kicker, .section__sub, .blind-box__kicker { color: #94a3b8; font-size: 20rpx; font-weight: 900; }
-.discover__title { display: block; margin-top: 8rpx; color: #111827; font-size: 56rpx; font-style: italic; font-weight: 900; }
+.discover__title { display: block; margin-top: 8rpx; color: #111827; font-size: 56rpx; font-weight: 900; }
 .discover__desc { display: block; margin-top: 18rpx; color: #64748b; font-size: 25rpx; font-weight: 800; line-height: 1.55; }
 .discover__search { display: flex; height: 86rpx; align-items: center; gap: 16rpx; margin-top: 28rpx; padding: 0 28rpx; border: 1rpx solid #eef2f7; border-radius: 999rpx; background: #fff; color: #94a3b8; font-size: 25rpx; font-weight: 900; box-shadow: 0 18rpx 40rpx rgba(15, 23, 42, 0.05); }
 .section { padding: 0 40rpx 34rpx; }
 .section--compact { padding-right: 0; }
 .section__head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24rpx; }
 .section--compact .section__head { padding-right: 40rpx; }
-.section__title { color: #111827; font-size: 34rpx; font-style: italic; font-weight: 900; }
+.section__title { color: #111827; font-size: 34rpx; font-weight: 900; }
 .topic-scroll, .discover__chips { white-space: nowrap; }
 .topic-list { display: inline-flex; gap: 18rpx; padding-right: 40rpx; }
 .topic-card { display: inline-flex; width: 210rpx; min-height: 178rpx; flex-direction: column; justify-content: space-between; padding: 24rpx; border-radius: 38rpx; color: #fff; box-shadow: 0 18rpx 42rpx rgba(15, 23, 42, 0.12); }
 .topic-card__icon { font-size: 42rpx; }
-.topic-card__name { display: block; font-size: 29rpx; font-style: italic; font-weight: 900; }
+.topic-card__name { display: block; font-size: 29rpx; font-weight: 900; }
 .topic-card__count { display: block; margin-top: 8rpx; color: rgba(255, 255, 255, 0.78); font-size: 21rpx; font-weight: 900; }
 .blind-box { display: flex; align-items: center; justify-content: space-between; margin: 0 40rpx 34rpx; padding: 30rpx; border-radius: 40rpx; background: #111827; color: #fff; box-shadow: 0 20rpx 52rpx rgba(15, 23, 42, 0.16); }
-.blind-box__title { display: block; margin-top: 9rpx; color: #fff; font-size: 32rpx; font-style: italic; font-weight: 900; }
+.blind-box__title { display: block; margin-top: 9rpx; color: #fff; font-size: 32rpx; font-weight: 900; }
 .blind-box__desc { display: block; max-width: 460rpx; margin-top: 10rpx; color: rgba(255, 255, 255, 0.7); font-size: 22rpx; font-weight: 800; line-height: 1.45; }
 .blind-box__button { display: flex; width: 82rpx; height: 82rpx; flex: 0 0 82rpx; align-items: center; justify-content: center; border-radius: 50%; background: #ff6b6b; }
 .discover__chip-list { display: flex; gap: 16rpx; padding: 0 40rpx 30rpx; }

@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "path": "pages/home/index",
+      "path": "pages/partners/index",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": true
@@ -30,6 +30,70 @@
     },
     {
       "path": "pages/calendar/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/graduation/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/hackathon/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/hackathon/team",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/partner/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/partner/create",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true,
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/partner/workbench",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/partner/conversation",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/publish/index",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": true
@@ -144,6 +208,13 @@
     },
     {
       "path": "pages/user/edit",
+      "style": {
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/verify/index",
       "style": {
         "navigationStyle": "custom",
         "enablePullDownRefresh": true

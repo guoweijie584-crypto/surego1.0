@@ -1,0 +1,66 @@
+[
+  {
+    "IndexName": "activity_user",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "activityId",
+          "Direction": "1"
+        },
+        {
+          "Name": "userId",
+          "Direction": "1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "snake_activity_user",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "activity_id",
+          "Direction": "1"
+        },
+        {
+          "Name": "user_id",
+          "Direction": "1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "user_created_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "userId",
+          "Direction": "1"
+        },
+        {
+          "Name": "created_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "activity_created_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "activityId",
+          "Direction": "1"
+        },
+        {
+          "Name": "created_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  }
+]

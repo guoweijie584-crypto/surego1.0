@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view v-if="isPageLoading" class="order-detail su-page">
     <SuPageLoading :style="contentTopStyle" text="订单详情加载中..." />
   </view>
@@ -6,18 +6,18 @@
     <view class="order-nav" :style="navStyle">
       <view class="order-nav__row" :style="navRowStyle">
       <view class="order-nav__btn" @tap="goBackOrFallback">
-        <uni-icons type="left" size="22" color="#0f172a" />
+        <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#0f172a" />
       </view>
       <text>订单详情</text>
       <view class="order-nav__btn" @tap="reloadOrder">
-        <uni-icons type="refresh" size="18" color="#0f172a" />
+        <SuIcon name="refresh" size="36" glyph-size="18" variant="inline" color="#0f172a" />
       </view>
       </view>
     </view>
 
     <scroll-view scroll-y class="order-scroll" :style="contentTopStyle">
       <view v-if="!order" class="empty">
-        <uni-icons type="wallet-filled" size="44" color="#cbd5e1" />
+        <SuIcon name="wallet" size="88" glyph-size="44" variant="inline" color="#cbd5e1" />
         <text>订单不存在或已被清理</text>
       </view>
 
@@ -35,7 +35,7 @@
 
         <view class="amount-card">
           <view>
-            <text>支付金额</text>
+            <text>试运行金额</text>
             <text>¥{{ order.amount }}</text>
           </view>
           <view>
@@ -48,7 +48,6 @@
           <view class="panel__head">
             <view>
               <text class="panel__title">状态时间线</text>
-              <text class="panel__sub">ORDER TIMELINE</text>
             </view>
           </view>
           <view v-for="item in timeline" :key="item.label" class="timeline">
@@ -60,17 +59,7 @@
           </view>
         </view>
 
-        <view class="panel">
-          <view class="panel__head">
-            <view>
-              <text class="panel__title">订单规则</text>
-              <text class="panel__sub">RULES</text>
-            </view>
-          </view>
-          <view v-for="item in rules" :key="item" class="rule">
-            <uni-icons type="checkmarkempty" size="16" color="#22c55e" />
-            <text>{{ item }}</text>
-          </view>
+        <view v-if="order.refundNote || order.closeReason" class="panel">
           <text v-if="order.refundNote" class="result-note">{{ order.refundNote }}</text>
           <text v-if="order.closeReason" class="result-note result-note--danger">{{ order.closeReason }}</text>
         </view>
@@ -83,7 +72,7 @@
             查看入场凭证
           </view>
           <view v-if="order.status === 'paid'" class="action" @tap="handleRefund">
-            登记退款
+            登记试运行退款记录
           </view>
           <view v-if="order.status === 'pending'" class="action action--danger" @tap="handleClose">
             关闭订单
@@ -95,13 +84,13 @@
 </template>
 
 <script setup>
+import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh, onShow } from '@dcloudio/uni-app'
 import { getActivityDetail } from '@/common/api/activity.js'
 import { closeOrder, getOrderDetail, getOrderForActivity, getOrderStatusText, refundOrder } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { formatDateTime } from '@/common/utils/time-format.js'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goParticipantDashboard, goPayment } from '@/common/utils/route.js'
 
@@ -110,26 +99,17 @@ const fallbackActivityId = ref('')
 const order = ref(null)
 const activity = ref(createEmptyActivity('102'))
 const isPageLoading = ref(true)
-const hasLoadedOnce = ref(false)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
 
-const rules = computed(() => {
-  if (!order.value) return []
-  if (order.value.type === 'ticket') {
-    return ['门票确认后锁定活动名额', '活动取消时进入退款状态', '试运营确认，不发生真实扣款']
-  }
-  return ['诚意金支付后保留名额', '签到后可进入退款状态', '爽约时可由运营关闭或备注']
-})
-
 const timeline = computed(() => {
   if (!order.value) return []
   return [
-    { label: '订单创建', time: formatDateTime(order.value.createdAt), active: true },
-    { label: '支付确认', time: formatDateTime(order.value.paidAt), desc: order.value.status === 'pending' ? '等待确认' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
-    { label: '退款记录', time: formatDateTime(order.value.refundedAt), desc: order.value.status === 'refunded' ? '已记录退款' : '暂无退款', active: order.value.status === 'refunded' },
-    { label: '订单关闭', time: formatDateTime(order.value.closedAt), desc: order.value.status === 'closed' ? '已关闭' : '未关闭', active: order.value.status === 'closed' }
+    { label: '订单创建', time: order.value.createdAt, active: true },
+    { label: '订单确认', time: order.value.paidAt, desc: order.value.status === 'pending' ? '等待确认' : '已完成', active: ['paid', 'refunded'].includes(order.value.status) },
+    { label: '试运行退款记录', time: order.value.refundedAt, desc: order.value.status === 'refunded' ? '已记录退款' : '暂无退款', active: order.value.status === 'refunded' },
+    { label: '订单关闭', time: order.value.closedAt, desc: order.value.status === 'closed' ? '已关闭' : '未关闭', active: order.value.status === 'closed' }
   ]
 })
 
@@ -146,9 +126,7 @@ onShow(async () => {
 onPullDownRefresh(makeRefreshHandler(reloadOrder))
 
 async function reloadOrder() {
-  if (!hasLoadedOnce.value) {
-    isPageLoading.value = true
-  }
+  isPageLoading.value = true
   try {
     if (!orderId.value && !fallbackActivityId.value) {
       order.value = null
@@ -165,20 +143,19 @@ async function reloadOrder() {
       activity.value = await getActivityDetail(fallbackActivityId.value)
     }
   } finally {
-    hasLoadedOnce.value = true
     isPageLoading.value = false
   }
 }
 
 async function handleRefund() {
   if (!order.value) return
-  await refundOrder(order.value.id, '退款状态已登记，资金处理以运营确认为准', {
+  await refundOrder(order.value.id, '试运行退款记录已登记，资金处理以运营确认为准', {
     order: order.value,
     activityTitle: order.value.activityTitle || activity.value.title,
     activityCover: order.value.activityCover || activity.value.image
   })
   await reloadOrder()
-  uni.showToast({ title: '退款状态已更新', icon: 'none' })
+  uni.showToast({ title: '试运行退款记录已更新', icon: 'none' })
 }
 
 async function handleClose() {
@@ -331,9 +308,7 @@ async function handleClose() {
   display: block;
   margin-top: 10rpx;
   color: #0f172a;
-  font-size: 34rpx;
-  font-style: italic;
-  font-weight: 900;
+  font-size: 34rpx; font-weight: 900;
 }
 
 .panel {

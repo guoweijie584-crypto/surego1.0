@@ -1,0 +1,19 @@
+{
+  "bsonType": "object",
+  "required": ["partner_post_id", "participant_ids", "status"],
+  "permission": {
+    "read": "auth.uid in doc.participant_ids",
+    "create": "auth.uid != null",
+    "update": "auth.uid in doc.participant_ids",
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "Conversation id" },
+    "partner_post_id": { "bsonType": "string", "title": "Partner post id" },
+    "participant_ids": { "bsonType": "array", "title": "Participant user ids" },
+    "status": { "enum": ["open", "closed"], "title": "Status" },
+    "last_message": { "bsonType": "string", "title": "Last message" },
+    "created_at": { "bsonType": "timestamp", "title": "Created at" },
+    "updated_at": { "bsonType": "timestamp", "title": "Updated at" }
+  }
+}

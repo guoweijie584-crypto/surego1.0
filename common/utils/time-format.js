@@ -29,18 +29,3 @@ export function formatMessageTime(value = '') {
     ? `${month}-${day} ${hour}:${minute}`
     : `${date.getFullYear()}-${month}-${day} ${hour}:${minute}`
 }
-
-export function formatDateTime(value = '', options = {}) {
-  const date = parseTimeValue(value)
-  if (!date) return options.fallback || ''
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  const hour = `${date.getHours()}`.padStart(2, '0')
-  const minute = `${date.getMinutes()}`.padStart(2, '0')
-  const second = `${date.getSeconds()}`.padStart(2, '0')
-  if (options.withSeconds) {
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`
-  }
-  return `${year}-${month}-${day} ${hour}:${minute}`
-}

@@ -1,0 +1,30 @@
+[
+  {
+    "IndexName": "user_id",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "user_id",
+          "Direction": "1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  },
+  {
+    "IndexName": "roles_updated_at",
+    "MgoKeySchema": {
+      "MgoIndexKeys": [
+        {
+          "Name": "roles",
+          "Direction": "1"
+        },
+        {
+          "Name": "updated_at",
+          "Direction": "-1"
+        }
+      ],
+      "MgoIsUnique": false
+    }
+  }
+]
