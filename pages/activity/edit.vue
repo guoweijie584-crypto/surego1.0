@@ -95,7 +95,6 @@
             >
               <SuIcon :name="item.icon" size="44" glyph-size="22" variant="inline" :color="form.partyMode === item.value ? '#fff' : item.color" />
               <text>{{ item.label }}</text>
-              <text>{{ item.desc }}</text>
             </view>
           </view>
         </view>
@@ -190,9 +189,9 @@ const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活
 const CAMPUS_NAME = '天津大学'
 const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
-  { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
-  { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
-  { value: 'ticket', label: '门票局', desc: '支付锁位', icon: 'paperplane-filled', color: '#8b5cf6' }
+  { value: 'free', label: '免费局', icon: 'checkmarkempty', color: '#22c55e' },
+  { value: 'sincerity', label: '诚意金', icon: 'wallet', color: '#ef4444' },
+  { value: 'ticket', label: '门票局', icon: 'paperplane-filled', color: '#8b5cf6' }
 ]
 
 const activityId = ref('')

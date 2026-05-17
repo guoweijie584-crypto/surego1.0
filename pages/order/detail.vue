@@ -48,7 +48,6 @@
           <view class="panel__head">
             <view>
               <text class="panel__title">状态时间线</text>
-              <text class="panel__sub">ORDER TIMELINE</text>
             </view>
           </view>
           <view v-for="item in timeline" :key="item.label" class="timeline">
@@ -60,17 +59,7 @@
           </view>
         </view>
 
-        <view class="panel">
-          <view class="panel__head">
-            <view>
-              <text class="panel__title">试运行订单规则</text>
-              <text class="panel__sub">RULES</text>
-            </view>
-          </view>
-          <view v-for="item in rules" :key="item" class="rule">
-            <SuIcon name="check" size="32" glyph-size="16" variant="inline" color="#22c55e" />
-            <text>{{ item }}</text>
-          </view>
+        <view v-if="order.refundNote || order.closeReason" class="panel">
           <text v-if="order.refundNote" class="result-note">{{ order.refundNote }}</text>
           <text v-if="order.closeReason" class="result-note result-note--danger">{{ order.closeReason }}</text>
         </view>
@@ -113,14 +102,6 @@ const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 30, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 26 })
-
-const rules = computed(() => {
-  if (!order.value) return []
-  if (order.value.type === 'ticket') {
-    return ['门票确认后锁定活动名额', '活动取消时进入退款状态', '试运行订单确认，不发生真实扣款']
-  }
-  return ['诚意金确认后保留名额', '签到后可进入试运行退款记录', '爽约时可由运营关闭或备注']
-})
 
 const timeline = computed(() => {
   if (!order.value) return []

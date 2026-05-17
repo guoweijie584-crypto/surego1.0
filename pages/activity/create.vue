@@ -13,12 +13,6 @@
     </view>
 
     <scroll-view scroll-y class="create__scroll" :style="contentTopStyle">
-      <view class="create__hero">
-        <text class="create__eyebrow">发活动</text>
-        <text class="create__title">填清楚时间、地点、人数和费用</text>
-        <text class="create__desc">普通同学也能发起明确活动，规则说清楚，大家才敢放心加入。</text>
-      </view>
-
       <view class="composer-strip">
         <view class="composer-block">
           <text class="composer-block__label">活动成行方式</text>
@@ -132,7 +126,6 @@
             >
               <SuIcon :name="item.icon" size="44" glyph-size="22" variant="inline" :color="form.partyMode === item.value ? '#fff' : item.color" />
               <text>{{ item.label }}</text>
-              <text>{{ item.desc }}</text>
             </view>
           </view>
         </view>
@@ -181,7 +174,7 @@
           <text class="preview__title">{{ form.title || '还没填写活动标题' }}</text>
           <text class="preview__meta">{{ form.date }} {{ form.time }} - {{ form.endTime }}</text>
           <text class="preview__meta">{{ form.location || '待填写地点' }}</text>
-          <text class="preview__desc">{{ form.description || '活动介绍会显示在这里。' }}</text>
+          <text v-if="form.description" class="preview__desc">{{ form.description }}</text>
         </view>
       </view>
     </SuActionSheet>
@@ -244,9 +237,9 @@ const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活
 const CAMPUS_NAME = '天津大学'
 const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
-  { value: 'free', label: '免费局', desc: '直接报名', icon: 'checkmarkempty', color: '#22c55e' },
-  { value: 'sincerity', label: '诚意金', desc: '签到退回', icon: 'wallet', color: '#ef4444' },
-  { value: 'ticket', label: '门票局', desc: '支付锁位', icon: 'paperplane-filled', color: '#8b5cf6' }
+  { value: 'free', label: '免费局', icon: 'checkmarkempty', color: '#22c55e' },
+  { value: 'sincerity', label: '诚意金', icon: 'wallet', color: '#ef4444' },
+  { value: 'ticket', label: '门票局', icon: 'paperplane-filled', color: '#8b5cf6' }
 ]
 const intentModes = [
   { key: 'now', label: '马上成行' },

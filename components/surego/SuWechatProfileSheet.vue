@@ -5,7 +5,6 @@
       <view class="profile-sheet__handle" />
       <text class="profile-sheet__eyebrow">WECHAT PROFILE</text>
       <text class="profile-sheet__title">完善微信资料</text>
-      <text class="profile-sheet__desc">选择头像并填写昵称后，活动、报名、消息和现场凭证都会使用这份资料。</text>
 
       <button class="profile-sheet__avatar-btn" open-type="chooseAvatar" @chooseavatar="handleChooseAvatar">
         <image class="profile-sheet__avatar" :src="form.avatar" mode="aspectFill" />

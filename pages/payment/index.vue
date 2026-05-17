@@ -27,7 +27,6 @@
         </view>
         <text class="payment-card__label">{{ modeTitle }}</text>
         <text class="payment-card__amount">{{ feeText }}</text>
-        <text class="payment-card__desc">{{ modeDesc }}</text>
       </view>
 
       <view class="ref-summary-card ref-card payment-gap">
@@ -49,7 +48,6 @@
           <text class="timeline__item">待核销</text>
           <text class="timeline__item">{{ activity.partyMode === 'sincerity' ? '退款记录' : '结算记录' }}</text>
         </view>
-        <text class="payment-note">试运行订单确认，不发生真实扣款。当前状态：{{ orderStatusText }}</text>
       </view>
 
       <view class="ref-bottom-cta">
@@ -81,10 +79,6 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 const pageTitle = computed(() => (activity.value.partyMode === 'sincerity' ? '确认试运行诚意金，占住席位' : '确认试运行订单，核销后结算'))
 const modeTitle = computed(() => (activity.value.partyMode === 'ticket' ? '门票' : '诚意金'))
 const feeText = computed(() => `¥${activity.value.amount || 0}`)
-const modeDesc = computed(() => {
-  if (activity.value.partyMode === 'ticket') return '订单确认后保留名额，核销完成后进入结算记录。'
-  return '订单确认后保留席位；到场核销后按规则登记退回状态。'
-})
 const orderStatus = computed(() => order.value?.status || 'pending')
 const orderStatusText = computed(() => getOrderStatusText(orderStatus.value))
 const payButtonText = computed(() => {

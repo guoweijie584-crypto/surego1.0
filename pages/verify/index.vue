@@ -26,16 +26,8 @@
           <SuIcon :name="item.icon" size="48" glyph-size="24" variant="inline" color="#2388ff" />
           <view>
             <text>{{ item.title }}</text>
-            <text>{{ item.desc }}</text>
           </view>
           <text class="verify-card__pill">{{ item.badge }}</text>
-        </view>
-      </view>
-
-      <view class="info-card">
-        <text class="card-title">认证后可解锁</text>
-        <view class="question-list">
-          <text v-for="item in unlocks" :key="item">{{ item }}</text>
         </view>
       </view>
 
@@ -55,12 +47,10 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 24 })
 const options = [
-  { title: '学生邮箱验证', desc: '推荐方式，输入学校邮箱并完成验证码确认。', badge: '推荐', icon: 'email-filled' },
-  { title: '学信网增强认证', desc: '用于更强身份背书，资料页会显示增强认证。', badge: '增强可信', icon: 'auth-filled' },
-  { title: '人工审核兜底', desc: '无法使用邮箱或学信网时，提交学生证等材料等待审核。', badge: '兜底', icon: 'info-filled' }
+  { title: '学生邮箱验证', badge: '推荐', icon: 'email-filled' },
+  { title: '学信网增强认证', badge: '增强可信', icon: 'auth-filled' },
+  { title: '人工审核兜底', badge: '兜底', icon: 'info-filled' }
 ]
-const unlocks = ['报名活动', '发起活动', '加入候补', '关注发起人', '查看二维码', '发起评价/申诉']
-
 function completeVerify() {
   uni.showToast({ title: '认证状态已记录', icon: 'success' })
   setTimeout(() => {
