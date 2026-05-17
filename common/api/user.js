@@ -21,6 +21,37 @@ const defaultUser = {
   bio: '爱摄影、爱生活的斜杠青年',
   quote: '希望能在这里遇到更多志同道合的小伙伴，一起探索城市里的光影。'
 }
+const PROFILE_EXTRA_KEYS = [
+  'followingCount',
+  'following_count',
+  'followerCount',
+  'follower_count',
+  'fansCount',
+  'fans_count',
+  'fulfillmentSuccessRate',
+  'fulfillment_success_rate',
+  'fulfillmentRate',
+  'fulfillment_rate',
+  'fulfillmentSuccessCount',
+  'fulfillment_success_count',
+  'fulfillmentTotalCount',
+  'fulfillment_total_count',
+  'partnerMatchedCount',
+  'partner_matched_count',
+  'partnerMatchSuccessCount',
+  'partner_match_success_count',
+  'reputationReviewCount',
+  'reputation_review_count',
+  'reviewCount',
+  'review_count',
+  'reputationTags',
+  'reputation_tags',
+  'impressionTags',
+  'impression_tags',
+  'reputationReviews',
+  'reputation_reviews',
+  'reviews'
+]
 
 function sanitizeNickname(value, fallback = DEFAULT_USER_NICKNAME) {
   const nickname = String(value || '').trim()
@@ -71,7 +102,7 @@ function readLocalUser() {
 
 function buildUserPayload(payload = {}) {
   const current = readLocalUser()
-  return {
+  const next = {
     ...current,
     uid: payload.uid || payload.userId || getCurrentUserId(),
     userId: payload.userId || payload.uid || getCurrentUserId(),
@@ -86,6 +117,14 @@ function buildUserPayload(payload = {}) {
     roles: normalizeRoles(payload.roles || payload.role || current.roles || current.role),
     role: normalizeRoles(payload.roles || payload.role || current.roles || current.role)
   }
+  for (const key of PROFILE_EXTRA_KEYS) {
+    if (payload[key] !== undefined) {
+      next[key] = payload[key]
+    } else if (current[key] !== undefined) {
+      next[key] = current[key]
+    }
+  }
+  return next
 }
 
 function writeLocalUser(payload) {

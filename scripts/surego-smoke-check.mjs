@@ -1139,9 +1139,19 @@ if (fs.existsSync(participantQrDashboardPath)) {
 const userProfilePath = path.join(root, 'pages/user/profile.vue');
 if (fs.existsSync(userProfilePath)) {
   const source = fs.readFileSync(userProfilePath, 'utf8');
-  for (const token of ['orderFilters', 'filteredOrders', 'goOrderDetail', 'hasOpsRole', 'canUseOps.value = hasOpsRole(user.value)']) {
+  for (const token of ['hasOpsRole', 'canUseOps.value = hasOpsRole(user.value)', 'goUserEdit', 'profile-edit-entry', 'fulfillmentStats', 'reputationReviews']) {
     if (!source.includes(token)) {
       errors.push(`pages/user/profile.vue is missing ${token}`);
+    }
+  }
+  for (const token of ["{ key: 'overview'", "{ key: 'messages'", "label: '资料'", "activeTab === 'overview'", "activeTab === 'messages'"]) {
+    if (source.includes(token)) {
+      errors.push(`pages/user/profile.vue must remove stale profile module token: ${token}`);
+    }
+  }
+  for (const token of ["{ key: 'activities', label: '活动' }", "{ key: 'partners', label: '搭子' }", "{ key: 'profile', label: '履约' }", "label: '关注'", "label: '粉丝'"]) {
+    if (!source.includes(token)) {
+      errors.push(`pages/user/profile.vue must keep updated profile tab/stat token: ${token}`);
     }
   }
   if (source.includes('count: loggedIn.value ? 2 : 0') || source.includes('靠谱、准时') || source.includes('活动组织清晰')) {
@@ -1588,6 +1598,7 @@ if (fs.existsSync(citySelectPluginPagePath)) {
 const homePagePath = path.join(root, 'pages/home/index.vue');
 if (fs.existsSync(homePagePath)) {
   const source = fs.readFileSync(homePagePath, 'utf8');
+  const normalizedSource = source.replace(/\r\n/g, '\n');
   for (const token of ['getMiniProgramNavContentStyle', 'contentTopStyle', 'position: fixed', 'backdrop-filter: blur']) {
     if (!source.includes(token)) {
       errors.push(`pages/home/index.vue must use a fixed floating top header with ${token}`);
@@ -1622,13 +1633,13 @@ if (fs.existsSync(homePagePath)) {
     errors.push('pages/home/index.vue home activity list must render SuActivityCard in compact mode');
   }
   for (const token of ['.scene-row {\n  margin-top: 14rpx;', '.sort-tabs {\n  display: flex;\n  gap: 12rpx;\n  margin-top: 14rpx;', 'margin: 24rpx 0 14rpx;']) {
-    if (!source.includes(token)) {
+    if (!normalizedSource.includes(token)) {
       errors.push(`pages/home/index.vue must keep compact spacing below the feature card with ${token}`);
     }
   }
 }
 
-for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/participant/dashboard.vue']) {
   const absolute = path.join(root, file);
   if (!fs.existsSync(absolute)) continue;
   const source = fs.readFileSync(absolute, 'utf8');
@@ -1645,6 +1656,7 @@ for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/u
 const partnerPagePath = path.join(root, 'pages/partners/index.vue');
 if (fs.existsSync(partnerPagePath)) {
   const source = fs.readFileSync(partnerPagePath, 'utf8');
+  const normalizedSource = source.replace(/\r\n/g, '\n');
   for (const token of ['searchKeyword', 'matchesKeyword', 'v-model="searchKeyword"']) {
     if (!source.includes(token)) {
       errors.push(`pages/partners/index.vue must implement real local partner search with ${token}`);
@@ -1657,7 +1669,7 @@ if (fs.existsSync(partnerPagePath)) {
     errors.push('pages/partners/index.vue must not render the stale 找搭子 label');
   }
   for (const token of ['margin: 18rpx 0 8rpx;', '.section-title--inline {\n  margin-bottom: 6rpx;', '.scene-scroll-row {\n  margin-top: 16rpx;']) {
-    if (!source.includes(token)) {
+    if (!normalizedSource.includes(token)) {
       errors.push(`pages/partners/index.vue must keep compact spacing below the feature card with ${token}`);
     }
   }
@@ -1710,7 +1722,7 @@ if (fs.existsSync(partnerWorkbenchPath)) {
 }
 
 for (const [file, tokens] of Object.entries({
-  'pages/user/profile.vue': ['activeActivityScope', 'activePartnerScope', 'showActivityScope', 'showPartnerScope', 'currentActivityList', 'currentPartnerList', 'getActivityStatusMeta', 'profile-card__status', 'postedPartnerPosts'],
+  'pages/user/profile.vue': ['activeActivityScope', 'activePartnerScope', 'currentActivityList', 'currentPartnerList', 'getActivityStatusMeta', 'profile-card__status', 'postedPartnerPosts'],
   'pages/my/activities.vue': ['getActivityStatusMeta', 'sortActivitiesByStatusPriority', 'activity__status']
 })) {
   const absolute = path.join(root, file);
