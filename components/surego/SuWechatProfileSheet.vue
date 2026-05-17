@@ -98,11 +98,10 @@ async function handleSave() {
 
   if (avatarTempPath.value) {
     try {
-      const uploaded = await uploadImageFile(avatarTempPath.value, { prefix: 'surego/avatars' })
+      const uploaded = await uploadImageFile(avatarTempPath.value, { prefix: 'surego/avatars', compress: true })
       avatar = uploaded.url
       avatarFileId = uploaded.fileID || uploaded.url
     } catch (error) {
-      uni.showToast({ title: '头像上传失败，可稍后重试', icon: 'none' })
       avatar = props.initialProfile?.avatar || '/static/userImg/user.png'
       avatarFileId = props.initialProfile?.avatarFileId || props.initialProfile?.avatar_file_id || ''
     }

@@ -199,7 +199,7 @@ async function handleChooseAvatar(event) {
   const avatarUrl = event?.detail?.avatarUrl || ''
   if (!avatarUrl) return
   try {
-    const uploaded = await uploadImageFile(avatarUrl, { prefix: 'surego/avatars' })
+    const uploaded = await uploadImageFile(avatarUrl, { prefix: 'surego/avatars', compress: true })
     form.avatar = uploaded.url
     form.avatarFileId = uploaded.fileID || uploaded.url
   } catch (error) {

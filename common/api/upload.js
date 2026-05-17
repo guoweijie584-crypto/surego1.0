@@ -15,6 +15,24 @@ function createCancelError(error = {}) {
   return next
 }
 
+async function normalizeUploadFilePath(filePath, options = {}) {
+  if (!options.compress) return filePath
+  if (typeof uni === 'undefined' || typeof uni.compressImage !== 'function') return filePath
+
+  return new Promise((resolve) => {
+    uni.compressImage({
+      src: filePath,
+      quality: options.quality || 82,
+      success(result = {}) {
+        resolve(result.tempFilePath || filePath)
+      },
+      fail() {
+        resolve(filePath)
+      }
+    })
+  })
+}
+
 export function isImagePickerCancel(error = {}) {
   const message = String(error.errMsg || error.message || '').toLowerCase()
   return error.code === USER_CANCEL_IMAGE_PICKER
@@ -81,12 +99,17 @@ export async function uploadImageFile(filePath, options = {}) {
     throw new Error('图片上传服务不可用')
   }
 
-  const cloudPath = options.cloudPath || buildCloudPath(options.prefix || 'surego/images', filePath)
-  const result = await uniCloud.uploadFile({
-    filePath,
+  const uploadPath = await normalizeUploadFilePath(filePath, options)
+  const cloudPath = options.cloudPath || buildCloudPath(options.prefix || 'surego/images', uploadPath)
+  const uploadOptions = {
+    filePath: uploadPath,
     cloudPath,
-    cloudPathAsRealPath: true
-  })
+    fileType: 'image'
+  }
+  if (options.cloudPathAsRealPath === true) {
+    uploadOptions.cloudPathAsRealPath = true
+  }
+  const result = await uniCloud.uploadFile(uploadOptions)
   const url = result.fileID || result.fileUrl || result.url || ''
   return {
     url,
