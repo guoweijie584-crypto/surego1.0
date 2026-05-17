@@ -40,6 +40,7 @@ const sandbox = {
   activities: mockActivities,
   findActivityById: (id) => mockActivities.find((activity) => activity.id === String(id)) || mockActivities[0],
   USE_UNICLOUD: false,
+  shouldUseReferenceMockPreview: () => false,
   callSuregoFunction: async () => {
     throw new Error('cloud disabled in eligibility check')
   },
