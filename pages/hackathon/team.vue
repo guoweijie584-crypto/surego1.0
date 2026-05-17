@@ -40,20 +40,40 @@
             <text>协作地点</text>
             <text>{{ partner.locationRange || partner.location || '地点待定' }}</text>
           </view>
-          <view>
+          <view v-if="partner.connectionRule || partner.connectionMode">
             <text>申请规则</text>
-            <text>{{ partner.connectionRule || partner.connectionMode || '提交意向后等待队长确认' }}</text>
+            <text>{{ partner.connectionRule || partner.connectionMode || '' }}</text>
           </view>
-        </view>
-
-        <view class="info-card">
-          <text class="card-title">组队节奏</text>
-          <text class="card-copy">先提交你的角色、可投入时间和作品经验。队长确认后，会在通知里提醒你继续完善参赛准备。</text>
         </view>
 
         <view v-if="viewerIntent" class="info-card intent-state-card">
           <text class="card-title">{{ intentStatusTitle }}</text>
-          <text class="card-copy">{{ intentStatusCopy }}</text>
+        </view>
+
+        <view class="info-card wechat-contact-card" :class="{ 'wechat-contact-card--locked': !canViewWechat }">
+          <view class="wechat-contact-card__head">
+            <view>
+              <text>微信联系</text>
+            </view>
+            <SuIcon :name="canViewWechat ? 'wechat' : 'locked-filled'" size="44" glyph-size="21" variant="inline" :color="canViewWechat ? '#22c55e' : '#94a3b8'" />
+          </view>
+          <view v-if="canViewWechat && hasWechatContact" class="wechat-contact-card__body">
+            <view v-if="wechatId" class="wechat-contact-row">
+              <view>
+                <text>微信号</text>
+                <text>{{ wechatId }}</text>
+              </view>
+              <text @tap="copyWechatId">复制</text>
+            </view>
+            <view v-if="wechatQrUrl" class="wechat-contact-row">
+              <view>
+                <text>微信二维码</text>
+              </view>
+              <image :src="wechatQrUrl" mode="aspectFill" @tap="previewWechatQr" />
+            </view>
+          </view>
+          <text v-else-if="canViewWechat" class="wechat-contact-empty">发起人未填写微信</text>
+          <text v-else class="wechat-contact-empty">未解锁</text>
         </view>
 
         <view v-if="!viewerIntent" class="form-card">
@@ -121,6 +141,10 @@ const roleLabel = computed(() => {
 const viewerIntent = computed(() => partner.value.viewerIntent || partner.value.viewer_intent || null)
 const intentStatus = computed(() => partner.value.viewerIntentStatus || partner.value.viewer_intent_status || viewerIntent.value?.status || '')
 const viewerConversationId = computed(() => partner.value.viewerConversationId || partner.value.viewer_conversation_id || viewerIntent.value?.conversationId || viewerIntent.value?.conversation_id || '')
+const canViewWechat = computed(() => Boolean(partner.value.canViewWechat || partner.value.can_view_wechat))
+const wechatId = computed(() => partner.value.wechatId || partner.value.wechat_id || '')
+const wechatQrUrl = computed(() => partner.value.wechatQrUrl || partner.value.wechat_qr_url || partner.value.wechatQr?.url || partner.value.wechat_qr?.url || '')
+const hasWechatContact = computed(() => Boolean(wechatId.value || wechatQrUrl.value))
 const emptyText = computed(() => loadError.value || '队伍不存在或已下线')
 const actionText = computed(() => {
   if (partner.value.isCreator) return '进入工作台'
@@ -136,13 +160,6 @@ const intentStatusTitle = computed(() => {
   if (intentStatus.value === 'rejected') return '申请未通过'
   return '已提交，等待队长确认'
 })
-const intentStatusCopy = computed(() => {
-  if (intentStatus.value === 'accepted' && viewerConversationId.value) return '可以进入队伍会话，继续确认项目分工和参赛节奏。'
-  if (intentStatus.value === 'accepted') return '队长已通过申请，会话入口同步后可继续沟通。'
-  if (intentStatus.value === 'rejected') return '本次队伍没有通过申请，可以回到黑客松专区查看其他组队。'
-  return '队长会在现有组队/消息链路中处理你的申请。'
-})
-
 async function loadData() {
   if (!currentId.value) {
     partner.value = {}
@@ -230,6 +247,24 @@ async function handleSubmit() {
   }
 }
 
+function copyWechatId() {
+  if (!wechatId.value) return
+  uni.setClipboardData({
+    data: wechatId.value,
+    success() {
+      uni.showToast({ title: '微信号已复制', icon: 'success' })
+    }
+  })
+}
+
+function previewWechatQr() {
+  if (!wechatQrUrl.value) return
+  uni.previewImage({
+    current: wechatQrUrl.value,
+    urls: [wechatQrUrl.value]
+  })
+}
+
 onLoad((options = {}) => {
   currentId.value = options.id || ''
   loadData()
@@ -254,6 +289,20 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 .question-list text { padding: 10rpx 16rpx; border-radius: 999rpx; background: #f3f6fa; color: #64748b; font-size: 20rpx; font-weight: 900; }
 .info-card, .form-card { margin-top: 24rpx; }
 .intent-state-card { border-color: rgba(35, 136, 255, 0.18); background: #eef7ff; }
+.wechat-contact-card { border-color: rgba(34, 197, 94, 0.2); background: #f0fdf4; }
+.wechat-contact-card--locked { border-color: rgba(24, 24, 27, 0.08); background: #fff; }
+.wechat-contact-card__head { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
+.wechat-contact-card__head view { display: grid; gap: 8rpx; }
+.wechat-contact-card__head view text:first-child { color: #102033; font-size: 31rpx; font-weight: 950; }
+.wechat-contact-card__head view text:last-child { color: #64748b; font-size: 22rpx; font-weight: 850; line-height: 1.35; }
+.wechat-contact-card__body { display: grid; gap: 16rpx; margin-top: 22rpx; }
+.wechat-contact-row { display: flex; min-height: 88rpx; align-items: center; justify-content: space-between; gap: 20rpx; padding: 18rpx 20rpx; border-radius: 24rpx; background: #fff; }
+.wechat-contact-row view { display: grid; gap: 6rpx; min-width: 0; }
+.wechat-contact-row view text:first-child { color: #94a3b8; font-size: 20rpx; font-weight: 900; }
+.wechat-contact-row view text:last-child { min-width: 0; color: #102033; font-size: 25rpx; font-weight: 950; word-break: break-all; }
+.wechat-contact-row > text { flex-shrink: 0; padding: 12rpx 20rpx; border-radius: 999rpx; background: #dcfce7; color: #15803d; font-size: 22rpx; font-weight: 950; }
+.wechat-contact-row image { width: 96rpx; height: 96rpx; flex: 0 0 96rpx; border-radius: 18rpx; background: #f8fafc; }
+.wechat-contact-empty { display: block; margin-top: 20rpx; color: #94a3b8; font-size: 23rpx; font-weight: 850; line-height: 1.45; }
 .info-card--grid { display: grid; gap: 18rpx; }
 .info-card--grid view { display: grid; gap: 8rpx; padding-bottom: 18rpx; border-bottom: 1rpx solid #f1f5f9; }
 .info-card--grid view:last-child { padding-bottom: 0; border-bottom: 0; }

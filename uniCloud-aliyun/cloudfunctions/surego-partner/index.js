@@ -12,6 +12,8 @@ const uniIdUsers = db.collection('uni-id-users');
 
 const postTypes = ['time_box', 'long_term', 'project'];
 const postStatuses = ['open', 'matched', 'converted', 'paused', 'closed'];
+const postModerationStatuses = ['pending', 'approved', 'rejected', 'hidden', 'visible'];
+const publicPostModerationStatuses = ['approved', 'visible'];
 const intentStatuses = ['pending', 'accepted', 'rejected'];
 const topicOptions = {
   hackathon: '黑客松组队',
@@ -77,12 +79,63 @@ function normalizePostStatus(status = 'open') {
   return postStatuses.includes(status) ? status : 'open';
 }
 
+function normalizePostModerationStatus(status = 'pending') {
+  return postModerationStatuses.includes(status) ? status : 'pending';
+}
+
 function normalizeIntentStatus(status = 'pending') {
   return intentStatuses.includes(status) ? status : 'pending';
 }
 
 function normalizeTags(tags) {
   return Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 6) : [];
+}
+
+function normalizeImages(images) {
+  const items = Array.isArray(images) ? images : [images];
+  return items
+    .map((item) => {
+      if (typeof item === 'string') return { url: item, fileID: item };
+      const url = String(item?.url || item?.fileID || item?.file_id || item?.src || '').trim();
+      if (!url) return null;
+      return {
+        url,
+        fileID: item.fileID || item.file_id || url
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 9);
+}
+
+function normalizeWechatQr(value) {
+  return normalizeImages(value)[0] || null;
+}
+
+function getWechatQrUrl(record = {}) {
+  const direct = String(record.wechat_qr_url || record.wechatQrUrl || '').trim();
+  if (direct) return direct;
+  return normalizeWechatQr(record.wechat_qr || record.wechatQr)?.url || '';
+}
+
+function canViewPostWechat(post = {}, user = {}, viewerIntentStatus = '') {
+  if (user.exists && (user.isOps || String(post.creator_id || post.creatorId || '') === user.uid)) return true;
+  return viewerIntentStatus === 'accepted';
+}
+
+function sanitizePostContactFields(record = {}, options = {}) {
+  const canViewWechat = Boolean(options.canViewWechat);
+  const wechatId = String(record.wechat_id || record.wechatId || '').trim();
+  const wechatQrUrl = getWechatQrUrl(record);
+  const wechatQr = normalizeWechatQr(record.wechat_qr || record.wechatQr || wechatQrUrl);
+  return {
+    wechatId: canViewWechat ? wechatId : '',
+    wechat_id: canViewWechat ? wechatId : '',
+    wechatQr: canViewWechat ? wechatQr : null,
+    wechat_qr: canViewWechat ? wechatQr : null,
+    wechatQrUrl: canViewWechat ? wechatQrUrl : '',
+    wechat_qr_url: canViewWechat ? wechatQrUrl : '',
+    canViewWechat
+  };
 }
 
 function normalizeTopicKey(topicKey = '') {
@@ -143,7 +196,8 @@ function matchesPostTextFilters(record = {}, payload = {}) {
 
 function buildListPostWhere(payload = {}) {
   const where = {
-    status: dbCmd.in(['open', 'matched'])
+    status: dbCmd.in(['open', 'matched']),
+    moderation_status: dbCmd.in(publicPostModerationStatuses)
   };
   const type = String(payload.type || '').trim();
   if (type && postTypes.includes(type)) {
@@ -161,10 +215,18 @@ function buildListPostWhere(payload = {}) {
   return where;
 }
 
-function normalizePost(record = {}) {
+function isPubliclyVisiblePost(record = {}) {
+  return ['open', 'matched'].includes(normalizePostStatus(record.status))
+    && publicPostModerationStatuses.includes(normalizePostModerationStatus(record.moderation_status || record.moderationStatus));
+}
+
+function normalizePost(record = {}, options = {}) {
   const viewerIntent = record.viewerIntent || record.viewer_intent || null;
   const viewerIntentStatus = record.viewerIntentStatus || record.viewer_intent_status || viewerIntent?.status || '';
   const viewerConversationId = record.viewerConversationId || record.viewer_conversation_id || viewerIntent?.conversationId || viewerIntent?.conversation_id || '';
+  const images = normalizeImages(record.images || record.image || record.cover);
+  const primaryImage = record.image || record.cover || images[0]?.url || '';
+  const contactFields = sanitizePostContactFields(record, options);
   return {
     ...record,
     id: record._id || record.id,
@@ -176,7 +238,14 @@ function normalizePost(record = {}) {
     creatorId: record.creator_id || record.creatorId || '',
     creator_id: record.creator_id || record.creatorId || '',
     typeLabel: record.type_label || record.typeLabel || '',
+    images,
+    image: primaryImage,
+    cover: record.cover || primaryImage,
     connectionMode: record.connection_mode || record.connectionMode || '',
+    address: record.address || '',
+    latitude: record.latitude || '',
+    longitude: record.longitude || '',
+    ...contactFields,
     fitTags: record.fit_tags || record.fitTags || [],
     intentCount: Number(record.intent_count || record.intentCount) || 0,
     followCount: Number(record.follow_count || record.followCount) || 0,
@@ -187,6 +256,14 @@ function normalizePost(record = {}) {
     viewerConversationId,
     viewer_conversation_id: viewerConversationId,
     status: normalizePostStatus(record.status),
+    moderationStatus: normalizePostModerationStatus(record.moderation_status || record.moderationStatus),
+    moderation_status: normalizePostModerationStatus(record.moderation_status || record.moderationStatus),
+    moderationNote: record.moderation_note || record.moderationNote || '',
+    moderation_note: record.moderation_note || record.moderationNote || '',
+    moderatedAt: record.moderated_at || record.moderatedAt || '',
+    moderated_at: record.moderated_at || record.moderatedAt || '',
+    moderatedBy: record.moderated_by || record.moderatedBy || '',
+    moderated_by: record.moderated_by || record.moderatedBy || '',
     createdAt: record.created_at || record.createdAt || '',
     updatedAt: record.updated_at || record.updatedAt || ''
   };
@@ -225,6 +302,13 @@ function normalizeConversation(record = {}) {
 
 function buildPostRecord(payload = {}, user = {}) {
   const topicKey = normalizeTopicKey(payload.topicKey || payload.topic_key);
+  const images = normalizeImages(payload.images || payload.image || payload.cover);
+  const primaryImage = payload.image || payload.cover || images[0]?.url || '';
+  const wechatQr = normalizeWechatQr(payload.wechatQr || payload.wechat_qr || payload.wechatQrUrl || payload.wechat_qr_url);
+  const wechatQrUrl = getWechatQrUrl({
+    wechatQr,
+    wechatQrUrl: payload.wechatQrUrl || payload.wechat_qr_url
+  });
   return {
     title: String(payload.title || '').trim(),
     type: normalizeType(payload.type),
@@ -236,14 +320,24 @@ function buildPostRecord(payload = {}, user = {}) {
     creator_id: user.uid,
     creator: payload.creator || user.profile.nickname || user.profile.username || 'SureGo 用户',
     avatar: payload.avatar || user.profile.avatar || user.profile.avatar_file?.url || '/static/userImg/user.png',
+    images: normalizeImages(payload.images || payload.image || payload.cover),
+    image: primaryImage,
+    cover: primaryImage,
     city: payload.city || '杭州',
     location: payload.location || '',
+    address: payload.address || '',
+    latitude: payload.latitude || '',
+    longitude: payload.longitude || '',
+    wechat_id: String(payload.wechatId || payload.wechat_id || '').trim(),
+    wechat_qr: wechatQr || {},
+    wechat_qr_url: wechatQrUrl,
     schedule: payload.schedule || '',
     connection_mode: payload.connectionMode || payload.connection_mode || '',
     description: payload.description || '',
     expectation: payload.expectation || '',
     fit_tags: normalizeTags(payload.fitTags || payload.fit_tags || payload.tags),
-    status: normalizePostStatus(payload.status || 'open'),
+    status: 'open',
+    moderation_status: 'pending',
     intent_count: Number(payload.intentCount || payload.intent_count) || 0,
     follow_count: Number(payload.followCount || payload.follow_count) || 0,
     created_at: now(),
@@ -313,8 +407,8 @@ function buildConvertedActivityRecord(post = {}, payload = {}) {
     amount: Number(payload.amount) || 0,
     description: payload.description || post.detail || post.description || '',
     questions: [],
-    status: visibility === 'public' ? 'recruiting' : 'formed',
-    moderation_status: 'approved',
+    status: 'reviewing',
+    moderation_status: 'pending',
     visibility,
     source: payload.source || 'partner_post',
     source_partner_post_id: post._id || post.id || '',
@@ -342,7 +436,7 @@ function normalizeActivityPayload(id, activity = {}) {
     participantIds: activity.participant_ids || [],
     createdAt: activity.created_at || '',
     updatedAt: activity.updated_at || '',
-    moderationStatus: activity.moderation_status || 'approved'
+    moderationStatus: activity.moderation_status || 'pending'
   };
 }
 
@@ -444,21 +538,23 @@ exports.main = async (event) => {
   if (action === 'detailPost') {
     const post = await getPost(payload.id);
     if (!post) return { code: 0, data: null };
-    const canView = ['open', 'matched'].includes(normalizePostStatus(post.status))
+    const canView = isPubliclyVisiblePost(post)
       || (user.exists && (user.isOps || String(post.creator_id || '') === user.uid));
     if (!canView) return { code: 'FORBIDDEN', message: 'This partner post is not visible.' };
     const viewerIntent = await findViewerIntentForPost(payload.id, user);
+    const viewerIntentStatus = viewerIntent?.status || '';
+    const canViewWechat = canViewPostWechat(post, user, viewerIntentStatus);
     return {
       code: 0,
       data: normalizePost({
         ...post,
         viewerIntent,
         viewer_intent: viewerIntent,
-        viewerIntentStatus: viewerIntent?.status || '',
-        viewer_intent_status: viewerIntent?.status || '',
+        viewerIntentStatus,
+        viewer_intent_status: viewerIntentStatus,
         viewerConversationId: viewerIntent?.conversationId || viewerIntent?.conversation_id || '',
         viewer_conversation_id: viewerIntent?.conversationId || viewerIntent?.conversation_id || ''
-      })
+      }, { canViewWechat })
     };
   }
 
@@ -470,8 +566,6 @@ exports.main = async (event) => {
     }
     const record = buildPostRecord(payload, user);
     if (!record.title) return { code: 'VALIDATION_ERROR', message: 'Title is required.' };
-    if (!record.schedule) return { code: 'VALIDATION_ERROR', message: 'Schedule is required.' };
-    if (!record.location) return { code: 'VALIDATION_ERROR', message: 'Location is required.' };
     if (!record.description) return { code: 'VALIDATION_ERROR', message: 'Description is required.' };
     const result = await posts.add(record);
     return {
@@ -479,7 +573,7 @@ exports.main = async (event) => {
       data: normalizePost({
         ...record,
         _id: result.id || result._id
-      })
+      }, { canViewWechat: true })
     };
   }
 

@@ -43,6 +43,27 @@ export function chooseImageFile(options = {}) {
   })
 }
 
+export function chooseImageFiles(options = {}) {
+  return new Promise((resolve, reject) => {
+    uni.chooseImage({
+      count: options.count || 1,
+      sizeType: options.sizeType || ['compressed'],
+      sourceType: options.sourceType || ['album', 'camera'],
+      success(result = {}) {
+        const filePaths = (result.tempFilePaths || []).filter(Boolean)
+        if (!filePaths.length) {
+          reject(createCancelError())
+          return
+        }
+        resolve(filePaths)
+      },
+      fail(error = {}) {
+        reject(isImagePickerCancel(error) ? createCancelError(error) : error)
+      }
+    })
+  })
+}
+
 export async function uploadImageFile(filePath, options = {}) {
   if (!filePath) {
     throw new Error('Image file path is required')
@@ -82,6 +103,28 @@ export async function chooseAndUploadImage(options = {}) {
   } catch (error) {
     if (isImagePickerCancel(error)) {
       return null
+    }
+
+    const message = error?.message || '图片上传失败，请稍后重试'
+    uni.showToast({
+      title: message,
+      icon: 'none'
+    })
+    throw error
+  }
+}
+
+export async function chooseAndUploadImages(options = {}) {
+  try {
+    const filePaths = await chooseImageFiles(options)
+    const uploaded = []
+    for (const filePath of filePaths) {
+      uploaded.push(await uploadImageFile(filePath, options))
+    }
+    return uploaded
+  } catch (error) {
+    if (isImagePickerCancel(error)) {
+      return []
     }
 
     const message = error?.message || '图片上传失败，请稍后重试'

@@ -1,6 +1,6 @@
 {
   "bsonType": "object",
-  "required": ["title", "type", "creator_id", "status"],
+  "required": ["title", "type", "creator_id", "status", "moderation_status"],
   "permission": {
     "read": true,
     "create": "auth.uid != null",
@@ -22,9 +22,30 @@
     "creator": { "bsonType": "string", "title": "Creator name" },
     "author": { "bsonType": "string", "title": "Author name compatibility field" },
     "avatar": { "bsonType": "string", "title": "Creator avatar" },
+    "images": { "bsonType": "array", "title": "Partner post images" },
+    "image": { "bsonType": "string", "title": "Primary image compatibility field" },
+    "cover": { "bsonType": "string", "title": "Cover image compatibility field" },
     "city": { "bsonType": "string", "title": "City" },
     "location": { "bsonType": "string", "title": "Location" },
     "locationRange": { "bsonType": "string", "title": "Location range compatibility field" },
+    "address": { "bsonType": "string", "title": "Address" },
+    "latitude": { "bsonType": "double", "title": "Latitude" },
+    "longitude": { "bsonType": "double", "title": "Longitude" },
+    "wechat_id": {
+      "bsonType": "string",
+      "title": "WeChat ID",
+      "permission": { "read": "doc.creator_id == auth.uid" }
+    },
+    "wechat_qr": {
+      "bsonType": "object",
+      "title": "WeChat QR image",
+      "permission": { "read": "doc.creator_id == auth.uid" }
+    },
+    "wechat_qr_url": {
+      "bsonType": "string",
+      "title": "WeChat QR image URL",
+      "permission": { "read": "doc.creator_id == auth.uid" }
+    },
     "schedule": { "bsonType": "string", "title": "Schedule" },
     "available": { "bsonType": "string", "title": "Available time compatibility field" },
     "connection_mode": { "bsonType": "string", "title": "Connection mode" },
@@ -39,6 +60,10 @@
     "tags": { "bsonType": "array", "title": "Display tags" },
     "actionLabel": { "bsonType": "string", "title": "Action label compatibility field" },
     "status": { "enum": ["open", "matched", "converted", "paused", "closed"], "title": "Status" },
+    "moderation_status": { "enum": ["pending", "approved", "rejected", "hidden", "visible"], "title": "Moderation status" },
+    "moderation_note": { "bsonType": "string", "title": "Moderation note" },
+    "moderated_at": { "bsonType": "timestamp", "title": "Moderated at" },
+    "moderated_by": { "bsonType": "string", "title": "Moderated by" },
     "intent_count": { "bsonType": "int", "title": "Intent count" },
     "intentCount": { "bsonType": "int", "title": "Intent count compatibility field" },
     "follow_count": { "bsonType": "int", "title": "Follow count" },
