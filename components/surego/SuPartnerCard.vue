@@ -11,6 +11,8 @@
       <text class="partner-post-card__kind" :class="`partner-post-card__kind--${kindTone}`">{{ partner.typeLabel }}</text>
     </view>
 
+    <text v-if="moderationLabel" class="partner-post-card__moderation">{{ moderationLabel }}</text>
+
     <text class="partner-post-card__title su-line-2">{{ partner.title }}</text>
 
     <view class="partner-post-card__wants">
@@ -64,8 +66,18 @@ const displayTags = computed(() => {
 })
 
 const displayConnectionSummary = computed(() => {
-  const text = String(props.partner.connectionRule || props.partner.connectionMode || '先提交意向，对方通过后联系').trim()
+  const text = String(props.partner.connectionRule || props.partner.connectionMode || '').trim()
   return text.split(/[；;。]/).filter(Boolean)[0] || text
+})
+
+const moderationLabel = computed(() => {
+  const status = props.partner.moderationStatus || props.partner.moderation_status
+  const labels = {
+    pending: '待审核',
+    rejected: '未通过',
+    hidden: '已下架'
+  }
+  return labels[status] || ''
 })
 
 const actionLabel = computed(() => {
@@ -169,6 +181,17 @@ function openDetail() {
   font-size: 31rpx;
   font-weight: 950;
   line-height: 1.24;
+}
+
+.partner-post-card__moderation {
+  width: fit-content;
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 18rpx;
+  font-weight: 950;
+  line-height: 1;
 }
 
 .compact-meta-row {

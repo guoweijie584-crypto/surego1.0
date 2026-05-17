@@ -47,7 +47,6 @@
           <view>
             <SuIcon name="people" size="36" glyph-size="18" variant="inline" color="#2388ff" />
             <text>{{ partner.interested || partner.intentCount }} 人感兴趣</text>
-            <text>对方会先看申请，再决定是否联系</text>
           </view>
         </view>
 
@@ -64,13 +63,30 @@
           </view>
         </view>
 
-        <view class="rule-card">
-          <view>
-            <text>怎么联系</text>
-            <text>{{ connectionHelp }}</text>
+        <view class="wechat-contact-card" :class="{ 'wechat-contact-card--locked': !canViewWechat }">
+          <view class="wechat-contact-card__head">
+            <view>
+              <text>微信联系</text>
+            </view>
+            <SuIcon :name="canViewWechat ? 'wechat' : 'locked-filled'" size="44" glyph-size="21" variant="inline" :color="canViewWechat ? '#22c55e' : '#94a3b8'" />
           </view>
-          <text>{{ partner.connectionRule || partner.connectionMode }}</text>
-          <text class="rule-card__pill">聊清楚后再一起约时间</text>
+          <view v-if="canViewWechat && hasWechatContact" class="wechat-contact-card__body">
+            <view v-if="wechatId" class="wechat-contact-row">
+              <view>
+                <text>微信号</text>
+                <text>{{ wechatId }}</text>
+              </view>
+              <text @tap="copyWechatId">复制</text>
+            </view>
+            <view v-if="wechatQrUrl" class="wechat-contact-row">
+              <view>
+                <text>微信二维码</text>
+              </view>
+              <image :src="wechatQrUrl" mode="aspectFill" @tap="previewWechatQr" />
+            </view>
+          </view>
+          <text v-else-if="canViewWechat" class="wechat-contact-empty">发起人未填写微信</text>
+          <text v-else class="wechat-contact-empty">未解锁</text>
         </view>
 
         <view class="partner-action-grid">
@@ -131,11 +147,10 @@ const viewerIntent = computed(() => partner.value.viewerIntent || partner.value.
 const viewerIntentStatus = computed(() => partner.value.viewerIntentStatus || partner.value.viewer_intent_status || viewerIntent.value?.status || '')
 const viewerConversationId = computed(() => partner.value.viewerConversationId || partner.value.viewer_conversation_id || viewerIntent.value?.conversationId || viewerIntent.value?.conversation_id || '')
 const canOpenConversation = computed(() => viewerIntentStatus.value === 'accepted' && Boolean(viewerConversationId.value))
-const connectionHelp = computed(() => {
-  if (partner.value.type === 'long_term') return '先申请认识，合适后稳定约'
-  if (partner.value.type === 'project') return '先看角色和投入时间，再确认组队'
-  return '先约一次，确认合适再继续'
-})
+const canViewWechat = computed(() => Boolean(partner.value.canViewWechat || partner.value.can_view_wechat))
+const wechatId = computed(() => partner.value.wechatId || partner.value.wechat_id || '')
+const wechatQrUrl = computed(() => partner.value.wechatQrUrl || partner.value.wechat_qr_url || partner.value.wechatQr?.url || partner.value.wechat_qr?.url || '')
+const hasWechatContact = computed(() => Boolean(wechatId.value || wechatQrUrl.value))
 const primaryActionText = computed(() => {
   if (partner.value.isCreator) return '进入工作台'
   if (canOpenConversation.value) return '进入私聊'
@@ -233,6 +248,24 @@ function handleGroupChat() {
   }
   openAcceptedConversation()
 }
+
+function copyWechatId() {
+  if (!wechatId.value) return
+  uni.setClipboardData({
+    data: wechatId.value,
+    success() {
+      uni.showToast({ title: '微信号已复制', icon: 'success' })
+    }
+  })
+}
+
+function previewWechatQr() {
+  if (!wechatQrUrl.value) return
+  uni.previewImage({
+    current: wechatQrUrl.value,
+    urls: [wechatQrUrl.value]
+  })
+}
 </script>
 
 <style scoped>
@@ -273,6 +306,20 @@ function handleGroupChat() {
 .rule-card view text:last-child { color: #102033; font-size: 30rpx; font-weight: 900; line-height: 1.3; }
 .rule-card > text:nth-child(2) { display: block; margin-top: 18rpx; color: #64748b; font-size: 24rpx; font-weight: 800; line-height: 1.55; }
 .rule-card__pill { display: inline-flex !important; margin-top: 20rpx !important; padding: 10rpx 18rpx; border-radius: 999rpx; background: #2388ff; color: #fff !important; font-size: 21rpx !important; font-weight: 900 !important; }
+.wechat-contact-card { margin: 0 34rpx 22rpx; padding: 30rpx; border: 1rpx solid rgba(34, 197, 94, 0.2); border-radius: 34rpx; background: #f0fdf4; box-shadow: 0 16rpx 42rpx rgba(34, 197, 94, 0.08); }
+.wechat-contact-card--locked { border-color: #eef2f7; background: #fff; box-shadow: 0 16rpx 42rpx rgba(15, 23, 42, 0.05); }
+.wechat-contact-card__head { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
+.wechat-contact-card__head view { display: grid; gap: 8rpx; }
+.wechat-contact-card__head view text:first-child { color: #102033; font-size: 29rpx; font-weight: 950; }
+.wechat-contact-card__head view text:last-child { color: #64748b; font-size: 22rpx; font-weight: 850; line-height: 1.35; }
+.wechat-contact-card__body { display: grid; gap: 16rpx; margin-top: 22rpx; }
+.wechat-contact-row { display: flex; min-height: 88rpx; align-items: center; justify-content: space-between; gap: 20rpx; padding: 18rpx 20rpx; border-radius: 24rpx; background: #fff; }
+.wechat-contact-row view { display: grid; gap: 6rpx; min-width: 0; }
+.wechat-contact-row view text:first-child { color: #94a3b8; font-size: 20rpx; font-weight: 900; }
+.wechat-contact-row view text:last-child { min-width: 0; color: #102033; font-size: 25rpx; font-weight: 950; word-break: break-all; }
+.wechat-contact-row > text { flex-shrink: 0; padding: 12rpx 20rpx; border-radius: 999rpx; background: #dcfce7; color: #15803d; font-size: 22rpx; font-weight: 950; }
+.wechat-contact-row image { width: 96rpx; height: 96rpx; flex: 0 0 96rpx; border-radius: 18rpx; background: #f8fafc; }
+.wechat-contact-empty { display: block; margin-top: 20rpx; color: #94a3b8; font-size: 23rpx; font-weight: 850; line-height: 1.45; }
 .partner-action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16rpx; margin: 0 34rpx 40rpx; }
 .partner-action { display: flex; height: 82rpx; align-items: center; justify-content: center; gap: 8rpx; border: 1rpx solid #e2e8f0; border-radius: 999rpx; background: #fff; color: #102033; font-size: 24rpx; font-weight: 900; }
 .partner-action--primary { border-color: #2388ff; background: #2388ff; color: #fff; box-shadow: 0 14rpx 30rpx rgba(35, 136, 255, 0.22); }

@@ -67,7 +67,7 @@
       <view v-if="activeTab === 'chat'" class="ref-stack">
         <view v-if="acceptedIntents.length === 0" class="ref-empty ref-card">
           <SuIcon name="chat" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
-          <text>先通过意向，再开始沟通</text>
+          <text>暂无</text>
         </view>
         <view
           v-for="item in acceptedIntents"
@@ -95,7 +95,7 @@
       <view v-if="activeTab === 'convert'" class="ref-stack">
         <view v-if="acceptedIntents.length === 0" class="ref-empty ref-card">
           <SuIcon name="people" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
-          <text>通过意向后才能邀请成行</text>
+          <text>暂无</text>
         </view>
         <view v-else class="convert-panel ref-card">
           <view class="convert-panel__head">
@@ -106,7 +106,6 @@
             <SuIcon name="send" size="48" glyph-size="24" variant="soft" color="#2388ff" />
             <view>
               <text>公开约人</text>
-              <text>生成公开活动，继续在成行首页招人。</text>
             </view>
             <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
           </view>
@@ -114,7 +113,6 @@
             <SuIcon name="shield" size="48" glyph-size="24" variant="soft" color="#2388ff" />
             <view>
               <text>只约已通过的人</text>
-              <text>生成私密活动，只给你选择的同学发送邀请。</text>
             </view>
             <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
           </view>
@@ -128,7 +126,6 @@
         <view class="convert-sheet__head">
           <view>
             <text>{{ conversionForm.visibility === 'public' ? '公开约人' : '只约已通过的人' }}</text>
-            <text>已选择 {{ selectedInviteCount }} 人，发送邀请后对方确认才加入活动。</text>
           </view>
           <view class="sheet-close" @tap="closeConvertSheet">
               <SuIcon name="closeempty" size="34" glyph-size="17" variant="inline" color="#64748b" />

@@ -177,6 +177,14 @@ export const PARTNER_POST_STATUS_META = {
   closed: { key: 'closed', label: '已结束', tone: 'gray', rank: 60 }
 }
 
+export const PARTNER_MODERATION_STATUS_META = {
+  pending: { key: 'pending', label: '待审核', tone: 'amber' },
+  approved: { key: 'approved', label: '已通过', tone: 'green' },
+  visible: { key: 'visible', label: '展示中', tone: 'green' },
+  rejected: { key: 'rejected', label: '未通过', tone: 'red' },
+  hidden: { key: 'hidden', label: '已下架', tone: 'gray' }
+}
+
 export const PARTNER_INTENT_STATUS_META = {
   pending: { key: 'pending', label: '待确认', tone: 'amber' },
   accepted: { key: 'accepted', label: '已通过', tone: 'green' },
@@ -248,6 +256,10 @@ function normalizeStatus(status = 'open') {
   return PARTNER_POST_STATUS_META[status] ? status : 'open'
 }
 
+function normalizeModerationStatus(status = 'pending') {
+  return PARTNER_MODERATION_STATUS_META[status] ? status : 'pending'
+}
+
 function normalizeAvatar(avatar = '') {
   const value = String(avatar || '').trim()
   return value || DEFAULT_AVATAR
@@ -256,6 +268,32 @@ function normalizeAvatar(avatar = '') {
 function normalizeTags(tags = []) {
   if (Array.isArray(tags)) return tags.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
   return String(tags || '').split(/[,\s，、]+/).map((item) => item.trim()).filter(Boolean).slice(0, 6)
+}
+
+function normalizeImages(images = []) {
+  const items = Array.isArray(images) ? images : [images]
+  return items
+    .map((item) => {
+      if (typeof item === 'string') return { url: item, fileID: item }
+      const url = String(item?.url || item?.fileID || item?.file_id || item?.src || '').trim()
+      if (!url) return null
+      return {
+        url,
+        fileID: item.fileID || item.file_id || url
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 9)
+}
+
+function normalizeWechatQr(value = '') {
+  return normalizeImages(value)[0] || null
+}
+
+function getWechatQrUrl(item = {}) {
+  const direct = String(item.wechatQrUrl || item.wechat_qr_url || '').trim()
+  if (direct) return direct
+  return normalizeWechatQr(item.wechatQr || item.wechat_qr)?.url || ''
 }
 
 function normalizeTopicKey(topicKey = '') {
@@ -331,17 +369,34 @@ function isReferencePreviewOwner(item = {}) {
   return shouldUseReferenceMockPreview() && REFERENCE_PREVIEW_OWNER_IDS.includes(creatorId)
 }
 
-function normalizePartnerPost(item = {}) {
+function isPubliclyVisiblePartnerPost(item = {}) {
+  return ['open', 'matched'].includes(normalizeStatus(item.status))
+    && ['approved', 'visible'].includes(normalizeModerationStatus(item.moderationStatus || item.moderation_status))
+}
+
+function canViewPartnerWechat(item = {}, viewerIntentStatus = '', options = {}) {
+  if (!options.revealWechat) return false
+  if (isCurrentUserCreator(item) || isReferencePreviewOwner(item)) return true
+  return viewerIntentStatus === 'accepted'
+}
+
+function normalizePartnerPost(item = {}, options = {}) {
   const id = item.id || item._id
   const type = normalizeType(item.type || mapKindToType(item.kind))
   const topicKey = normalizeTopicKey(item.topicKey || item.topic_key)
   const creatorId = item.creatorId || item.creator_id || ''
   const detail = item.detail || item.description || ''
   const wants = normalizeTags(item.wants || item.fitTags || item.fit_tags || item.tags)
+  const images = normalizeImages(item.images || item.image || item.cover)
+  const primaryImage = item.image || item.cover || images[0]?.url || ''
   const status = normalizeStatus(item.status)
   const viewerIntent = findViewerIntentForPost({ ...item, id })
   const viewerIntentStatus = item.viewerIntentStatus || item.viewer_intent_status || viewerIntent?.status || ''
   const viewerConversationId = item.viewerConversationId || item.viewer_conversation_id || viewerIntent?.conversationId || viewerIntent?.conversation_id || ''
+  const canViewWechat = canViewPartnerWechat({ ...item, creatorId }, viewerIntentStatus, options)
+  const wechatId = String(item.wechatId || item.wechat_id || '').trim()
+  const wechatQrUrl = getWechatQrUrl(item)
+  const wechatQr = normalizeWechatQr(item.wechatQr || item.wechat_qr || wechatQrUrl)
   return {
     ...item,
     id,
@@ -357,13 +412,26 @@ function normalizePartnerPost(item = {}) {
     creator: item.creator || item.creator_name || 'SureGo 用户',
     author: item.author || item.creator || item.creator_name || 'SureGo 用户',
     avatar: normalizeAvatar(item.avatar || item.creator_avatar),
+    images,
+    image: primaryImage,
+    cover: item.cover || primaryImage,
     city: item.city || '天津',
-    location: item.location || item.city || '待定',
-    locationRange: item.locationRange || item.location_range || item.location || item.city || '待定',
+    location: item.location || '地点待定',
+    locationRange: item.locationRange || item.location_range || item.location || '地点待定',
+    address: item.address || '',
+    latitude: item.latitude || '',
+    longitude: item.longitude || '',
+    wechatId: canViewWechat ? wechatId : '',
+    wechat_id: canViewWechat ? wechatId : '',
+    wechatQr: canViewWechat ? wechatQr : null,
+    wechat_qr: canViewWechat ? wechatQr : null,
+    wechatQrUrl: canViewWechat ? wechatQrUrl : '',
+    wechat_qr_url: canViewWechat ? wechatQrUrl : '',
+    canViewWechat,
     schedule: item.schedule || item.time || '时间待定',
     available: item.available || item.available_text || item.schedule || item.time || '时间待定',
-    connectionMode: item.connectionMode || item.connection_mode || '发出意向后互相确认',
-    connectionRule: item.connectionRule || item.connection_rule || item.connectionMode || item.connection_mode || '发出意向后互相确认',
+    connectionMode: item.connectionMode || item.connection_mode || '',
+    connectionRule: item.connectionRule || item.connection_rule || item.connectionMode || item.connection_mode || '',
     description: item.description || detail,
     detail,
     expectation: item.expectation || '',
@@ -371,6 +439,14 @@ function normalizePartnerPost(item = {}) {
     fitTags: normalizeTags(item.fitTags || item.fit_tags || item.tags),
     tags: normalizeTags(item.tags || item.fitTags || item.fit_tags || item.wants),
     status,
+    moderationStatus: normalizeModerationStatus(item.moderationStatus || item.moderation_status),
+    moderation_status: normalizeModerationStatus(item.moderationStatus || item.moderation_status),
+    moderationNote: item.moderationNote || item.moderation_note || '',
+    moderation_note: item.moderationNote || item.moderation_note || '',
+    moderatedAt: item.moderatedAt || item.moderated_at || '',
+    moderated_at: item.moderatedAt || item.moderated_at || '',
+    moderatedBy: item.moderatedBy || item.moderated_by || '',
+    moderated_by: item.moderatedBy || item.moderated_by || '',
     interested: Number(item.interested || item.intentCount || item.intent_count) || 0,
     intentCount: Number(item.intentCount || item.intent_count) || 0,
     followCount: Number(item.followCount || item.follow_count) || 0,
@@ -437,15 +513,28 @@ function normalizeConversation(item = {}) {
   }
 }
 
+function markReferencePartnerPostApproved(item = {}) {
+  return {
+    moderationStatus: 'approved',
+    moderation_status: 'approved',
+    ...item
+  }
+}
+
 function listLocalPartnerPosts(options = {}) {
-  return Promise.resolve([
+  const includeAll = Boolean(options.includeAll)
+  const items = [
     ...readPosts(),
-    ...partnerPosts
-  ].map(normalizePartnerPost).filter((item) => matchesPartnerPostFilters(item, options)).sort((a, b) => {
+    ...partnerPosts.map(markReferencePartnerPostApproved)
+  ].map(normalizePartnerPost)
+    .filter((item) => includeAll || isPubliclyVisiblePartnerPost(item))
+    .filter((item) => matchesPartnerPostFilters(item, options))
+    .sort((a, b) => {
     const rankDiff = PARTNER_POST_STATUS_META[a.status].rank - PARTNER_POST_STATUS_META[b.status].rank
     if (rankDiff !== 0) return rankDiff
     return String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
-  }))
+  })
+  return Promise.resolve(items)
 }
 
 export async function listPartnerPosts(options = {}) {
@@ -481,7 +570,7 @@ export async function listHackathonPartnerPosts(options = {}) {
 
 function getLocalPartnerPostDetail(id) {
   const found = readPosts().find((item) => String(item.id) === String(id)) || findPartnerPostById(id)
-  return Promise.resolve(found ? normalizePartnerPost(found) : null)
+  return Promise.resolve(found ? normalizePartnerPost(found, { revealWechat: true }) : null)
 }
 
 export async function getPartnerPostDetail(id, options = {}) {
@@ -491,7 +580,7 @@ export async function getPartnerPostDetail(id, options = {}) {
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview() && !String(id).startsWith('local_partner_')) {
     try {
       const detail = await callSuregoFunction('surego-partner', 'detailPost', { id })
-      return detail ? normalizePartnerPost(detail) : null
+      return detail ? normalizePartnerPost(detail, { revealWechat: true }) : null
     } catch (error) {
       if (options.allowFallback === false) throw error
       return handleSuregoCloudError(error, () => getLocalPartnerPostDetail(id))
@@ -507,6 +596,8 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
   const topicKey = normalizeTopicKey(form.topicKey || form.topic_key)
   const tags = normalizeTags(form.fitTags || form.fit_tags || form.tags)
   const wants = normalizeTags(form.wants || form.expectation)
+  const images = normalizeImages(form.images || form.image || form.cover)
+  const primaryImage = form.image || form.cover || images[0]?.url || ''
   return normalizePartnerPost({
     id,
     title: String(form.title || '').trim(),
@@ -521,9 +612,21 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
     creator: form.creator || currentUser.nickname,
     author: form.author || form.creator || currentUser.nickname,
     avatar: form.avatar || currentUser.avatar,
+    images: normalizeImages(form.images || form.image || form.cover),
+    image: primaryImage,
+    cover: primaryImage,
     city: form.city || '天津',
-    location: form.location || form.city || '待定',
-    locationRange: form.locationRange || form.location_range || form.location || form.city || '待定',
+    location: form.location || '',
+    locationRange: form.locationRange || form.location_range || form.location || '',
+    address: form.address || '',
+    latitude: form.latitude || '',
+    longitude: form.longitude || '',
+    wechatId: form.wechatId || form.wechat_id || '',
+    wechat_id: form.wechatId || form.wechat_id || '',
+    wechatQr: normalizeWechatQr(form.wechatQr || form.wechat_qr || form.wechatQrUrl || form.wechat_qr_url),
+    wechat_qr: normalizeWechatQr(form.wechatQr || form.wechat_qr || form.wechatQrUrl || form.wechat_qr_url),
+    wechatQrUrl: getWechatQrUrl(form),
+    wechat_qr_url: getWechatQrUrl(form),
     schedule: form.schedule || '',
     available: form.available || form.available_text || form.schedule || '',
     connectionMode: form.connectionMode || form.connection_mode || '',
@@ -535,10 +638,12 @@ function buildPartnerPostFromForm(form = {}, id = `local_partner_${Date.now()}`)
     fitTags: tags,
     tags,
     status: form.status || 'open',
+    moderationStatus: form.moderationStatus || form.moderation_status || 'pending',
+    moderation_status: form.moderationStatus || form.moderation_status || 'pending',
     intentCount: form.intentCount || 0,
     followCount: form.followCount || 0,
     createdAt: new Date().toISOString()
-  })
+  }, { revealWechat: true })
 }
 
 function createLocalPartnerPost(form = {}) {
@@ -552,7 +657,7 @@ export async function createPartnerPost(form = {}) {
   const post = buildPartnerPostFromForm(form, '')
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
-      return normalizePartnerPost(await callSuregoFunction('surego-partner', 'createPost', post))
+      return normalizePartnerPost(await callSuregoFunction('surego-partner', 'createPost', post), { revealWechat: true })
     } catch (error) {
       return handleSuregoCloudError(error, () => createLocalPartnerPost(form))
     }
@@ -562,7 +667,7 @@ export async function createPartnerPost(form = {}) {
 
 export async function listMyPartnerPosts() {
   if (shouldUseReferenceMockPreview()) {
-    const all = await listLocalPartnerPosts()
+    const all = await listLocalPartnerPosts({ includeAll: true })
     return all.filter((item) => item.isCreator || isReferencePreviewOwner(item))
   }
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
@@ -571,12 +676,12 @@ export async function listMyPartnerPosts() {
       return Array.isArray(items) ? items.map(normalizePartnerPost) : []
     } catch (error) {
       return handleSuregoCloudError(error, async () => {
-        const all = await listLocalPartnerPosts()
+        const all = await listLocalPartnerPosts({ includeAll: true })
         return all.filter((item) => item.isCreator)
       })
     }
   }
-  const all = await listLocalPartnerPosts()
+  const all = await listLocalPartnerPosts({ includeAll: true })
   return all.filter((item) => item.isCreator)
 }
 
@@ -825,10 +930,10 @@ function buildConvertedActivity(post = {}, options = {}) {
     amount: Number(options.amount) || 0,
     requireApproval: visibility === 'public',
     require_approval: visibility === 'public',
-    status: visibility === 'public' ? 'recruiting' : 'formed',
-    lifecycleStatus: visibility === 'public' ? 'recruiting' : 'formed',
-    moderationStatus: 'approved',
-    moderation_status: 'approved',
+    status: 'reviewing',
+    lifecycleStatus: 'reviewing',
+    moderationStatus: 'pending',
+    moderation_status: 'pending',
     applicationStatus: 'not_applied',
     viewCount: 0,
     likeCount: 0,
