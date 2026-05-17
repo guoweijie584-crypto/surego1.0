@@ -594,6 +594,9 @@ exports.main = async (event) => {
     if (String(post.creator_id || '') === user.uid) {
       return { code: 'FORBIDDEN', message: 'Creator cannot send intent to own partner post.' };
     }
+    if (!isPubliclyVisiblePost(post)) {
+      return { code: 'POST_NOT_VISIBLE', message: 'Partner post is not open for intents.' };
+    }
     const existing = await intents.where({ partner_post_id: partnerPostId, user_id: user.uid }).limit(1).get();
     const found = (existing.data || [])[0];
     if (found) {

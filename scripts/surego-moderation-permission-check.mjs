@@ -55,6 +55,7 @@ const partnerCloudSource = read('uniCloud-aliyun/cloudfunctions/surego-partner/i
 mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, 'publicPostModerationStatuses', 'partner posts must define public moderation statuses')
 mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, "moderation_status: 'pending'", 'created partner posts must enter pending moderation')
 mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, 'isPubliclyVisiblePost', 'partner list/detail must filter unapproved posts')
+mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, "if (!isPubliclyVisiblePost(post))", 'partner intent submission must reject unapproved or hidden posts')
 mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, "status: 'reviewing'", 'partner converted public activities must enter review')
 mustInclude('uniCloud-aliyun/cloudfunctions/surego-partner/index.js', partnerCloudSource, "moderation_status: 'pending'", 'partner converted public activities must enter pending moderation')
 if (partnerCloudSource.includes('event.roles || payload.roles')) {
