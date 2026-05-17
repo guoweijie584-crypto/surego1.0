@@ -283,8 +283,8 @@ if (fs.existsSync(pagesPath)) {
         errors.push(`Remove stale demo route from pages.json: ${page}`);
       }
     }
-    if ((config.pages || [])[0]?.path !== 'pages/home/index') {
-      errors.push('pages/home/index must be the startup page');
+    if ((config.pages || [])[0]?.path !== 'pages/partners/index') {
+      errors.push('pages/partners/index must be the startup page');
     }
     for (const pagePath of ['pages/activity/create', 'pages/activity/edit']) {
       const page = (config.pages || []).find((item) => item.path === pagePath);
@@ -305,10 +305,18 @@ if (fs.existsSync(dockPath)) {
       errors.push(`SuBottomDock.vue still contains stale bottom nav item: ${staleKey}`);
     }
   }
-  for (const helper of ['goHomeRoot', 'goPartnersRoot', 'goPublishCenter', 'goMessages', 'goUserProfile']) {
+  for (const helper of ['goHomeRoot', 'goPartnersRoot', 'goMessages', 'goUserProfile', 'goPartnerCreate', 'goActivityCreate']) {
     if (!dockSource.includes(helper)) {
       errors.push(`SuBottomDock.vue must use root navigation helper: ${helper}`);
     }
+  }
+  for (const token of ['showPublishSheet', '发布搭子', '发布活动', 'publish-sheet__panel']) {
+    if (!dockSource.includes(token)) {
+      errors.push(`SuBottomDock.vue must expose publish sheet token: ${token}`);
+    }
+  }
+  if (dockSource.includes('goPublishCenter')) {
+    errors.push('SuBottomDock.vue must open the publish sheet instead of navigating to goPublishCenter');
   }
   if (!dockSource.includes("label: '搭子'")) {
     errors.push("SuBottomDock.vue must use '搭子' as the partner tab label");
@@ -1223,6 +1231,21 @@ if (fs.existsSync(hackathonIndexPath)) {
   }
 }
 
+const partnersIndexPath = path.join(root, 'pages/partners/index.vue');
+if (fs.existsSync(partnersIndexPath)) {
+  const source = fs.readFileSync(partnersIndexPath, 'utf8');
+  for (const token of ['listHackathonPartnerPosts', 'hackathonTeamCountLabel', 'hackathonIntentCountLabel', 'hackathonStartLabel', 'allowFallback: false']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/partners/index.vue must use real hackathon poster data token: ${token}`);
+    }
+  }
+  for (const staleToken of ['>12</text> 支队伍', '>28</text> 缺队友', '周末开赛', 'hackathonRoleCountLabel']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/partners/index.vue must not hardcode hackathon poster stat: ${staleToken}`);
+    }
+  }
+}
+
 const hackathonTeamPath = path.join(root, 'pages/hackathon/team.vue');
 if (fs.existsSync(hackathonTeamPath)) {
   const source = fs.readFileSync(hackathonTeamPath, 'utf8');
@@ -1241,9 +1264,14 @@ if (fs.existsSync(hackathonTeamPath)) {
 const partnerCreateTopicPath = path.join(root, 'pages/partner/create.vue');
 if (fs.existsSync(partnerCreateTopicPath)) {
   const source = fs.readFileSync(partnerCreateTopicPath, 'utf8');
-  for (const token of ['PARTNER_TOPIC_OPTIONS', 'topicKey', 'topicOptions', 'topic-notice', '黑客松/赛事']) {
+  for (const token of ['HACKATHON_TOPIC_KEY', 'topicKey', 'topic-notice', 'HACKATHON_LOCKED_TIME', 'HACKATHON_LOCKED_LOCATION', '2026年5月22日', '天津大学科技园']) {
     if (!source.includes(token)) {
-      errors.push(`pages/partner/create.vue must expose project topic selection token: ${token}`);
+      errors.push(`pages/partner/create.vue must expose locked hackathon publish token: ${token}`);
+    }
+  }
+  for (const staleToken of ['PARTNER_TOPIC_OPTIONS', 'topicOptions', '黑客松/赛事', '确认方式', '希望对方', '标签']) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/partner/create.vue must not expose stale heavy publish token: ${staleToken}`);
     }
   }
 }
@@ -1418,7 +1446,7 @@ if (fs.existsSync(activityDetailPath)) {
   if (source.includes("toastAndClose('举报已提交')")) {
     errors.push('pages/activity/detail.vue report action must create a moderation report instead of toast-only feedback');
   }
-  for (const token of ['试运行订单', '报名并确认订单']) {
+  for (const token of ['报名并确认订单']) {
     if (!source.includes(token)) {
       errors.push(`pages/activity/detail.vue must use trial-order activity wording token: ${token}`);
     }
@@ -1693,7 +1721,7 @@ for (const createPage of ['pages/activity/create.vue', 'pages/partner/create.vue
 const partnerDetailPath = path.join(root, 'pages/partner/detail.vue');
 if (fs.existsSync(partnerDetailPath)) {
   const source = fs.readFileSync(partnerDetailPath, 'utf8');
-  for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange', 'connectionRule', 'viewerIntent', 'viewerIntentStatus', 'goPartnerConversation', 'openAcceptedConversation']) {
+  for (const token of ['partner.detail', 'displayWants', 'partner.available', 'partner.locationRange', 'viewerIntent', 'viewerIntentStatus', 'goPartnerConversation', 'openAcceptedConversation']) {
     if (!source.includes(token)) {
       errors.push(`pages/partner/detail.vue must align partner detail information order with ${token}`);
     }
@@ -1885,12 +1913,12 @@ if (fs.existsSync(path.join(root, stackCheckFiles.payment))) {
   if (!source.includes('goParticipantDashboard(activity.value.id, { replace: true })')) {
     errors.push('pages/payment/index.vue must replace payment with participant dashboard after paid/payment success');
   }
-  for (const token of ['确认试运行订单', '订单确认成功', '试运行订单确认，不发生真实扣款']) {
+  for (const token of ['确认试运行订单', '订单确认成功']) {
     if (!source.includes(token)) {
       errors.push(`pages/payment/index.vue must use trial-order wording token: ${token}`);
     }
   }
-  for (const staleToken of ['确认支付', '支付成功']) {
+  for (const staleToken of ['确认支付', '支付成功', '试运行订单确认，不发生真实扣款']) {
     if (source.includes(staleToken)) {
       errors.push(`pages/payment/index.vue must not imply real payment with ${staleToken}`);
     }
@@ -1905,7 +1933,7 @@ if (fs.existsSync(path.join(root, stackCheckFiles.order))) {
   if (!source.includes('goParticipantDashboard(order.activityId, { replace: true })')) {
     errors.push('pages/order/detail.vue must replace order detail when opening participant credential from paid order');
   }
-  for (const token of ['试运行金额', '试运行订单规则', '试运行退款记录']) {
+  for (const token of ['试运行金额', '试运行退款记录']) {
     if (!source.includes(token)) {
       errors.push(`pages/order/detail.vue must use trial-order detail wording token: ${token}`);
     }
