@@ -7,7 +7,6 @@
       </view>
       <view>
         <text class="ops-users__title">用户与权限</text>
-        <text class="ops-users__sub">User Roles</text>
       </view>
       <view class="ops-users__refresh" @tap="loadUsers">
         <SuIcon name="refresh" size="40" glyph-size="20" variant="inline" color="#111827" />
@@ -19,7 +18,6 @@
       <view class="hero">
         <text class="hero__eyebrow">ADMIN ONLY</text>
         <text class="hero__title">设置用户角色，控制运营台访问权限</text>
-        <text class="hero__desc">普通用户默认无法进入运营台；运营人员可处理内容；管理员可继续分配角色。</text>
       </view>
 
       <view v-if="!isAdmin" class="empty">
@@ -81,7 +79,7 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPadd
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 onShow(async () => {
-  const current = await getCurrentUser()
+  const current = await getCurrentUser({ allowFallback: false })
   isAdmin.value = isAdminUser(current)
   if (!isAdmin.value) {
     uni.showToast({ title: '无权设置用户角色', icon: 'none' })

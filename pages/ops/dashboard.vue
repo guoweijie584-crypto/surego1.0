@@ -7,7 +7,6 @@
         </view>
         <view>
           <text class="ops__title">运营控制台</text>
-          <text class="ops__sub">SureGo Trial Ops</text>
         </view>
         <view class="ops__report" @tap="goOpsReports('pending')">
           <SuIcon name="flag" size="40" glyph-size="20" variant="inline" color="#ef4444" />
@@ -16,16 +15,6 @@
     </view>
 
     <scroll-view scroll-y class="ops__scroll" :style="contentTopStyle">
-      <view class="hero">
-        <text class="hero__eyebrow">试运营看板</text>
-        <text class="hero__title">内容、订单、签到状态一屏收口</text>
-        <view class="hero__chips">
-          <text>活动 {{ stats.activityCount }}</text>
-          <text>待举报 {{ stats.pendingReports }}</text>
-          <text>签到率 {{ stats.checkinRate }}%</text>
-        </view>
-      </view>
-
       <view class="ops-tools">
         <view class="ops-tool" @tap="goOpsUsers">
           <view class="ops-tool__icon">
@@ -33,7 +22,6 @@
           </view>
           <view class="ops-tool__copy">
             <text class="ops-tool__title">用户与权限</text>
-            <text class="ops-tool__desc">管理员设置用户、运营人员和管理员角色</text>
           </view>
           <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
@@ -49,7 +37,6 @@
       <view class="section-head">
         <view>
           <text class="section-head__title">活动治理</text>
-          <text class="section-head__sub">审核、驳回、下架、恢复展示</text>
         </view>
         <view class="section-head__link" @tap="loadOpsData">刷新</view>
       </view>
@@ -75,6 +62,34 @@
           </view>
         </view>
       </view>
+
+      <view class="section-head">
+        <view>
+          <text class="section-head__title">搭子治理</text>
+        </view>
+      </view>
+
+      <view class="activity-list">
+        <view v-for="item in partnerPosts" :key="item.id" class="activity-card">
+          <image class="activity-card__cover" :src="item.image || item.cover || '/static/logo.png'" mode="aspectFill" />
+          <view class="activity-card__body">
+            <view class="activity-card__top">
+              <text class="activity-card__title su-line-1">{{ item.title }}</text>
+              <text class="activity-card__badge" :class="`activity-card__badge--${item.moderationStatus}`">
+                {{ getModerationLabel(item.moderationStatus) }}
+              </text>
+            </view>
+            <text class="activity-card__meta">{{ item.schedule || '时间待定' }} · {{ item.location || '地点待定' }}</text>
+            <text v-if="item.moderationNote" class="activity-card__note">{{ item.moderationNote }}</text>
+            <view class="activity-card__actions">
+              <view @tap="handleModeratePartner(item, 'approved')">通过</view>
+              <view @tap="handleModeratePartner(item, 'rejected')">驳回</view>
+              <view @tap="handleModeratePartner(item, 'hidden')">下架</view>
+              <view @tap="handleModeratePartner(item, 'approved')">恢复</view>
+            </view>
+          </view>
+        </view>
+      </view>
     </scroll-view>
   </view>
 </template>
@@ -83,7 +98,7 @@
 import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { getOpsStats, listOpsActivities, moderateActivity } from '@/common/api/moderation.js'
+import { getOpsStats, listOpsActivities, listOpsPartnerPosts, moderateActivity, moderatePartnerPost } from '@/common/api/moderation.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goOpsReports, goOpsUsers } from '@/common/utils/route.js'
 
 const stats = ref({
@@ -91,6 +106,9 @@ const stats = ref({
   pendingReports: 0,
   pendingActivities: 0,
   hiddenActivities: 0,
+  partnerCount: 0,
+  pendingPartners: 0,
+  hiddenPartners: 0,
   applicationCount: 0,
   orderCount: 0,
   paidOrderCount: 0,
@@ -99,6 +117,7 @@ const stats = ref({
   checkinRate: 0
 })
 const activities = ref([])
+const partnerPosts = ref([])
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -106,21 +125,23 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const metricCards = computed(() => [
   { key: 'reports', label: '待处理举报', value: stats.value.pendingReports },
   { key: 'reviewing', label: '待审核活动', value: stats.value.pendingActivities },
+  { key: 'partnerReviewing', label: '待审核搭子', value: stats.value.pendingPartners },
   { key: 'orders', label: '订单总数', value: stats.value.orderCount },
   { key: 'paid', label: '已支付', value: stats.value.paidOrderCount },
-  { key: 'refund', label: '退款/关闭', value: stats.value.refundedOrderCount },
-  { key: 'hidden', label: '已下架', value: stats.value.hiddenActivities }
+  { key: 'hidden', label: '已下架', value: Number(stats.value.hiddenActivities || 0) + Number(stats.value.hiddenPartners || 0) }
 ])
 
 onShow(loadOpsData)
 
 async function loadOpsData() {
-  const [nextStats, nextActivities] = await Promise.all([
+  const [nextStats, nextActivities, nextPartnerPosts] = await Promise.all([
     getOpsStats(),
-    listOpsActivities()
+    listOpsActivities(),
+    listOpsPartnerPosts()
   ])
   stats.value = { ...stats.value, ...nextStats }
   activities.value = nextActivities
+  partnerPosts.value = nextPartnerPosts
 }
 
 function getModerationLabel(status = 'pending') {
@@ -155,6 +176,27 @@ async function handleModerate(item, moderationStatus) {
   ))
   stats.value = await getOpsStats()
   uni.showToast({ title: moderationStatus === 'approved' && item.moderationStatus === 'hidden' ? '恢复展示' : labels[moderationStatus], icon: 'none' })
+}
+
+async function handleModeratePartner(item, moderationStatus) {
+  const isRestore = moderationStatus === 'approved' && item.moderationStatus === 'hidden'
+  if (!isRestore && item.moderationStatus === moderationStatus) {
+    uni.showToast({ title: '状态未变化', icon: 'none' })
+    return
+  }
+  const labels = {
+    approved: '运营通过',
+    rejected: '运营驳回',
+    hidden: '搭子已下架'
+  }
+  const updated = await moderatePartnerPost(item.id, moderationStatus, {
+    moderationNote: isRestore ? '恢复展示' : labels[moderationStatus]
+  })
+  partnerPosts.value = partnerPosts.value.map((post) => (
+    post.id === item.id ? { ...post, ...updated } : post
+  ))
+  stats.value = await getOpsStats()
+  uni.showToast({ title: isRestore ? '恢复展示' : labels[moderationStatus], icon: 'none' })
 }
 </script>
 

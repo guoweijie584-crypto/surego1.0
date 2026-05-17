@@ -311,8 +311,10 @@ exports.main = async (event) => {
       source_partner_intent_ids: payload.sourcePartnerIntentIds || payload.source_partner_intent_ids || [],
       invited_user_ids: payload.invitedUserIds || payload.invited_user_ids || [],
       participant_ids: payload.participantIds || payload.participant_ids || [],
+      status: 'reviewing',
       updated_at: Date.now()
     });
+    updatePayload.moderation_status = 'pending';
     delete updatePayload._id;
     await collection.doc(id).update(updatePayload);
     return {

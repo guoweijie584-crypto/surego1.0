@@ -154,7 +154,7 @@ export async function syncCurrentUserProfile(payload = {}) {
   return saved
 }
 
-export async function getCurrentUser() {
+export async function getCurrentUser(options = {}) {
   if (shouldUseReferenceMockPreview()) {
     return readLocalUser()
   }
@@ -166,6 +166,9 @@ export async function getCurrentUser() {
       const user = await callSuregoFunction('surego-user', 'profile', { userId: getCurrentUserId() })
       return user ? writeLocalUser(user) : readLocalUser()
     } catch (error) {
+      if (options.allowFallback === false) {
+        throw error
+      }
       return handleSuregoCloudError(error, readLocalUser)
     }
   }

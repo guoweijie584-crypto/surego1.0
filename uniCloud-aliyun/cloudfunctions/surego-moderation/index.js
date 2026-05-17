@@ -3,6 +3,7 @@
 const db = uniCloud.database();
 const reports = db.collection('surego-reports');
 const activities = db.collection('surego-activities');
+const partners = db.collection('surego-partner-posts');
 const auditLogs = db.collection('surego-audit-logs');
 const applications = db.collection('surego-applications');
 const orders = db.collection('surego-orders');
@@ -11,6 +12,7 @@ const uniIdUsers = db.collection('uni-id-users');
 
 const reportStatuses = ['pending', 'resolved', 'rejected'];
 const activityStatuses = ['pending', 'visible', 'approved', 'rejected', 'hidden'];
+const partnerModerationStatuses = ['pending', 'visible', 'approved', 'rejected', 'hidden'];
 
 function now() {
   return Date.now();
@@ -77,6 +79,11 @@ function normalizeActivityStatus(status = 'pending', options = {}) {
   return activityStatuses.includes(status) ? status : 'pending';
 }
 
+function normalizePartnerModerationStatus(status = 'pending', options = {}) {
+  if (options.forWrite && status === 'visible') return 'approved';
+  return partnerModerationStatuses.includes(status) ? status : 'pending';
+}
+
 function normalizeReport(record = {}) {
   return {
     id: record._id || record.id,
@@ -106,6 +113,25 @@ function normalizeActivity(record = {}) {
   };
 }
 
+function normalizePartnerPost(record = {}) {
+  return {
+    ...record,
+    id: record._id || record.id,
+    creatorId: record.creator_id || record.creatorId || '',
+    creator_id: record.creator_id || record.creatorId || '',
+    moderationStatus: normalizePartnerModerationStatus(record.moderation_status || record.moderationStatus || 'pending'),
+    moderation_status: normalizePartnerModerationStatus(record.moderation_status || record.moderationStatus || 'pending'),
+    moderationNote: record.moderation_note || record.moderationNote || '',
+    moderation_note: record.moderation_note || record.moderationNote || '',
+    moderatedBy: record.moderated_by || record.moderatedBy || '',
+    moderated_by: record.moderated_by || record.moderatedBy || '',
+    moderatedAt: record.moderated_at || record.moderatedAt || '',
+    moderated_at: record.moderated_at || record.moderatedAt || '',
+    createdAt: record.created_at || record.createdAt || now(),
+    updatedAt: record.updated_at || record.updatedAt || ''
+  };
+}
+
 async function writeAuditLog(payload = {}) {
   await auditLogs.add({
     operator_id: payload.operatorId || payload.operator_id,
@@ -123,6 +149,10 @@ function normalizeReportList(result = {}) {
 
 function normalizeActivityList(result = {}) {
   return (result.data || []).map(normalizeActivity);
+}
+
+function normalizePartnerPostList(result = {}) {
+  return (result.data || []).map(normalizePartnerPost);
 }
 
 exports.main = async (event) => {
@@ -214,16 +244,47 @@ exports.main = async (event) => {
     };
   }
 
+  if (action === 'listOpsPartnerPosts') {
+    if (!user.isOps) return opsRequired();
+    const result = await partners.orderBy('created_at', 'desc').limit(payload.limit || 100).get();
+    return {
+      code: 0,
+      data: normalizePartnerPostList(result)
+    };
+  }
+
+  if (action === 'moderatePartnerPost') {
+    if (!user.isOps) return opsRequired();
+    const partnerPostId = payload.partnerPostId || payload.partner_post_id || payload.id;
+    const moderationStatus = normalizePartnerModerationStatus(payload.moderationStatus || payload.moderation_status, { forWrite: true });
+    const updatePayload = {
+      moderation_status: moderationStatus,
+      moderation_note: payload.moderationNote || payload.moderation_note || '',
+      moderated_by: user.uid,
+      moderated_at: now(),
+      updated_at: now()
+    };
+    await partners.doc(partnerPostId).update(updatePayload);
+    await writeAuditLog({ operatorId: updatePayload.moderated_by, action: `partner_post.${moderationStatus}`, targetType: 'partner_post', targetId: partnerPostId, note: updatePayload.moderation_note });
+    const result = await partners.doc(partnerPostId).get();
+    return {
+      code: 0,
+      data: normalizePartnerPost((result.data || [])[0] || { _id: partnerPostId, ...updatePayload })
+    };
+  }
+
   if (action === 'getOpsStats') {
     if (!user.isOps) return opsRequired();
-    const [activityResult, reportResult, applicationResult, orderResult, checkinResult] = await Promise.all([
+    const [activityResult, partnerResult, reportResult, applicationResult, orderResult, checkinResult] = await Promise.all([
       activities.limit(1000).get(),
+      partners.limit(1000).get(),
       reports.limit(1000).get(),
       applications.limit(1000).get(),
       orders.limit(1000).get(),
       checkins.limit(1000).get()
     ]);
     const activityItems = activityResult.data || [];
+    const partnerItems = partnerResult.data || [];
     const reportItems = reportResult.data || [];
     const orderItems = orderResult.data || [];
     const checkinItems = checkinResult.data || [];
@@ -235,6 +296,9 @@ exports.main = async (event) => {
         pendingReports: reportItems.filter((item) => item.status === 'pending').length,
         pendingActivities: activityItems.filter((item) => item.status === 'reviewing' || !item.moderation_status || item.moderation_status === 'pending').length,
         hiddenActivities: activityItems.filter((item) => item.moderation_status === 'hidden').length,
+        partnerCount: partnerItems.length,
+        pendingPartners: partnerItems.filter((item) => !item.moderation_status || item.moderation_status === 'pending').length,
+        hiddenPartners: partnerItems.filter((item) => item.moderation_status === 'hidden').length,
         applicationCount: (applicationResult.data || []).length,
         orderCount: orderItems.length,
         paidOrderCount: orderItems.filter((item) => item.status === 'paid').length,

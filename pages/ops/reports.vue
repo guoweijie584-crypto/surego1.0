@@ -7,7 +7,6 @@
       </view>
       <view>
         <text class="reports__title">举报处理</text>
-        <text class="reports__sub">Reports Queue</text>
       </view>
       <view class="reports__refresh" @tap="loadReports">
         <SuIcon name="refresh" size="44" glyph-size="22" variant="inline" color="#111827" />
@@ -44,7 +43,7 @@
               {{ statusLabel(item.status) }}
             </text>
           </view>
-          <text class="report-card__note">{{ item.note || '用户未填写补充说明' }}</text>
+          <text v-if="item.note" class="report-card__note">{{ item.note }}</text>
           <text v-if="item.reviewNote" class="report-card__review">处理备注：{{ item.reviewNote }}</text>
 
           <view v-if="activeReportId === item.id" class="review-box">

@@ -47,7 +47,6 @@
           <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>先处理报名申请</text>
-            <text>{{ pendingCount }} 个申请会影响是否准时成行</text>
           </view>
           <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
@@ -55,7 +54,6 @@
           <SuIcon name="send" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>发送集合提醒</text>
-            <text>{{ activity.time }} {{ activity.location }}，提前通知成员</text>
           </view>
           <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
@@ -63,7 +61,6 @@
           <SuIcon name="scan" size="44" glyph-size="22" variant="inline" color="#2388ff" />
           <view class="ref-task-card__body">
             <text>活动当天核销</text>
-            <text>现场到场名单</text>
           </view>
           <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
@@ -80,7 +77,6 @@
               <text>{{ moderationLabel }}</text>
             </view>
           </view>
-          <text class="ref-info-card__text state-hint">{{ lifecycleHint }}</text>
           <view v-if="availableLifecycleActions.length" class="state-action-list">
             <view
               v-for="item in availableLifecycleActions"
@@ -90,7 +86,6 @@
               @tap="handleLifecycleAction(item)"
             >
               <text>{{ item.label }}</text>
-              <text>{{ item.desc }}</text>
             </view>
           </view>
           <view v-else class="state-readonly">当前状态暂无可执行动作</view>
@@ -157,7 +152,6 @@
       <view v-if="activeTab === 'checkin'" class="ref-qr-card ref-card">
         <SuIcon name="scan" size="128" glyph-size="64" variant="inline" color="#2388ff" />
         <text class="ref-qr-card__code">发起人核销</text>
-        <text class="ref-qr-card__hint">支持扫码、手动码、名单勾选；核销后有撤销窗口。</text>
         <input class="checkin-input" placeholder="输入手动核销码" />
         <view class="ref-primary checkin-button" @tap="goManageCheckin(activity.id)">确认核销</view>
       </view>
@@ -172,6 +166,7 @@
           adjust-position="false"
           cursor-spacing="28"
           disable-default-padding="true"
+          placeholder="输入通知内容"
         />
         <view class="ref-primary notice-button" @tap="sendNotice">发送给已报名成员</view>
       </view>
@@ -219,7 +214,7 @@ const showReviewSheet = ref(false)
 const reviewTarget = ref(null)
 const reviewMode = ref('approved')
 const reviewForm = ref({ note: '' })
-const noticeText = ref('集合地点已确认：请大家提前 10 分钟到达，迟到会影响开始。')
+const noticeText = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 20 })
@@ -250,12 +245,12 @@ const moderationLabels = {
   hidden: '运营已下架'
 }
 const lifecycleActionCopy = {
-  reviewing: { key: 'reviewing', label: '提交审核', desc: '进入平台审核，审核通过后公开报名' },
-  draft: { key: 'draft', label: '撤回编辑', desc: '从审核中撤回，活动仅自己可见' },
-  formed: { key: 'formed', label: '确认成局', desc: '锁定名额，准备现场组织' },
-  cancelled: { key: 'cancelled', label: '取消活动', desc: '停止报名并保留记录', tone: 'danger', confirm: true },
-  ongoing: { key: 'ongoing', label: '开始活动', desc: '标记现场进行中' },
-  finished: { key: 'finished', label: '结束活动', desc: '结束后进入复盘状态', confirm: true }
+  reviewing: { key: 'reviewing', label: '提交审核' },
+  draft: { key: 'draft', label: '撤回编辑' },
+  formed: { key: 'formed', label: '确认成局' },
+  cancelled: { key: 'cancelled', label: '取消活动', tone: 'danger', confirm: true },
+  ongoing: { key: 'ongoing', label: '开始活动' },
+  finished: { key: 'finished', label: '结束活动', confirm: true }
 }
 
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
@@ -269,24 +264,6 @@ const availableLifecycleActions = computed(() => (
     .map((status) => lifecycleActionCopy[status])
     .filter(Boolean)
 ))
-const lifecycleHint = computed(() => {
-  const status = activity.value.status
-  const moderationStatus = activity.value.moderationStatus
-  if (moderationStatus === 'pending') return '活动正在等待运营审核，审核通过后才会公开展示。'
-  if (moderationStatus === 'rejected') return '活动未通过运营审核，可编辑后重新提交。'
-  if (moderationStatus === 'hidden') return '活动已被运营下架，状态只读。'
-  const hints = {
-    draft: '草稿状态。',
-    reviewing: '审核中不能直接公开，需要等待运营通过。',
-    recruiting: '活动正在开放报名，可确认成局或取消活动。',
-    published: '历史已发布状态按报名中处理，可确认成局或取消活动。',
-    formed: '活动已成局，可开始活动或取消。',
-    ongoing: '现场进行中，活动结束后请标记结束。',
-    finished: '活动已结束，状态只读。',
-    cancelled: '活动已取消，状态只读。'
-  }
-  return hints[status] || '当前状态只读。'
-})
 const memberRows = computed(() => {
   const approved = applications.value.filter((item) => item.status === 'approved')
   const rows = approved.length
@@ -592,10 +569,6 @@ function sendNotice() {
   color: #102033;
   font-size: 28rpx;
   font-weight: 950;
-}
-
-.state-hint {
-  margin-top: 22rpx;
 }
 
 .state-action-list {
