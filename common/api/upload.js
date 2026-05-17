@@ -33,6 +33,24 @@ async function normalizeUploadFilePath(filePath, options = {}) {
   })
 }
 
+async function uploadWithFallback(filePath, cloudPath, options = {}) {
+  const attempts = []
+  attempts.push({ filePath, cloudPath })
+  if (options.cloudPathAsRealPath === true) {
+    attempts.push({ filePath, cloudPath, cloudPathAsRealPath: true })
+  }
+
+  let lastError = null
+  for (const attempt of attempts) {
+    try {
+      return await uniCloud.uploadFile(attempt)
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError
+}
+
 export function isImagePickerCancel(error = {}) {
   const message = String(error.errMsg || error.message || '').toLowerCase()
   return error.code === USER_CANCEL_IMAGE_PICKER
@@ -101,15 +119,13 @@ export async function uploadImageFile(filePath, options = {}) {
 
   const uploadPath = await normalizeUploadFilePath(filePath, options)
   const cloudPath = options.cloudPath || buildCloudPath(options.prefix || 'surego/images', uploadPath)
-  const uploadOptions = {
-    filePath: uploadPath,
-    cloudPath,
-    fileType: 'image'
+  let result
+  try {
+    result = await uploadWithFallback(uploadPath, cloudPath, options)
+  } catch (error) {
+    if (uploadPath === filePath) throw error
+    result = await uploadWithFallback(filePath, cloudPath, options)
   }
-  if (options.cloudPathAsRealPath === true) {
-    uploadOptions.cloudPathAsRealPath = true
-  }
-  const result = await uniCloud.uploadFile(uploadOptions)
   const url = result.fileID || result.fileUrl || result.url || ''
   return {
     url,

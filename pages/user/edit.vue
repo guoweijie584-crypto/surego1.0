@@ -122,6 +122,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 const mbtiOptions = ['ENFP', 'INFP', 'INFJ', 'ENFJ', 'INTJ', 'ENTJ', 'ISFP', 'ESFP', 'ISTJ', 'ESTJ']
 const mbtiIndex = ref(0)
 const isSaving = ref(false)
+const avatarTempPath = ref('')
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -184,6 +185,7 @@ onShow(async () => {
   try {
     const user = await getCurrentUser()
     Object.assign(form, user)
+    avatarTempPath.value = ''
     mbtiIndex.value = Math.max(0, mbtiOptions.indexOf(form.mbti))
   } finally {
     isPageLoading.value = false
@@ -195,26 +197,43 @@ function handleMbtiChange(event) {
   form.mbti = mbtiOptions[mbtiIndex.value]
 }
 
-async function handleChooseAvatar(event) {
+function handleChooseAvatar(event) {
   const avatarUrl = event?.detail?.avatarUrl || ''
   if (!avatarUrl) return
-  try {
-    const uploaded = await uploadImageFile(avatarUrl, { prefix: 'surego/avatars', compress: true })
-    form.avatar = uploaded.url
-    form.avatarFileId = uploaded.fileID || uploaded.url
-  } catch (error) {
-    uni.showToast({ title: '头像上传失败，可稍后重试', icon: 'none' })
-  }
+  avatarTempPath.value = avatarUrl
+  form.avatar = avatarUrl
 }
 
 async function handleSave() {
   if (!canSave.value || isSaving.value) return
   isSaving.value = true
-  await updateCurrentUser(form)
-  uni.showToast({ title: '资料已保存', icon: 'none' })
-  setTimeout(() => {
-    goBackOrFallback()
-  }, 260)
+  try {
+    const payload = { ...form }
+    let avatarUploadFailed = false
+    if (avatarTempPath.value) {
+      try {
+        const uploaded = await uploadImageFile(avatarTempPath.value, { prefix: 'surego/avatars', compress: true })
+        payload.avatar = uploaded.url
+        payload.avatarFileId = uploaded.fileID || uploaded.url
+      } catch (error) {
+        avatarUploadFailed = true
+        payload.avatar = ''
+        payload.avatarFileId = ''
+        uni.showToast({ title: '头像暂未上传，已保存其他资料', icon: 'none' })
+      }
+    }
+    const saved = await updateCurrentUser(payload)
+    Object.assign(form, saved)
+    avatarTempPath.value = ''
+    if (!avatarUploadFailed) {
+      uni.showToast({ title: '资料已保存', icon: 'none' })
+    }
+    setTimeout(() => {
+      goBackOrFallback()
+    }, 260)
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
 
