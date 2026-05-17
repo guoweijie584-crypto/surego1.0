@@ -1147,14 +1147,19 @@ if (fs.existsSync(participantQrDashboardPath)) {
 const userProfilePath = path.join(root, 'pages/user/profile.vue');
 if (fs.existsSync(userProfilePath)) {
   const source = fs.readFileSync(userProfilePath, 'utf8');
-  for (const token of ['hasOpsRole', 'canUseOps.value = hasOpsRole(freshUser)', 'profileSheetVisible', 'getUnreadMessageCount', 'listOrders', 'goMessages']) {
+  for (const token of ['hasOpsRole', 'canUseOps.value = hasOpsRole(freshUser)', 'getCurrentUser({ allowFallback: false })', 'goUserEdit', 'profile-edit-entry', 'fulfillmentStats', 'reputationReviews']) {
     if (!source.includes(token)) {
       errors.push(`pages/user/profile.vue is missing ${token}`);
     }
   }
-  for (const token of ["{ key: 'overview'", "{ key: 'activities'", "{ key: 'partners'", "{ key: 'messages'", "{ key: 'profile'"]) {
+  for (const token of ["{ key: 'activities', label: '活动' }", "{ key: 'partners', label: '搭子' }", "{ key: 'profile', label: '履约' }"]) {
     if (!source.includes(token)) {
       errors.push(`pages/user/profile.vue must keep remote profile module token: ${token}`);
+    }
+  }
+  for (const staleToken of ["{ key: 'overview'", "{ key: 'messages'", "activeTab === 'overview'", "activeTab === 'messages'"]) {
+    if (source.includes(staleToken)) {
+      errors.push(`pages/user/profile.vue must not restore stale profile module token: ${staleToken}`);
     }
   }
   if (source.includes('count: loggedIn.value ? 2 : 0') || source.includes('靠谱、准时') || source.includes('活动组织清晰')) {

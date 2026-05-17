@@ -411,12 +411,12 @@ if (detailSource.includes('.priority { display: grid') || detailSource.includes(
 }
 
 const profileSource = read('pages/user/profile.vue')
-if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('canUseOps.value = hasOpsRole(user.value)')) {
+if (!profileSource.includes('goOpsDashboard') || !profileSource.includes('hasOpsRole') || !profileSource.includes('getCurrentUser({ allowFallback: false })') || !profileSource.includes('canUseOps.value = hasOpsRole(freshUser)')) {
   errors.push('pages/user/profile.vue must expose the guarded ops dashboard entry')
 }
-for (const token of ['postedPartnerPosts', 'activeActivityScope', 'activePartnerScope', 'showActivityScope', 'showPartnerScope', 'currentActivityList', 'currentPartnerList']) {
+for (const token of ['postedPartnerPosts', 'activeActivityScope', 'activePartnerScope', 'currentActivityList', 'currentPartnerList', 'goUserEdit', 'profile-edit-entry', 'fulfillmentStats', 'reputationReviews']) {
   if (!profileSource.includes(token)) {
-    errors.push(`pages/user/profile.vue must route profile task cards through list views with ${token}`)
+    errors.push(`pages/user/profile.vue must keep remote profile behavior with ${token}`)
   }
 }
 if (profileSource.includes("goMyActivities({ tab: 'hosting' })") || profileSource.includes('管理第一条申请')) {
@@ -629,7 +629,7 @@ if (compactCoverBlock?.[0].includes('height: 308rpx')) {
   errors.push('SuActivityCard.vue compact cover must not keep the default 308rpx height')
 }
 
-for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/user/profile.vue', 'pages/participant/dashboard.vue']) {
+for (const file of ['pages/home/index.vue', 'pages/discover/index.vue', 'pages/participant/dashboard.vue']) {
   const source = read(file)
   for (const token of ['unreadCount', 'getUnreadMessageCount']) {
     if (!source.includes(token)) {

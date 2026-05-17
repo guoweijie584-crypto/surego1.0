@@ -18,11 +18,20 @@
       <view class="profile__content">
         <view class="profile-hero-card">
           <view class="profile-hero-card__top">
-            <image class="profile-avatar" :src="displayProfile.avatar" mode="aspectFill" />
+            <view class="profile-avatar-wrap" @tap="goEditProfile">
+              <image class="profile-avatar" :src="displayProfile.avatar" mode="aspectFill" />
+              <view v-if="loggedIn" class="profile-avatar-edit">
+                <SuIcon name="compose" size="34" glyph-size="17" variant="inline" color="#fff" />
+              </view>
+            </view>
             <view class="profile-hero-card__main">
               <text class="ref-pill ref-pill--green">{{ displayProfile.badge }}</text>
               <text class="profile-hero-card__name">{{ displayProfile.nickname }}</text>
               <text class="profile-hero-card__bio">{{ displayProfile.bio }}</text>
+              <view v-if="loggedIn" class="profile-edit-entry" @tap.stop="goEditProfile">
+                <text>编辑资料</text>
+                <SuIcon name="arrowRight" size="24" glyph-size="13" variant="inline" color="#64748b" />
+              </view>
               <view class="account-icon-row">
                 <view
                   v-for="account in socialAccounts"
@@ -50,6 +59,7 @@
           </view>
           <view class="login-card__copy">
             <text class="login-card__title">你还没有登录</text>
+            <text class="login-card__desc">授权微信登录后，可以同步活动、订单、消息和现场凭证。</text>
           </view>
           <button class="login-card__button" @tap.stop="goLogin">微信登录</button>
         </view>
@@ -58,8 +68,9 @@
           <view v-if="!profileComplete" class="complete-card">
             <view class="complete-card__copy">
               <text class="complete-card__title">完善微信资料</text>
+              <text class="complete-card__desc">选择头像和昵称后，其他玩家能更容易认出你。</text>
             </view>
-            <button class="complete-card__button" @tap="profileSheetVisible = true">去完善</button>
+            <button class="complete-card__button" @tap="goEditProfile">去完善</button>
           </view>
 
           <view v-if="canUseOps" class="ops-entry" @tap="goOpsDashboard">
@@ -68,6 +79,7 @@
             </view>
             <view class="ops-entry__copy">
               <text class="ops-entry__title">运营控制台</text>
+              <text class="ops-entry__desc">处理举报和活动审核</text>
             </view>
             <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
           </view>
@@ -85,58 +97,6 @@
               </view>
             </view>
           </scroll-view>
-
-          <view v-if="activeTab === 'overview'" class="task-list">
-            <view class="task-card" @tap="showActivityScope('joined')">
-              <SuIcon name="calendar" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>我的报名</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="showActivityScope('checkin')">
-              <SuIcon name="scan" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>我的到场 / 待核销</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="showActivityScope('hosting')">
-              <SuIcon name="check" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>我发起的活动</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="showPartnerScope('posted')">
-              <SuIcon name="people" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>我发布的搭子</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="showPartnerScope('intents')">
-              <SuIcon name="send" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>我的意向</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="goMessages">
-              <SuIcon name="chat" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>私聊 / 群聊</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="goVerify">
-              <SuIcon name="shield" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>关注 / 认证 / 资料</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-          </view>
 
           <view v-if="activeTab === 'activities'" class="profile-stack">
             <view class="sub-filter-row">
@@ -191,71 +151,38 @@
             <view v-else class="empty-card">{{ currentPartnerScope.empty }}</view>
           </view>
 
-          <view v-if="activeTab === 'messages'" class="profile-stack">
-            <view class="task-card" @tap="goMessages">
-              <SuIcon name="chat" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>私聊</text>
-                <text>南门饭搭子：今晚 18:10 二食堂门口见？</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="task-card" @tap="goMessages">
-              <SuIcon name="people" size="46" glyph-size="20" variant="soft" />
-              <view>
-                <text>群聊</text>
-                <text>Switch 派对群：还差 1 人就能约起来。</text>
-              </view>
-              <SuIcon name="arrowRight" size="34" glyph-size="18" variant="inline" color="#94a3b8" />
-            </view>
-            <view class="order-card" @tap="openFirstOrder">
-              <SuIcon name="wallet" size="48" glyph-size="22" variant="soft" />
-              <view>
-                <text>微醺局诚意金</text>
-                <text>{{ firstOrder ? getOrderStatusText(firstOrder.status) : '已核销，退款处理中' }}</text>
-              </view>
-              <text>￥{{ firstOrder ? firstOrder.amount : 29 }}</text>
-            </view>
-          </view>
-
           <view v-if="activeTab === 'profile'" class="profile-stack">
-            <view class="info-card">
+            <view class="info-card fulfillment-card">
               <view class="section-title">
-                <text>标签与印象</text>
+                <text>履约页面</text>
               </view>
-              <view class="question-list">
-                <text>饭搭子雷达</text>
-                <text>羽毛球新手</text>
-                <text>周末看展</text>
-                <text>不临时鸽</text>
-                <text>准时</text>
-                <text>好沟通</text>
-                <text>活动真实</text>
+              <view class="fulfillment-grid">
+                <view v-for="item in fulfillmentStats" :key="item.key" class="fulfillment-stat">
+                  <text>{{ item.value }}</text>
+                  <text>{{ item.label }}</text>
+                  <text>{{ item.desc }}</text>
+                </view>
               </view>
             </view>
             <view class="info-card">
               <view class="section-title">
-                <text>关注与认证资料</text>
+                <text>用户口碑评价</text>
               </view>
-              <view class="question-list">
-                <text>关注 12 人</text>
-                <text>粉丝 18 人</text>
-                <text>学生邮箱认证</text>
-                <text>学信网增强认证</text>
-                <text>资料完整度 86%</text>
+              <view v-if="reputationTags.length" class="question-list">
+                <text v-for="tag in reputationTags" :key="tag">{{ tag }}</text>
+              </view>
+              <view v-else class="reputation-empty">暂无口碑评价</view>
+              <view v-if="reputationReviews.length" class="reputation-list">
+                <view v-for="item in reputationReviews" :key="item.id || item.content" class="reputation-item">
+                  <text>{{ item.content }}</text>
+                  <text>{{ item.source || '来自 SureGo 履约记录' }}</text>
+                </view>
               </view>
             </view>
           </view>
         </view>
       </view>
     </scroll-view>
-
-    <SuWechatProfileSheet
-      :visible="profileSheetVisible"
-      :initial-profile="user"
-      @saved="handleProfileSaved"
-      @close="profileSheetVisible = false"
-    />
     <SuBottomDock active="profile" />
   </view>
 </template>
@@ -263,26 +190,21 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
-import SuWechatProfileSheet from '@/components/surego/SuWechatProfileSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
 import { listMyPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
-import { getUnreadMessageCount } from '@/common/api/message.js'
-import { getOrderStatusText, listOrders } from '@/common/api/order.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goAuthLogin, goManageDashboard, goMessages, goOpsDashboard, goOrderDetail, goParticipantDashboard, goPartnerWorkbench, goVerify } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityCreate, goActivityDetail, goAuthLogin, goManageDashboard, goOpsDashboard, goParticipantDashboard, goPartnerWorkbench, goUserEdit, goVerify } from '@/common/utils/route.js'
 
 const profileTabs = [
-  { key: 'overview', label: '总览' },
   { key: 'activities', label: '活动' },
   { key: 'partners', label: '搭子' },
-  { key: 'messages', label: '消息' },
-  { key: 'profile', label: '资料' }
+  { key: 'profile', label: '履约' }
 ]
 const socialAccounts = [
   { key: 'xiaohongshu', label: '小红书', icon: 'xiaohongshu', active: true },
@@ -290,19 +212,15 @@ const socialAccounts = [
   { key: 'github', label: 'GitHub', icon: 'github', active: true },
   { key: 'wechat', label: '微信', icon: 'wechat', active: false }
 ]
-const activeTab = ref('overview')
+const activeTab = ref('activities')
 const activeActivityScope = ref('joined')
 const activePartnerScope = ref('posted')
-const activeOrderFilter = ref('all')
 const loggedIn = ref(false)
 const canUseOps = ref(false)
-const unreadCount = ref(0)
 const myActivities = ref({ hosting: [], joined: [], invited: [], pending: [] })
 const partnerPosts = ref([])
 const allPartnerPosts = ref([])
-const orders = ref([])
 const user = ref(getCurrentUserProfile())
-const profileSheetVisible = ref(false)
 const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPaddingRpx: 24 })
@@ -346,7 +264,6 @@ const currentPartnerScope = computed(() => partnerScopeTabs.find((item) => item.
 const currentPartnerList = computed(() => (
   activePartnerScope.value === 'intents' ? intentPartnerPosts.value : postedPartnerPosts.value
 ))
-const firstOrder = computed(() => orders.value[0] || null)
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
 const displayProfile = computed(() => {
   const profile = user.value || {}
@@ -367,6 +284,15 @@ const displayProfile = computed(() => {
 })
 const profileStats = computed(() => {
   const profile = user.value || {}
+  const followingCount = Number(profile.followingCount ?? profile.following_count ?? profile.followCount ?? profile.follow_count ?? 0) || 0
+  const followerCount = Number(profile.followerCount ?? profile.follower_count ?? profile.fansCount ?? profile.fans_count ?? 0) || 0
+  return [
+    { key: 'following', label: '关注', value: String(loggedIn.value ? followingCount : 0) },
+    { key: 'followers', label: '粉丝', value: String(loggedIn.value ? followerCount : 0) }
+  ]
+})
+const fulfillmentStats = computed(() => {
+  const profile = user.value || {}
   const registeredCount = getCountFromListOrProfile(
     [...joinedActivities.value, ...pendingActivities.value],
     profile.joinedCount ?? profile.joined_count ?? profile.applicationCount ?? profile.application_count
@@ -379,25 +305,30 @@ const profileStats = computed(() => {
     postedPartnerPosts.value,
     profile.partnerPostCount ?? profile.partner_post_count ?? profile.partnerCount ?? profile.partner_count
   )
+  const partnerMatchedCount = getProfileNumber(profile, [
+    'partnerMatchedCount',
+    'partner_matched_count',
+    'partnerMatchSuccessCount',
+    'partner_match_success_count'
+  ], 0)
+  const fulfillmentRate = getFulfillmentRate(profile)
+  const reputationCount = getReputationReviewCount(profile)
   return [
-    { key: 'credit', label: '信用分', value: loggedIn.value ? formatStatNumber(profile.credit, 0) : '0' },
-    { key: 'registered', label: '报名', value: String(loggedIn.value ? registeredCount : 0) },
-    { key: 'hosted', label: '发起活动', value: String(loggedIn.value ? hostedCount : 0) },
-    { key: 'partners', label: '搭子', value: String(loggedIn.value ? partnerCount : 0) }
+    { key: 'credit', label: '信用分值', value: loggedIn.value ? formatStatNumber(profile.credit, 0) : '0', desc: '守约基础分' },
+    { key: 'fulfillmentRate', label: '履约成功率', value: loggedIn.value ? fulfillmentRate : '--', desc: '需接入履约统计' },
+    { key: 'registered', label: '活动报名次数', value: String(loggedIn.value ? registeredCount : 0), desc: '已报名活动' },
+    { key: 'hosted', label: '活动发起次数', value: String(loggedIn.value ? hostedCount : 0), desc: '自己发起的局' },
+    { key: 'partners', label: '搭子发布次数', value: String(loggedIn.value ? partnerCount : 0), desc: '发布过的搭子' },
+    { key: 'matched', label: '搭子配对成功次数', value: String(loggedIn.value ? partnerMatchedCount : 0), desc: '需接入配对结果' },
+    { key: 'reviews', label: '口碑评价', value: String(loggedIn.value ? reputationCount : 0), desc: '来自真实评价' }
   ]
 })
-const orderFilters = [
-  { key: 'all', label: '全部' },
-  { key: 'pending', label: '待支付' },
-  { key: 'paid', label: '已支付' },
-  { key: 'refunded', label: '退款' },
-  { key: 'closed', label: '已关闭' }
-]
-const filteredOrders = computed(() => {
-  if (activeOrderFilter.value === 'all') return orders.value
-  return orders.value.filter((item) => item.status === activeOrderFilter.value)
-})
-
+const reputationTags = computed(() => normalizeTextList(
+  user.value?.reputationTags || user.value?.reputation_tags || user.value?.impressionTags || user.value?.impression_tags
+))
+const reputationReviews = computed(() => normalizeReviewList(
+  user.value?.reputationReviews || user.value?.reputation_reviews || user.value?.reviews
+))
 function getDisplayText(value, fallback = '') {
   const text = String(value || '').trim()
   return text || fallback
@@ -428,6 +359,55 @@ function getCountFromListOrProfile(items = [], profileCount = 0) {
   return Math.max(0, Number(profileCount) || 0)
 }
 
+function getProfileNumber(profile = {}, keys = [], fallback = 0) {
+  for (const key of keys) {
+    const number = Number(profile[key])
+    if (Number.isFinite(number)) return Math.max(0, number)
+  }
+  return fallback
+}
+
+function getFulfillmentRate(profile = {}) {
+  const explicit = profile.fulfillmentSuccessRate ?? profile.fulfillment_success_rate ?? profile.fulfillmentRate ?? profile.fulfillment_rate
+  const explicitNumber = Number(explicit)
+  if (Number.isFinite(explicitNumber) && explicitNumber > 0) {
+    const percent = explicitNumber <= 1 ? explicitNumber * 100 : explicitNumber
+    return `${Math.min(100, percent).toFixed(percent % 1 === 0 ? 0 : 1)}%`
+  }
+  const success = getProfileNumber(profile, ['fulfillmentSuccessCount', 'fulfillment_success_count'], -1)
+  const total = getProfileNumber(profile, ['fulfillmentTotalCount', 'fulfillment_total_count'], -1)
+  if (success >= 0 && total > 0) {
+    return `${Math.min(100, (success / total) * 100).toFixed(0)}%`
+  }
+  return '--'
+}
+
+function normalizeTextList(value) {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 8)
+}
+
+function normalizeReviewList(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item, index) => {
+      if (typeof item === 'string') return { id: `review_${index}`, content: item, source: '' }
+      return {
+        id: item.id || item._id || `review_${index}`,
+        content: String(item.content || item.text || '').trim(),
+        source: String(item.source || item.activityTitle || item.activity_title || '').trim()
+      }
+    })
+    .filter((item) => item.content)
+    .slice(0, 3)
+}
+
+function getReputationReviewCount(profile = {}) {
+  const explicit = Number(profile.reputationReviewCount ?? profile.reputation_review_count ?? profile.reviewCount ?? profile.review_count)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  return reputationReviews.value.length
+}
+
 function formatStatNumber(value, fallback = 0) {
   const number = Number(value)
   if (!Number.isFinite(number)) return String(fallback)
@@ -453,25 +433,26 @@ async function loadData() {
       myActivities.value = { hosting: [], joined: [], invited: [], pending: [] }
       partnerPosts.value = []
       allPartnerPosts.value = []
-      orders.value = []
-      unreadCount.value = 0
       return
     }
 
-    user.value = await withTimeout(getCurrentUser(), getCurrentUserProfile(), 5000)
-    try {
-      const freshUser = await getCurrentUser({ allowFallback: false })
-      user.value = freshUser
-      canUseOps.value = hasOpsRole(freshUser)
-    } catch (error) {
-      canUseOps.value = false
+    const fallbackUser = {
+      ...getCurrentUserProfile(),
+      role: [],
+      roles: []
     }
-    const [activities, partnerItems, allPartners, orderItems, unread] = await Promise.all([
+    let freshUser = fallbackUser
+    try {
+      freshUser = await withTimeout(getCurrentUser({ allowFallback: false }), fallbackUser, 5000)
+    } catch (error) {
+      freshUser = fallbackUser
+    }
+    user.value = freshUser
+    canUseOps.value = hasOpsRole(freshUser)
+    const [activities, partnerItems, allPartners] = await Promise.all([
       listMyActivities(),
       listMyPartnerPosts(),
-      listPartnerPosts(),
-      listOrders(),
-      getUnreadMessageCount()
+      listPartnerPosts()
     ])
     myActivities.value = Array.isArray(activities)
       ? { hosting: [], joined: activities, invited: [], pending: [] }
@@ -483,8 +464,6 @@ async function loadData() {
         }
     partnerPosts.value = Array.isArray(partnerItems) ? partnerItems : []
     allPartnerPosts.value = Array.isArray(allPartners) ? allPartners : []
-    orders.value = Array.isArray(orderItems) ? orderItems : []
-    unreadCount.value = Number(unread) || 0
   } finally {
     isPageLoading.value = false
   }
@@ -495,6 +474,14 @@ onPullDownRefresh(makeRefreshHandler(loadData))
 
 function goLogin() {
   goAuthLogin({ redirect: '/pages/user/profile' })
+}
+
+function goEditProfile() {
+  if (!loggedIn.value) {
+    goLogin()
+    return
+  }
+  goUserEdit()
 }
 
 function openActivity(item) {
@@ -513,33 +500,6 @@ function switchProfileTab(key) {
   activeTab.value = key
 }
 
-function showActivityScope(scope) {
-  activeTab.value = 'activities'
-  activeActivityScope.value = scope
-}
-
-function showPartnerScope(scope) {
-  activeTab.value = 'partners'
-  activePartnerScope.value = scope
-}
-
-function openFirstOrder() {
-  if (firstOrder.value?.id) {
-    goOrderDetail(firstOrder.value.id, { activityId: firstOrder.value.activityId })
-    return
-  }
-  goMessages()
-}
-
-function handleProfileSaved(nextUser) {
-  user.value = {
-    ...user.value,
-    ...(nextUser || {})
-  }
-  canUseOps.value = hasOpsRole(user.value)
-  profileSheetVisible.value = false
-  uni.showToast({ title: '资料已保存', icon: 'none' })
-}
 </script>
 
 <style scoped>
@@ -637,14 +597,35 @@ function handleProfileSaved(nextUser) {
   height: 156rpx;
 }
 
-.profile-avatar {
+.profile-avatar-wrap {
+  position: relative;
   width: 136rpx;
   height: 136rpx;
+}
+
+.profile-avatar {
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   border: 6rpx solid #fff;
   border-radius: 50%;
   background: #e8f3ff;
   box-shadow: 0 14rpx 32rpx rgba(15, 23, 42, 0.14);
+}
+
+.profile-avatar-edit {
+  position: absolute;
+  right: 0;
+  bottom: 2rpx;
+  display: flex;
+  width: 42rpx;
+  height: 42rpx;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid #fff;
+  border-radius: 50%;
+  background: #102033;
+  box-shadow: 0 8rpx 18rpx rgba(15, 23, 42, 0.18);
 }
 
 .initial-avatar text {
@@ -692,6 +673,21 @@ function handleProfileSaved(nextUser) {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+.profile-edit-entry {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 4rpx;
+  margin-top: 14rpx;
+  padding: 10rpx 16rpx;
+  border: 1rpx solid rgba(24, 24, 27, 0.08);
+  border-radius: 999rpx;
+  background: #fff;
+  color: #102033;
+  font-size: 22rpx;
+  font-weight: 950;
 }
 
 .account-icon-row {
@@ -746,7 +742,7 @@ function handleProfileSaved(nextUser) {
 
 .trust-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16rpx;
 }
 
@@ -1033,6 +1029,54 @@ function handleProfileSaved(nextUser) {
   padding: 32rpx;
 }
 
+.fulfillment-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f4fbff 100%);
+}
+
+.fulfillment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14rpx;
+  margin-top: 20rpx;
+}
+
+.fulfillment-stat {
+  min-width: 0;
+  padding: 24rpx 22rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.12);
+  border-radius: 30rpx;
+  background: #fff;
+}
+
+.fulfillment-stat text {
+  display: block;
+}
+
+.fulfillment-stat text:first-child {
+  overflow: hidden;
+  color: #102033;
+  font-size: 36rpx;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fulfillment-stat text:nth-child(2) {
+  margin-top: 8rpx;
+  color: #102033;
+  font-size: 22rpx;
+  font-weight: 950;
+  line-height: 1.25;
+}
+
+.fulfillment-stat text:last-child {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 20rpx;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .question-list {
   display: flex;
   flex-wrap: wrap;
@@ -1047,6 +1091,47 @@ function handleProfileSaved(nextUser) {
   color: #64748b;
   font-size: 22rpx;
   font-weight: 900;
+}
+
+.reputation-empty {
+  margin-top: 20rpx;
+  padding: 26rpx;
+  border-radius: 28rpx;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 23rpx;
+  font-weight: 850;
+  text-align: center;
+}
+
+.reputation-list {
+  display: grid;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.reputation-item {
+  padding: 22rpx;
+  border-radius: 28rpx;
+  background: #f8fafc;
+}
+
+.reputation-item text {
+  display: block;
+}
+
+.reputation-item text:first-child {
+  color: #102033;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 1.5;
+}
+
+.reputation-item text:last-child {
+  margin-top: 8rpx;
+  color: #94a3b8;
+  font-size: 20rpx;
+  font-weight: 800;
 }
 
 .empty-card {
