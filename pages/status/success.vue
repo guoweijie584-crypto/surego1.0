@@ -105,7 +105,7 @@ function openPrimary() {
     return
   }
   if (isWaitlist.value || requireApproval.value) {
-    goActivityDetail(activity.value.id, { replace: true })
+    goParticipantDashboard(activity.value.id, { replace: true })
     return
   }
   goParticipantDashboard(activity.value.id, { replace: true })

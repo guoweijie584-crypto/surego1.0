@@ -5,6 +5,8 @@ import { isPubliclyVisibleActivity, listAllActivities, sortActivitiesByStatusPri
 import { listApplications } from '@/common/api/application.js'
 
 const STORAGE_KEY = 'surego_current_user'
+const LOCAL_FOLLOWS_KEY = 'surego_partner_follows'
+const LOCAL_CHECKINS_KEY = 'surego_checkins'
 const LEGACY_MOCK_NICKNAME = String.fromCharCode(21556, 21704, 21704)
 const ROLE_VALUES = ['user', 'operator', 'admin']
 const ROLE_LABELS = {
@@ -46,6 +48,8 @@ const PROFILE_EXTRA_KEYS = [
   'review_count',
   'reputationTags',
   'reputation_tags',
+  'profileTags',
+  'profile_tags',
   'impressionTags',
   'impression_tags',
   'reputationReviews',
@@ -214,9 +218,171 @@ function normalizePublicActivity(activity = {}, relation = 'joined') {
   }
 }
 
+function normalizeMetricNumber(value, fallback = 0) {
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.max(0, number) : fallback
+}
+
+function normalizeOptionalMetricNumber(value) {
+  if (value === undefined || value === null || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? Math.max(0, number) : null
+}
+
+function readLocalList(key) {
+  try {
+    const items = uni.getStorageSync(key)
+    return Array.isArray(items) ? items : []
+  } catch (error) {
+    return []
+  }
+}
+
+function countLocalUserFollowers(userId) {
+  const targetUserId = String(userId || '').trim()
+  if (!targetUserId) return 0
+  const seen = new Set()
+  readLocalList(LOCAL_FOLLOWS_KEY)
+    .filter((item) => (
+      String(item.target_type || item.targetType || '') === 'user'
+        && String(item.target_id || item.targetId || '') === targetUserId
+    ))
+    .forEach((item) => {
+      const followerId = String(item.user_id || item.userId || item.follower_id || item.followerId || '').trim()
+      if (followerId) seen.add(followerId)
+    })
+  return seen.size
+}
+
+function isLocalFollowingUser(targetUserId, followerUserId = getCurrentUserId()) {
+  const targetId = String(targetUserId || '').trim()
+  const followerId = String(followerUserId || '').trim()
+  if (!targetId || !followerId || targetId === followerId) return false
+  return readLocalList(LOCAL_FOLLOWS_KEY).some((item) => (
+    String(item.target_type || item.targetType || '') === 'user'
+      && String(item.target_id || item.targetId || '') === targetId
+      && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
+  ))
+}
+
+function writeLocalFollows(items) {
+  uni.setStorageSync(LOCAL_FOLLOWS_KEY, Array.isArray(items) ? items : [])
+}
+
+function buildUserFollowPayload(targetUserId, followedByMe) {
+  const targetId = String(targetUserId || '').trim()
+  const followerCount = countLocalUserFollowers(targetId)
+  return {
+    targetUserId: targetId,
+    target_user_id: targetId,
+    followedByMe,
+    followed_by_me: followedByMe,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount
+  }
+}
+
+function followLocalUser(targetUserId, followerUserId = getCurrentUserId()) {
+  const targetId = String(targetUserId || '').trim()
+  const followerId = String(followerUserId || '').trim()
+  if (!targetId || !followerId || targetId === followerId) {
+    return Promise.resolve(buildUserFollowPayload(targetId, false))
+  }
+  const follows = readLocalList(LOCAL_FOLLOWS_KEY)
+  const existing = follows.find((item) => (
+    String(item.target_type || item.targetType || '') === 'user'
+      && String(item.target_id || item.targetId || '') === targetId
+      && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
+  ))
+  if (existing) return Promise.resolve(buildUserFollowPayload(targetId, true))
+  writeLocalFollows([
+    {
+      id: `follow_user_${Date.now()}`,
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId,
+      created_at: new Date().toISOString()
+    },
+    ...follows
+  ])
+  return Promise.resolve(buildUserFollowPayload(targetId, true))
+}
+
+function unfollowLocalUser(targetUserId, followerUserId = getCurrentUserId()) {
+  const targetId = String(targetUserId || '').trim()
+  const followerId = String(followerUserId || '').trim()
+  if (!targetId || !followerId) return Promise.resolve(buildUserFollowPayload(targetId, false))
+  writeLocalFollows(readLocalList(LOCAL_FOLLOWS_KEY).filter((item) => !(
+    String(item.target_type || item.targetType || '') === 'user'
+      && String(item.target_id || item.targetId || '') === targetId
+      && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
+  )))
+  return Promise.resolve(buildUserFollowPayload(targetId, false))
+}
+
+function getLocalCheckedActivityIdsForUser(userId) {
+  const targetUserId = String(userId || '').trim()
+  const ids = new Set()
+  if (!targetUserId) return ids
+  readLocalList(LOCAL_CHECKINS_KEY)
+    .filter((item) => (
+      String(item.userId || item.user_id || '') === targetUserId
+        && String(item.status || 'checked') === 'checked'
+    ))
+    .forEach((item) => {
+      const activityId = String(item.activityId || item.activity_id || '').trim()
+      if (activityId) ids.add(activityId)
+    })
+  return ids
+}
+
+function parseActivityDate(activity = {}) {
+  const direct = activity.dateValue || activity.date_value || activity.startAt || activity.start_at
+  if (direct) {
+    const parsed = new Date(String(direct).replace(/\./g, '-'))
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  const dateText = String(activity.date || '').trim()
+  const isoMatched = dateText.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/)
+  if (isoMatched) {
+    const parsed = new Date(Number(isoMatched[1]), Number(isoMatched[2]) - 1, Number(isoMatched[3]))
+    if (!Number.isNaN(parsed.getTime())) return parsed
+  }
+  const cnMatched = dateText.match(/(\d{1,2})月(\d{1,2})日/)
+  if (cnMatched) {
+    const parsed = new Date()
+    parsed.setMonth(Number(cnMatched[1]) - 1, Number(cnMatched[2]))
+    parsed.setHours(0, 0, 0, 0)
+    return parsed
+  }
+  return null
+}
+
+function isCompletedForFulfillment(activity = {}) {
+  const status = String(activity.status || activity.lifecycleStatus || '').trim()
+  if (status === 'finished') return true
+  if (status === 'cancelled') return false
+  const parsed = parseActivityDate(activity)
+  if (!parsed) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  parsed.setHours(0, 0, 0, 0)
+  return parsed.getTime() < today.getTime()
+}
+
 function normalizePublicProfile(item = {}) {
   const uid = item.uid || item.userId || item.user_id || ''
   const recentActivities = item.recentActivities || item.recent_activities || []
+  const followingCount = normalizeMetricNumber(item.followingCount ?? item.following_count ?? item.followCount ?? item.follow_count ?? 0)
+  const followerCount = normalizeMetricNumber(item.followerCount ?? item.follower_count ?? item.fansCount ?? item.fans_count ?? 0)
+  const followedByMe = Boolean(item.followedByMe ?? item.followed_by_me ?? false)
+  const fulfillmentSuccessCount = normalizeMetricNumber(item.fulfillmentSuccessCount ?? item.fulfillment_success_count ?? 0)
+  const fulfillmentTotalCount = normalizeMetricNumber(item.fulfillmentTotalCount ?? item.fulfillment_total_count ?? 0)
+  const fulfillmentRate = normalizeOptionalMetricNumber(
+    item.fulfillmentSuccessRate ?? item.fulfillment_success_rate ?? item.fulfillmentRate ?? item.fulfillment_rate
+  )
   return {
     uid,
     userId: uid,
@@ -227,9 +393,27 @@ function normalizePublicProfile(item = {}) {
     mbti: item.mbti || '',
     bio: item.bio || '',
     quote: item.quote || '',
-    activityCount: Number(item.activityCount ?? item.activity_count ?? 0),
-    hostedCount: Number(item.hostedCount ?? item.hosted_count ?? 0),
-    joinedCount: Number(item.joinedCount ?? item.joined_count ?? 0),
+    profileTags: item.profileTags || item.profile_tags || [],
+    profile_tags: item.profileTags || item.profile_tags || [],
+    followingCount,
+    following_count: followingCount,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount,
+    followedByMe,
+    followed_by_me: followedByMe,
+    fulfillmentSuccessRate: fulfillmentRate,
+    fulfillment_success_rate: fulfillmentRate,
+    fulfillmentRate,
+    fulfillment_rate: fulfillmentRate,
+    fulfillmentSuccessCount,
+    fulfillment_success_count: fulfillmentSuccessCount,
+    fulfillmentTotalCount,
+    fulfillment_total_count: fulfillmentTotalCount,
+    activityCount: normalizeMetricNumber(item.activityCount ?? item.activity_count ?? 0),
+    hostedCount: normalizeMetricNumber(item.hostedCount ?? item.hosted_count ?? 0),
+    joinedCount: normalizeMetricNumber(item.joinedCount ?? item.joined_count ?? 0),
     recentActivities: Array.isArray(recentActivities) ? recentActivities.map((activity) => normalizePublicActivity(activity, activity.relation || activity.publicRelation || 'joined')) : []
   }
 }
@@ -241,15 +425,29 @@ async function listLocalPublicActivitiesForUser(userId) {
       activityCount: 0,
       hostedCount: 0,
       joinedCount: 0,
+      followerCount: 0,
+      follower_count: 0,
+      fansCount: 0,
+      fans_count: 0,
+      followedByMe: false,
+      followed_by_me: false,
+      fulfillmentSuccessRate: null,
+      fulfillment_success_rate: null,
+      fulfillmentSuccessCount: 0,
+      fulfillment_success_count: 0,
+      fulfillmentTotalCount: 0,
+      fulfillment_total_count: 0,
       recentActivities: []
     }
   }
 
-  const allActivities = (await listAllActivities()).filter(isPubliclyVisibleActivity)
-  const hosted = allActivities
+  const allActivities = await listAllActivities()
+  const publicVisibleActivities = allActivities.filter(isPubliclyVisibleActivity)
+  const hosted = publicVisibleActivities
     .filter((activity) => pickActivityCreatorId(activity) === targetUserId)
     .map((activity) => ({ ...activity, publicRelation: 'hosted' }))
   const joined = []
+  const fulfillmentActivityIds = new Set()
 
   await Promise.all(allActivities.map(async (activity) => {
     const activityId = pickActivityId(activity)
@@ -259,7 +457,9 @@ async function listLocalPublicActivitiesForUser(userId) {
       String(application.userId || application.user_id || '') === targetUserId
         && application.status === 'approved'
     ))
-    if (approved) joined.push({ ...activity, publicRelation: 'joined' })
+    if (!approved) return
+    if (isPubliclyVisibleActivity(activity)) joined.push({ ...activity, publicRelation: 'joined' })
+    if (isCompletedForFulfillment(activity)) fulfillmentActivityIds.add(activityId)
   }))
 
   const seen = new Set()
@@ -269,11 +469,34 @@ async function listLocalPublicActivitiesForUser(userId) {
     seen.add(activityId)
     return true
   })
+  const checkedActivityIds = getLocalCheckedActivityIdsForUser(targetUserId)
+  const fulfillmentSuccessCount = Array.from(fulfillmentActivityIds)
+    .filter((activityId) => checkedActivityIds.has(activityId)).length
+  const fulfillmentTotalCount = fulfillmentActivityIds.size
+  const fulfillmentSuccessRate = fulfillmentTotalCount
+    ? Math.round((fulfillmentSuccessCount / fulfillmentTotalCount) * 100)
+    : null
+  const followerCount = countLocalUserFollowers(targetUserId)
+  const followedByMe = isLocalFollowingUser(targetUserId)
 
   return {
     activityCount: publicActivities.length,
     hostedCount: hosted.length,
     joinedCount: joined.length,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount,
+    followedByMe,
+    followed_by_me: followedByMe,
+    fulfillmentSuccessRate,
+    fulfillment_success_rate: fulfillmentSuccessRate,
+    fulfillmentRate: fulfillmentSuccessRate,
+    fulfillment_rate: fulfillmentSuccessRate,
+    fulfillmentSuccessCount,
+    fulfillment_success_count: fulfillmentSuccessCount,
+    fulfillmentTotalCount,
+    fulfillment_total_count: fulfillmentTotalCount,
     recentActivities: publicActivities.slice(0, 3).map((activity) => normalizePublicActivity(activity, activity.publicRelation || 'joined'))
   }
 }
@@ -360,6 +583,32 @@ export async function getUserProfileById(userId) {
     }
   }
   return buildLocalPublicProfile(id)
+}
+
+export async function followUser(targetUserId) {
+  const id = String(targetUserId || '').trim()
+  if (!id) return buildUserFollowPayload('', false)
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
+    try {
+      return await callSuregoFunction('surego-user', 'followUser', { targetUserId: id })
+    } catch (error) {
+      return handleSuregoCloudError(error, () => followLocalUser(id))
+    }
+  }
+  return followLocalUser(id)
+}
+
+export async function unfollowUser(targetUserId) {
+  const id = String(targetUserId || '').trim()
+  if (!id) return buildUserFollowPayload('', false)
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
+    try {
+      return await callSuregoFunction('surego-user', 'unfollowUser', { targetUserId: id })
+    } catch (error) {
+      return handleSuregoCloudError(error, () => unfollowLocalUser(id))
+    }
+  }
+  return unfollowLocalUser(id)
 }
 
 export async function updateCurrentUser(payload) {

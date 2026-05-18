@@ -25,13 +25,15 @@
               </view>
             </view>
             <view class="profile-hero-card__main">
-              <text class="ref-pill ref-pill--green">{{ displayProfile.badge }}</text>
+              <view class="profile-hero-card__headline">
+                <text class="ref-pill ref-pill--green">{{ displayProfile.badge }}</text>
+                <view v-if="loggedIn" class="profile-edit-entry" @tap.stop="goEditProfile">
+                  <text>编辑资料</text>
+                  <SuIcon name="arrowRight" size="24" glyph-size="13" variant="inline" color="#64748b" />
+                </view>
+              </view>
               <text class="profile-hero-card__name">{{ displayProfile.nickname }}</text>
               <text class="profile-hero-card__bio">{{ displayProfile.bio }}</text>
-              <view v-if="loggedIn" class="profile-edit-entry" @tap.stop="goEditProfile">
-                <text>编辑资料</text>
-                <SuIcon name="arrowRight" size="24" glyph-size="13" variant="inline" color="#64748b" />
-              </view>
               <view class="account-icon-row">
                 <view
                   v-for="account in socialAccounts"
@@ -119,7 +121,7 @@
               <view class="profile-card__body">
                 <view class="profile-card__row">
                   <text class="profile-card__title su-line-1">{{ item.title }}</text>
-                  <text class="profile-card__status" :class="`profile-card__status--${getActivityStatusMeta(item).tone}`">{{ getActivityStatusMeta(item).label }}</text>
+                  <text class="profile-card__status" :class="`profile-card__status--${getActivityStatusTone(item)}`">{{ getActivityDisplayStatus(item) }}</text>
                 </view>
                 <text class="profile-card__meta">{{ item.date }} {{ item.time }}</text>
               </view>
@@ -195,7 +197,7 @@ import SuBottomDock from '@/components/surego/SuBottomDock.vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
 import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { getActivityStatusMeta, listMyActivities, sortActivitiesByStatusPriority } from '@/common/api/activity.js'
-import { listMyPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
+import { listMyPartnerIntentPosts, listMyPartnerPosts } from '@/common/api/partner.js'
 import { getCurrentUser } from '@/common/api/user.js'
 import { DEFAULT_USER_AVATAR, DEFAULT_USER_NICKNAME, getCurrentUserProfile, hasOpsRole, isLoggedIn, isSuregoProfileComplete } from '@/common/api/auth.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
@@ -219,7 +221,7 @@ const loggedIn = ref(false)
 const canUseOps = ref(false)
 const myActivities = ref({ hosting: [], joined: [], invited: [], pending: [] })
 const partnerPosts = ref([])
-const allPartnerPosts = ref([])
+const partnerIntentPosts = ref([])
 const user = ref(getCurrentUserProfile())
 const isPageLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
@@ -256,13 +258,9 @@ const currentActivityList = computed(() => {
 })
 const partnerPostList = computed(() => partnerPosts.value)
 const postedPartnerPosts = computed(() => partnerPostList.value)
-const intentPartnerPost = computed(() => (
-  allPartnerPosts.value.find((item) => item.id === 'hackathon-ai-front') || allPartnerPosts.value.find((item) => !item.isCreator) || null
-))
-const intentPartnerPosts = computed(() => (intentPartnerPost.value ? [intentPartnerPost.value] : []))
 const currentPartnerScope = computed(() => partnerScopeTabs.find((item) => item.key === activePartnerScope.value) || partnerScopeTabs[0])
 const currentPartnerList = computed(() => (
-  activePartnerScope.value === 'intents' ? intentPartnerPosts.value : postedPartnerPosts.value
+  activePartnerScope.value === 'intents' ? partnerIntentPosts.value : postedPartnerPosts.value
 ))
 const profileComplete = computed(() => isSuregoProfileComplete(user.value))
 const displayProfile = computed(() => {
@@ -432,7 +430,7 @@ async function loadData() {
       canUseOps.value = false
       myActivities.value = { hosting: [], joined: [], invited: [], pending: [] }
       partnerPosts.value = []
-      allPartnerPosts.value = []
+      partnerIntentPosts.value = []
       return
     }
 
@@ -449,10 +447,10 @@ async function loadData() {
     }
     user.value = freshUser
     canUseOps.value = hasOpsRole(freshUser)
-    const [activities, partnerItems, allPartners] = await Promise.all([
+    const [activities, partnerItems, intentItems] = await Promise.all([
       listMyActivities(),
       listMyPartnerPosts(),
-      listPartnerPosts()
+      listMyPartnerIntentPosts()
     ])
     myActivities.value = Array.isArray(activities)
       ? { hosting: [], joined: activities, invited: [], pending: [] }
@@ -463,7 +461,7 @@ async function loadData() {
           pending: activities.pending || []
         }
     partnerPosts.value = Array.isArray(partnerItems) ? partnerItems : []
-    allPartnerPosts.value = Array.isArray(allPartners) ? allPartners : []
+    partnerIntentPosts.value = Array.isArray(intentItems) ? intentItems : []
   } finally {
     isPageLoading.value = false
   }
@@ -489,11 +487,30 @@ function openActivity(item) {
     goManageDashboard(item.id)
     return
   }
-  if (['approved', 'pending', 'rejected'].includes(item.applicationStatus)) {
+  if (['approved', 'pending', 'waitlist', 'rejected'].includes(item.applicationStatus)) {
     goParticipantDashboard(item.id)
     return
   }
   goActivityDetail(item.id)
+}
+
+function getActivityDisplayStatus(item = {}) {
+  if (!item.isCreator) {
+    if (item.applicationStatus === 'approved') return '已加入'
+    if (item.applicationStatus === 'pending') return '审核中'
+    if (item.applicationStatus === 'waitlist') return '候补中'
+    if (item.applicationStatus === 'rejected') return '未通过'
+    if (item.applicationStatus === 'invited') return '待确认'
+  }
+  return getActivityStatusMeta(item).label
+}
+
+function getActivityStatusTone(item = {}) {
+  if (item.applicationStatus === 'waitlist') return 'amber'
+  if (item.applicationStatus === 'approved') return 'green'
+  if (item.applicationStatus === 'pending') return 'blue'
+  if (item.applicationStatus === 'rejected') return 'red'
+  return getActivityStatusMeta(item).tone
 }
 
 function switchProfileTab(key) {
@@ -558,25 +575,25 @@ function switchProfileTab(key) {
 
 .profile__content {
   display: grid;
-  gap: 24rpx;
-  padding: 0 36rpx 190rpx;
+  gap: 22rpx;
+  padding: 0 32rpx 190rpx;
 }
 
 .profile-hero-card {
   display: grid;
-  gap: 28rpx;
-  padding: 34rpx;
+  gap: 24rpx;
+  padding: 30rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 46rpx;
-  background: linear-gradient(145deg, #ffffff 0%, #f6fbff 100%);
-  box-shadow: 0 18rpx 42rpx rgba(30, 88, 156, 0.08);
+  border-radius: 38rpx;
+  background: linear-gradient(145deg, #ffffff 0%, #f3f9ff 100%);
+  box-shadow: 0 16rpx 38rpx rgba(30, 88, 156, 0.075);
 }
 
 .profile-hero-card__top {
   display: grid;
-  grid-template-columns: 136rpx minmax(0, 1fr);
-  align-items: center;
-  gap: 26rpx;
+  grid-template-columns: 124rpx minmax(0, 1fr);
+  align-items: start;
+  gap: 24rpx;
 }
 
 .initial-avatar {
@@ -599,8 +616,8 @@ function switchProfileTab(key) {
 
 .profile-avatar-wrap {
   position: relative;
-  width: 136rpx;
-  height: 136rpx;
+  width: 124rpx;
+  height: 124rpx;
 }
 
 .profile-avatar {
@@ -634,17 +651,32 @@ function switchProfileTab(key) {
 }
 
 .profile-hero-card__main {
+  display: grid;
   min-width: 0;
+  gap: 12rpx;
+}
+
+.profile-hero-card__headline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
 }
 
 .ref-pill {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
+  max-width: 220rpx;
+  overflow: hidden;
   border-radius: 999rpx;
   padding: 10rpx 16rpx;
   font-size: 21rpx;
   font-weight: 950;
   line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ref-pill--green {
@@ -654,18 +686,16 @@ function switchProfileTab(key) {
 
 .profile-hero-card__name {
   display: block;
-  margin-top: 14rpx;
   color: #102033;
-  font-size: 50rpx;
+  font-size: 42rpx;
   font-weight: 950;
-  line-height: 1.05;
+  line-height: 1.12;
 }
 
 .profile-hero-card__bio {
   display: block;
-  margin-top: 12rpx;
   color: #64748b;
-  font-size: 25rpx;
+  font-size: 24rpx;
   font-weight: 850;
   line-height: 1.45;
   overflow: hidden;
@@ -677,35 +707,36 @@ function switchProfileTab(key) {
 
 .profile-edit-entry {
   display: inline-flex;
-  width: fit-content;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 4rpx;
-  margin-top: 14rpx;
-  padding: 10rpx 16rpx;
+  justify-content: center;
+  gap: 2rpx;
+  min-height: 48rpx;
+  padding: 0 16rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
   border-radius: 999rpx;
   background: #fff;
   color: #102033;
-  font-size: 22rpx;
+  font-size: 21rpx;
   font-weight: 950;
 }
 
 .account-icon-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14rpx;
-  margin-top: 20rpx;
+  display: grid;
+  grid-template-columns: repeat(4, 58rpx);
+  gap: 10rpx;
+  margin-top: 2rpx;
 }
 
 .account-icon {
   position: relative;
   display: flex;
-  width: 68rpx;
-  height: 68rpx;
+  width: 58rpx;
+  height: 58rpx;
   align-items: center;
   justify-content: center;
   border: 1rpx solid rgba(24, 24, 27, 0.06);
-  border-radius: 24rpx;
+  border-radius: 20rpx;
   background: #fff;
   color: #a1a1aa;
   box-shadow: 0 10rpx 22rpx rgba(30, 88, 156, 0.06);
@@ -743,13 +774,14 @@ function switchProfileTab(key) {
 .trust-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16rpx;
+  gap: 14rpx;
 }
 
 .trust-strip view {
   min-width: 0;
-  padding: 22rpx 16rpx;
-  border-radius: 36rpx;
+  padding: 20rpx 16rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.08);
+  border-radius: 28rpx;
   background: #fff;
 }
 
@@ -776,122 +808,95 @@ function switchProfileTab(key) {
 }
 
 .filter-row {
-  margin: -2rpx -36rpx 0;
+  margin: 10rpx 0 28rpx;
+  padding: 0 2rpx;
   white-space: nowrap;
 }
 
 .filter-row__inner {
-  display: inline-flex;
-  gap: 16rpx;
-  padding: 0 36rpx 8rpx;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8rpx;
+  padding: 10rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.1);
+  border-radius: 34rpx;
+  background: #eef6ff;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.86), 0 12rpx 26rpx rgba(30, 88, 156, 0.05);
 }
 
 .filter-row__button {
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
+  height: 74rpx;
   align-items: center;
   justify-content: center;
-  padding: 20rpx 28rpx;
-  border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 999rpx;
-  background: #fff;
-  color: #64748b;
+  padding: 0 10rpx;
+  border: 0;
+  border-radius: 26rpx;
+  background: transparent;
+  color: #52657a;
   font-size: 24rpx;
   font-weight: 950;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .filter-row__button.active {
   border-color: #102033;
   background: #102033;
   color: #fff;
+  box-shadow: 0 10rpx 22rpx rgba(16, 32, 51, 0.18);
 }
 
 .sub-filter-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(176rpx, 1fr));
   gap: 12rpx;
+  margin-bottom: 6rpx;
+  padding: 14rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.08);
+  border-radius: 32rpx;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef7ff 100%);
+  box-shadow: 0 12rpx 26rpx rgba(30, 88, 156, 0.045);
 }
 
 .sub-filter-row__item {
-  display: inline-flex;
-  min-height: 58rpx;
+  display: flex;
+  min-width: 0;
+  min-height: 70rpx;
   align-items: center;
   justify-content: center;
-  padding: 0 22rpx;
-  border: 1rpx solid rgba(24, 24, 27, 0.07);
-  border-radius: 999rpx;
-  background: #fff;
-  color: #64748b;
-  font-size: 22rpx;
+  padding: 0 16rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.08);
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.92);
+  color: #52657a;
+  font-size: 21rpx;
   font-weight: 950;
-  box-shadow: 0 8rpx 18rpx rgba(30, 88, 156, 0.045);
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.92);
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sub-filter-row__item text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sub-filter-row__item.active {
   border-color: #2388ff;
   background: #2388ff;
   color: #fff;
+  box-shadow: 0 10rpx 20rpx rgba(35, 136, 255, 0.22);
 }
 
-.task-list,
 .profile-stack {
   display: grid;
-  gap: 18rpx;
-}
-
-.task-card,
-.order-card {
-  display: grid;
-  align-items: center;
-  gap: 24rpx;
-  padding: 26rpx 30rpx;
-  border: 1rpx solid rgba(24, 24, 27, 0.07);
-  border-radius: 40rpx;
-  background: #fff;
-  color: #102033;
-  box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.055);
-}
-
-.task-card {
-  grid-template-columns: 48rpx minmax(0, 1fr) 36rpx;
-  min-height: 92rpx;
-}
-
-.task-card view,
-.order-card view {
-  min-width: 0;
-}
-
-.task-card view text:first-child,
-.order-card view text:first-child {
-  display: block;
-  color: #102033;
-  font-size: 27rpx;
-  font-weight: 950;
-  line-height: 1.25;
-}
-
-.task-card view text:nth-child(2),
-.order-card view text:last-child {
-  display: block;
-  margin-top: 8rpx;
-  color: #64748b;
-  font-size: 22rpx;
-  font-weight: 750;
-  line-height: 1.35;
-}
-
-.order-card {
-  grid-template-columns: 56rpx minmax(0, 1fr) auto;
-}
-
-.order-card > text {
-  color: #102033;
-  font-size: 40rpx;
-  font-weight: 950;
+  gap: 22rpx;
 }
 
 .section-title {
-  margin-top: 6rpx;
+  margin-top: 0;
+  padding: 0 4rpx;
 }
 
 .section-title text {
@@ -903,19 +908,19 @@ function switchProfileTab(key) {
 
 .profile-card {
   display: grid;
-  grid-template-columns: 116rpx minmax(0, 1fr);
-  gap: 20rpx;
-  padding: 20rpx;
+  grid-template-columns: 104rpx minmax(0, 1fr);
+  gap: 18rpx;
+  padding: 18rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 36rpx;
+  border-radius: 30rpx;
   background: #fff;
   box-shadow: 0 12rpx 28rpx rgba(30, 88, 156, 0.055);
 }
 
 .profile-card__cover {
-  width: 116rpx;
-  height: 116rpx;
-  border-radius: 28rpx;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 24rpx;
   background: #e2e8f0;
 }
 
@@ -925,7 +930,7 @@ function switchProfileTab(key) {
 
 .profile-card__row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12rpx;
 }
@@ -934,7 +939,7 @@ function switchProfileTab(key) {
   flex: 1;
   min-width: 0;
   color: #102033;
-  font-size: 27rpx;
+  font-size: 26rpx;
   font-weight: 950;
 }
 
@@ -973,7 +978,7 @@ function switchProfileTab(key) {
 
 .profile-card__meta {
   display: block;
-  margin-top: 16rpx;
+  margin-top: 14rpx;
   color: #94a3b8;
   font-size: 22rpx;
   font-weight: 800;
@@ -992,26 +997,31 @@ function switchProfileTab(key) {
 }
 
 .partner-list__manage {
-  align-self: flex-end;
-  padding: 12rpx 22rpx;
-  border-radius: 999rpx;
-  background: #edf6ff;
+  display: flex;
+  min-height: 76rpx;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(35, 136, 255, 0.12);
+  border-radius: 26rpx;
+  background: linear-gradient(180deg, #f7fbff, #edf6ff);
   color: #2388ff;
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-weight: 950;
+  box-shadow: 0 10rpx 20rpx rgba(30, 88, 156, 0.045);
 }
 
 .primary-button {
   display: flex;
-  min-height: 96rpx;
+  min-height: 92rpx;
   align-items: center;
   justify-content: center;
-  border-radius: 34rpx;
-  background: #2388ff;
+  margin-top: 4rpx;
+  border-radius: 30rpx;
+  background: linear-gradient(135deg, #2388ff 0%, #1769d6 100%);
   color: #fff;
   font-size: 26rpx;
   font-weight: 950;
-  box-shadow: 0 12rpx 24rpx rgba(35, 136, 255, 0.22);
+  box-shadow: 0 16rpx 30rpx rgba(35, 136, 255, 0.24);
 }
 
 .info-card,
@@ -1026,7 +1036,7 @@ function switchProfileTab(key) {
 }
 
 .info-card {
-  padding: 32rpx;
+  padding: 28rpx;
 }
 
 .fulfillment-card {
@@ -1036,15 +1046,15 @@ function switchProfileTab(key) {
 .fulfillment-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14rpx;
+  gap: 12rpx;
   margin-top: 20rpx;
 }
 
 .fulfillment-stat {
   min-width: 0;
-  padding: 24rpx 22rpx;
+  padding: 22rpx 20rpx;
   border: 1rpx solid rgba(35, 136, 255, 0.12);
-  border-radius: 30rpx;
+  border-radius: 26rpx;
   background: #fff;
 }
 
@@ -1055,7 +1065,7 @@ function switchProfileTab(key) {
 .fulfillment-stat text:first-child {
   overflow: hidden;
   color: #102033;
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 950;
   text-overflow: ellipsis;
   white-space: nowrap;

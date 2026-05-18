@@ -17,7 +17,7 @@
         <text>{{ activity.category || '活动' }}</text>
         <text class="activity-card__status" :class="`activity-card__status--${statusMeta.tone}`">{{ statusMeta.label }}</text>
         <text v-if="activity.requireApproval">需确认</text>
-        <text v-if="activity.hasParticipantLimit">可候补</text>
+        <text v-if="activity.hasParticipantLimit">{{ slotsLeft > 0 ? '限额' : '候补' }}</text>
       </view>
 
       <text class="activity-card__title su-line-2">{{ activity.title }}</text>

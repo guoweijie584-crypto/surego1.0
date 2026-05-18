@@ -231,7 +231,7 @@ function openActivity(item) {
     goManageDashboard(item.id)
     return
   }
-  if (['approved', 'pending', 'rejected'].includes(item.applicationStatus)) {
+  if (['approved', 'pending', 'waitlist', 'rejected'].includes(item.applicationStatus)) {
     goParticipantDashboard(item.id)
     return
   }
@@ -241,6 +241,7 @@ function openActivity(item) {
 function getCardStatus(item) {
   if (item.applicationStatus === 'approved') return '已加入'
   if (item.applicationStatus === 'pending') return '申请中'
+  if (item.applicationStatus === 'waitlist') return '候补中'
   if (item.isCreator) return '主办'
   return '查看'
 }

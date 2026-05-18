@@ -68,9 +68,9 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 
 const filteredMessages = computed(() => {
   if (activeTab.value === '全部') return messages.value
-  if (activeTab.value === '活动审核') return messages.value.filter((item) => item.type === 'application')
+  if (activeTab.value === '活动审核') return messages.value.filter((item) => isActivityReviewMessage(item))
   if (activeTab.value === '候补') return messages.value.filter((item) => item.type === 'activity' && /候补|席位/.test(item.title + item.content))
-  if (activeTab.value === '搭子申请') return messages.value.filter((item) => item.type === 'partner')
+  if (activeTab.value === '搭子申请') return messages.value.filter((item) => item.type === 'partner' && !item.conversationId)
   if (activeTab.value === '私聊') return messages.value.filter((item) => item.conversationId && item.conversationType !== 'group')
   if (activeTab.value === '群聊') return messages.value.filter((item) => item.conversationType === 'group')
   if (activeTab.value === '已成局') return messages.value.filter((item) => /成局|已成/.test(item.title + item.content))
@@ -86,12 +86,20 @@ onShow(loadData)
 onPullDownRefresh(makeRefreshHandler(loadData))
 
 function noticeTypeLabel(item) {
-  if (item.type === 'application') return '活动审核'
-  if (item.type === 'partner') return item.conversationId ? '私聊' : '搭子申请'
   if (item.conversationType === 'group') return '群聊'
+  if (isActivityReviewMessage(item)) return '活动审核'
+  if (item.type === 'partner') return item.conversationId ? '私聊' : '搭子申请'
   if (/候补|席位/.test(item.title + item.content)) return '候补'
   if (/成局|已成/.test(item.title + item.content)) return '已成局'
   return '活动通知'
+}
+
+function isActivityReviewMessage(item = {}) {
+  const text = `${item.title || ''} ${item.content || ''}`
+  if (item.type === 'application') return true
+  if (item.type === 'system' && /审核|运营/.test(text) && item.activityId) return true
+  if (item.type === 'activity' && /报名审核|申请/.test(text)) return true
+  return false
 }
 
 function pillClass(item) {
@@ -133,7 +141,7 @@ async function openMessage(item) {
       goManageDashboard(item.activityId)
       return
     }
-    if (['approved', 'pending'].includes(activity?.applicationStatus)) {
+    if (['approved', 'pending', 'waitlist'].includes(activity?.applicationStatus)) {
       goParticipantDashboard(item.activityId)
       return
     }

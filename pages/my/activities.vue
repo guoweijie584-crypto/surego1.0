@@ -97,6 +97,7 @@ function getBadge(item) {
   if (item.isCreator) return '局长'
   if (item.applicationStatus === 'approved') return '已加入'
   if (item.applicationStatus === 'invited') return '待确认'
+  if (item.applicationStatus === 'waitlist') return '候补中'
   return '审核中'
 }
 
@@ -111,7 +112,7 @@ function openActivity(item) {
     goManageDashboard(item.id)
     return
   }
-  if (['approved', 'pending', 'rejected'].includes(item.applicationStatus)) {
+  if (['approved', 'pending', 'waitlist', 'rejected'].includes(item.applicationStatus)) {
     goParticipantDashboard(item.id)
     return
   }

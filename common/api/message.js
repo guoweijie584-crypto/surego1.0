@@ -134,6 +134,20 @@ function buildMessage(payload = {}) {
   }
 }
 
+function getMessageSortTime(item = {}) {
+  const value = item.createdAt || item.created_at || item.updatedAt || item.updated_at || 0
+  if (typeof value === 'number') return value
+  const parsed = Date.parse(String(value))
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
+function sortMessages(items = []) {
+  return [...items].sort((a, b) => {
+    if (Boolean(a.read) !== Boolean(b.read)) return a.read ? 1 : -1
+    return getMessageSortTime(b) - getMessageSortTime(a)
+  })
+}
+
 function createLocalMessage(payload) {
   const items = readMessages()
   const message = buildMessage(payload)
@@ -166,7 +180,7 @@ export async function createMessage(payload) {
 
 function listLocalMessages(userId = getCurrentUserId()) {
   const items = shouldUseReferenceMockPreview() ? ensureReferenceNotices(userId) : readMessages()
-  return Promise.resolve(items.filter((item) => isCurrentUserMessage(item, userId)).map(buildMessage))
+  return Promise.resolve(sortMessages(items.filter((item) => isCurrentUserMessage(item, userId)).map(buildMessage)))
 }
 
 export async function listMessages() {
@@ -177,7 +191,7 @@ export async function listMessages() {
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
       const items = await callSuregoFunction('surego-message', 'list', { userId })
-      return Array.isArray(items) ? items : []
+      return Array.isArray(items) ? sortMessages(items.map(buildMessage)) : []
     } catch (error) {
       return handleSuregoCloudError(error, () => listLocalMessages(userId))
     }
@@ -226,7 +240,7 @@ function markAllLocalMessagesRead(userId = getCurrentUserId()) {
       : item
   ))
   writeMessages(next)
-  return Promise.resolve(next.filter((item) => isCurrentUserMessage(item, userId)))
+  return Promise.resolve(sortMessages(next.filter((item) => isCurrentUserMessage(item, userId)).map(buildMessage)))
 }
 
 export async function markAllMessagesRead() {
@@ -237,7 +251,7 @@ export async function markAllMessagesRead() {
   if (USE_UNICLOUD) {
     try {
       const items = await callSuregoFunction('surego-message', 'markAllRead', { userId })
-      return Array.isArray(items) ? items : []
+      return Array.isArray(items) ? sortMessages(items.map(buildMessage)) : []
     } catch (error) {
       return handleSuregoCloudError(error, () => markAllLocalMessagesRead(userId))
     }

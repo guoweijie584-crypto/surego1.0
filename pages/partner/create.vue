@@ -22,6 +22,7 @@
           <text>标题 *</text>
           <input
             v-model="form.title"
+            maxlength="30"
             placeholder="一句话讲清楚你想找什么搭子"
             adjust-position="false"
             cursor-spacing="80"
@@ -412,6 +413,7 @@ function chooseLocation() {
 
 function validateForm() {
   if (!form.title.trim()) return '请填写标题'
+  if (form.title.trim().length > 30) return '标题最多 30 个字'
   if (!form.description.trim()) return '请填写需求详情'
   if (!selectedScene.value) return '请选择兴趣场景'
   return ''

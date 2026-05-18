@@ -13,7 +13,7 @@ const REFERENCE_PREVIEW_OWNER_IDS = ['mock_user']
 const BADMINTON_ACTIVITY_IMAGE = 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b1/Shuttlecock_on_a_badminton_court.jpg/1024px-Shuttlecock_on_a_badminton_court.jpg'
 
 export const ACTIVITY_LIFECYCLE_STATUSES = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled']
-export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected', 'invited']
+export const APPLICATION_STATUSES = ['not_applied', 'pending', 'approved', 'rejected', 'waitlist', 'invited']
 export const PUBLIC_ACTIVITY_LIFECYCLE_STATUSES = ['published', 'recruiting', 'formed', 'ongoing']
 export const PUBLIC_ACTIVITY_MODERATION_STATUSES = ['approved', 'visible']
 export const ACTIVITY_VISIBILITIES = ['public', 'members_only']
@@ -29,6 +29,27 @@ export const ACTIVITY_STATUS_META = {
   rejected: { key: 'rejected', label: '审核驳回', tone: 'red', group: 'issue', rank: 80 },
   cancelled: { key: 'cancelled', label: '已取消', tone: 'red', group: 'cancelled', rank: 90 },
   hidden: { key: 'hidden', label: '已下架', tone: 'red', group: 'issue', rank: 100 }
+}
+
+function isActivityDateExpiredForFeed(item = {}) {
+  const value = item.dateValue || item.startAt || item.start_at
+  if (value) {
+    const parsed = new Date(String(value).replace(/\./g, '-'))
+    if (!Number.isNaN(parsed.getTime())) {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      parsed.setHours(0, 0, 0, 0)
+      return parsed.getTime() < today.getTime()
+    }
+  }
+  const matched = String(item.date || '').match(/(\d{1,2})月(\d{1,2})日/)
+  if (!matched) return false
+  const parsed = new Date()
+  parsed.setMonth(Number(matched[1]) - 1, Number(matched[2]))
+  parsed.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return parsed.getTime() < today.getTime()
 }
 export const ACTIVITY_STATUS_FILTERS = [
   { key: 'all', label: '全部' },
@@ -167,6 +188,7 @@ export function isPubliclyVisibleActivity(item = {}) {
   return visibility === 'public'
     && PUBLIC_ACTIVITY_LIFECYCLE_STATUSES.includes(status)
     && PUBLIC_ACTIVITY_MODERATION_STATUSES.includes(moderationStatus)
+    && !isActivityDateExpiredForFeed(item)
 }
 
 function isActivityParticipant(item = {}, userId = getCurrentUserId()) {
@@ -337,6 +359,9 @@ function buildActivityFromForm(form, id = `local_${Date.now()}`) {
     participantCount: Number(form.participantCount) || 1,
     maxParticipants: Number(form.maxParticipants) || 10,
     hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    waitlist: form.waitlist !== false,
+    allowWaitlist: form.allowWaitlist !== false,
+    allow_waitlist: form.allow_waitlist !== false,
     partyMode: form.partyMode,
     price: form.partyMode === 'free' ? '免费' : String(form.amount || 0),
     amount: Number(form.amount) || 0,
@@ -577,6 +602,9 @@ function updateLocalActivity(id, form) {
     district: form.district || found.district || '',
     maxParticipants: Number(form.maxParticipants) || found.maxParticipants,
     hasParticipantLimit: Boolean(form.hasParticipantLimit),
+    waitlist: form.waitlist !== false,
+    allowWaitlist: form.allowWaitlist !== false,
+    allow_waitlist: form.allow_waitlist !== false,
     requireApproval: Boolean(form.requireApproval),
     partyMode: form.partyMode,
     amount: Number(form.amount) || 0,
@@ -637,6 +665,7 @@ export async function listMyActivities() {
         invited: sortActivitiesByStatusPriority((result.invited || []).map(normalizeActivityRecord)),
         pending: sortActivitiesByStatusPriority([
           ...(result.pending || []),
+          ...(result.waitlist || []),
           ...(result.rejected || [])
         ].map(normalizeActivityRecord))
       }
@@ -730,7 +759,7 @@ async function listAppliedLocalActivities(all = []) {
   return {
     joined: sortActivitiesByStatusPriority(applied.filter((item) => item.applicationStatus === 'approved')),
     invited: sortActivitiesByStatusPriority(applied.filter((item) => item.applicationStatus === 'invited')),
-    pending: sortActivitiesByStatusPriority(applied.filter((item) => ['pending', 'rejected'].includes(item.applicationStatus)))
+    pending: sortActivitiesByStatusPriority(applied.filter((item) => ['pending', 'waitlist', 'rejected'].includes(item.applicationStatus)))
   }
 }
 

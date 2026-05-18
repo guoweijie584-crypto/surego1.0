@@ -420,5 +420,5 @@ export function getFeaturedActivities() {
 }
 
 export function getUserActivities() {
-  return activities.filter((activity) => activity.creatorId === 'mock_user' || ['approved', 'pending'].includes(activity.applicationStatus))
+  return activities.filter((activity) => activity.creatorId === 'mock_user' || ['approved', 'pending', 'waitlist'].includes(activity.applicationStatus))
 }

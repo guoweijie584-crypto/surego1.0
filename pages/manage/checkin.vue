@@ -130,7 +130,7 @@ const participantList = computed(() => {
   }))
 
   const applicantMembers = applications.value
-    .filter((item) => item.status === 'approved' || item.status === 'pending')
+    .filter((item) => item.status === 'approved' || item.status === 'pending' || item.status === 'waitlist')
     .map((item, index) => ({
       userId: item.userId || item.id,
       name: item.nickname || `申请者 ${index + 1}`,
@@ -138,7 +138,7 @@ const participantList = computed(() => {
       status: item.status,
       note: item.message || '来自报名申请',
       isMe: false,
-      role: '参与者'
+      role: item.status === 'waitlist' ? '候补' : '参与者'
     }))
 
   const knownIds = new Set([...baseMembers, ...applicantMembers].map((person) => person.userId))
@@ -164,7 +164,7 @@ const participantList = computed(() => {
 
 const checkedCount = computed(() => participantList.value.filter((item) => item.checked).length)
 const pendingCount = computed(() => Math.max(0, participantList.value.length - checkedCount.value))
-const nextCheckablePerson = computed(() => participantList.value.find((item) => !item.checked && item.status !== 'pending') || null)
+const nextCheckablePerson = computed(() => participantList.value.find((item) => !item.checked && !['pending', 'waitlist'].includes(item.status)) || null)
 
 onLoad(async (query) => {
   activityId.value = (query && query.id) || '103'
@@ -207,6 +207,7 @@ async function refreshCode() {
 }
 
 function getStatusLabel(person) {
+  if (person.status === 'waitlist') return '候补中'
   return person.status === 'pending' ? '待审核' : '待签到'
 }
 
@@ -289,8 +290,8 @@ async function confirmNextByScan() {
 }
 
 async function confirmPerson(person, code, source = 'manual') {
-  if (person.status === 'pending') {
-    uni.showToast({ title: '待审核成员不能签到', icon: 'none' })
+  if (person.status === 'pending' || person.status === 'waitlist') {
+    uni.showToast({ title: person.status === 'waitlist' ? '候补未补位，不能签到' : '待审核成员不能签到', icon: 'none' })
     return
   }
 

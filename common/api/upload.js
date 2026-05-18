@@ -1,4 +1,4 @@
-import { ALLOW_MOCK_FALLBACK } from '../config/runtime.js'
+import { ALLOW_MOCK_FALLBACK, isLocalDevMode } from '../config/runtime.js'
 
 export const USER_CANCEL_IMAGE_PICKER = 'USER_CANCEL_IMAGE_PICKER'
 
@@ -123,8 +123,23 @@ export async function uploadImageFile(filePath, options = {}) {
   try {
     result = await uploadWithFallback(uploadPath, cloudPath, options)
   } catch (error) {
-    if (uploadPath === filePath) throw error
-    result = await uploadWithFallback(filePath, cloudPath, options)
+    let uploadError = error
+    if (uploadPath !== filePath) {
+      try {
+        result = await uploadWithFallback(filePath, cloudPath, options)
+      } catch (fallbackError) {
+        uploadError = fallbackError
+      }
+    }
+    if (!result && (ALLOW_MOCK_FALLBACK || isLocalDevMode() || options.allowLocalFallback)) {
+      return {
+        url: filePath,
+        fileID: filePath,
+        cloudPath,
+        isLocalFallback: true
+      }
+    }
+    if (!result) throw uploadError
   }
   const url = result.fileID || result.fileUrl || result.url || ''
   return {

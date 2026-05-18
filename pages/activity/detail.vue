@@ -19,7 +19,7 @@
           </view>
         </view>
         <view class="detail-cover__body">
-          <text class="pill" :class="{ 'pill--amber': isFull }">{{ isFull ? '满员候补中' : activityStatusMeta.label || '招募中' }}</text>
+          <text class="pill" :class="{ 'pill--amber': isFull }">{{ isFull ? (waitlistEnabled ? '候补开放' : '名额已满') : activityStatusMeta.label || '招募中' }}</text>
           <text class="detail-cover__title">{{ activity.title }}</text>
         </view>
       </view>
@@ -139,7 +139,7 @@ import { onLoad, onPullDownRefresh, onShareAppMessage, onShareTimeline } from '@
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import SuPageLoading from '@/components/surego/SuPageLoading.vue'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
-import { getApplicationForActivity } from '@/common/api/application.js'
+import { getApplicationForActivity, listApplications } from '@/common/api/application.js'
 import { isLoggedIn } from '@/common/api/auth.js'
 import { listActivityMembers } from '@/common/api/member.js'
 import { createReport } from '@/common/api/moderation.js'
@@ -163,9 +163,10 @@ const isJoined = computed(() => activity.value.applicationStatus === 'approved' 
 const isTerminalActivity = computed(() => ['finished', 'cancelled', 'hidden', 'rejected'].includes(activityStatusMeta.value.key))
 const isActivityRecruitable = computed(() => ['published', 'recruiting'].includes(activityStatusMeta.value.key))
 const isFull = computed(() => activity.value.hasParticipantLimit && Number(activity.value.participantCount || 0) >= Number(activity.value.maxParticipants || 0))
+const waitlistEnabled = computed(() => activity.value.waitlist !== false && activity.value.allowWaitlist !== false && activity.value.allow_waitlist !== false)
 const primaryDisabled = computed(() => {
-  if (isLeader.value || isJoined.value || ['pending', 'rejected'].includes(activity.value.applicationStatus)) return false
-  return activity.value.applicationStatus === 'pending' || isTerminalActivity.value || !isActivityRecruitable.value
+  if (isLeader.value || isJoined.value || ['pending', 'waitlist', 'rejected'].includes(activity.value.applicationStatus)) return false
+  return activity.value.applicationStatus === 'pending' || isTerminalActivity.value || !isActivityRecruitable.value || (isFull.value && !waitlistEnabled.value)
 })
 
 const mode = computed(() => {
@@ -198,7 +199,11 @@ const participantText = computed(() => {
 const seatsLeftText = computed(() => {
   if (!activity.value.hasParticipantLimit) return '开放报名中'
   const left = Math.max(0, Number(activity.value.maxParticipants || 0) - Number(activity.value.participantCount || 0))
-  if (left <= 0) return '当前仅可候补'
+  if (left <= 0) {
+    const count = Number(activity.value.waitlistCount || activity.value.waitlist_count || 0)
+    if (!waitlistEnabled.value) return '当前名额已满'
+    return count > 0 ? `${count} 人候补中` : '可加入候补队列'
+  }
   return `还差 ${left} 人成行`
 })
 const countdownText = computed(() => activity.value.dayOfWeek || '即将开始')
@@ -210,8 +215,9 @@ const primaryButtonText = computed(() => {
   if (!isActivityRecruitable.value) return activityStatusMeta.value.label
   if (activity.value.applicationStatus === 'invited') return '确认加入'
   if (activity.value.applicationStatus === 'pending') return '审核中'
+  if (activity.value.applicationStatus === 'waitlist') return '候补中'
   if (activity.value.applicationStatus === 'rejected') return '未通过'
-  if (isFull.value) return '加入候补'
+  if (isFull.value) return waitlistEnabled.value ? '加入候补' : '名额已满'
   if (activity.value.requireApproval) return '提交申请'
   if (activity.value.partyMode === 'free') return '立即报名'
   return '报名并确认订单'
@@ -237,6 +243,7 @@ async function loadData(id = activity.value.id || '101') {
     }
     await Promise.all([
       syncViewerApplication(detail.id),
+      syncActivityApplications(detail.id),
       syncActivityMembers(detail.id)
     ])
   } finally {
@@ -260,6 +267,21 @@ async function syncViewerApplication(id) {
     }
   } catch (error) {
     // Detail content is public; viewer application state should not block real activity data.
+  }
+}
+
+async function syncActivityApplications(id) {
+  if (!isLoggedIn()) return
+  try {
+    const applications = await listApplications(id)
+    const waitlistCount = applications.filter((item) => item.status === 'waitlist').length
+    activity.value = {
+      ...activity.value,
+      waitlistCount,
+      waitlist_count: waitlistCount
+    }
+  } catch (error) {
+    // Public details can render without queue enrichment.
   }
 }
 
@@ -288,7 +310,7 @@ function handlePrimaryAction() {
     goManageDashboard(activity.value.id)
     return
   }
-  if (isJoined.value || ['pending', 'rejected'].includes(activity.value.applicationStatus)) {
+  if (isJoined.value || ['pending', 'waitlist', 'rejected'].includes(activity.value.applicationStatus)) {
     goParticipantDashboard(activity.value.id)
     return
   }

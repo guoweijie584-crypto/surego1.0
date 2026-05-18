@@ -9,6 +9,7 @@ const conversations = db.collection('surego-conversations');
 const messages = db.collection('surego-messages');
 const activities = db.collection('surego-activities');
 const uniIdUsers = db.collection('uni-id-users');
+const suregoUsers = db.collection('surego-users');
 
 const postTypes = ['time_box', 'long_term', 'project'];
 const postStatuses = ['open', 'matched', 'converted', 'paused', 'closed'];
@@ -38,6 +39,49 @@ async function findUniIdUser(userId) {
   } catch (error) {
     return null;
   }
+}
+
+async function getSuregoUserProfileMap(userIds = []) {
+  const ids = Array.from(new Set((Array.isArray(userIds) ? userIds : []).map(String).filter(Boolean)));
+  if (!ids.length) return {};
+  try {
+    const result = await suregoUsers.where({ user_id: dbCmd.in(ids) }).limit(ids.length).get();
+    return (result.data || []).reduce((map, item) => {
+      if (item.user_id) map[String(item.user_id)] = item;
+      return map;
+    }, {});
+  } catch (error) {
+    return {};
+  }
+}
+
+function applyCreatorProfile(post = {}, profile = {}) {
+  if (!profile) return post;
+  return {
+    ...post,
+    creator: profile.nickname || post.creator,
+    author: profile.nickname || post.author || post.creator,
+    avatar: profile.avatar || post.avatar
+  };
+}
+
+function applyIntentUserProfile(intent = {}, profile = {}) {
+  if (!profile) return intent;
+  return {
+    ...intent,
+    nickname: profile.nickname || intent.nickname || intent.applicant_name,
+    avatar: profile.avatar || intent.avatar || intent.applicant_avatar
+  };
+}
+
+async function enrichPostCreators(items = []) {
+  const profileMap = await getSuregoUserProfileMap(items.map((item) => item.creator_id || item.creatorId));
+  return items.map((item) => applyCreatorProfile(item, profileMap[String(item.creator_id || item.creatorId || '')]));
+}
+
+async function enrichIntentUsers(items = []) {
+  const profileMap = await getSuregoUserProfileMap(items.map((item) => item.user_id || item.userId));
+  return items.map((item) => applyIntentUserProfile(item, profileMap[String(item.user_id || item.userId || '')]));
 }
 
 function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
@@ -237,6 +281,11 @@ function normalizePost(record = {}, options = {}) {
     topic_label: record.topic_label || record.topicLabel || getTopicLabel(record.topic_key || record.topicKey),
     creatorId: record.creator_id || record.creatorId || '',
     creator_id: record.creator_id || record.creatorId || '',
+    creator: record.creator || record.creator_name || 'SureGo 用户',
+    author: record.author || record.creator || record.creator_name || 'SureGo 用户',
+    avatar: record.avatar || record.creator_avatar || '/static/userImg/user.png',
+    image: record.image || record.cover || '',
+    cover: record.cover || record.image || '',
     typeLabel: record.type_label || record.typeLabel || '',
     images,
     image: primaryImage,
@@ -526,7 +575,7 @@ exports.main = async (event) => {
       .orderBy('created_at', 'desc')
       .limit(queryLimit)
       .get();
-    const items = (result.data || [])
+    const items = (await enrichPostCreators(result.data || []))
       .filter((item) => matchesPostTextFilters(item, payload))
       .slice(0, Math.min(requestedLimit, 100));
     return {
@@ -536,7 +585,7 @@ exports.main = async (event) => {
   }
 
   if (action === 'detailPost') {
-    const post = await getPost(payload.id);
+    const [post] = await enrichPostCreators([await getPost(payload.id)].filter(Boolean));
     if (!post) return { code: 0, data: null };
     const canView = isPubliclyVisiblePost(post)
       || (user.exists && (user.isOps || String(post.creator_id || '') === user.uid));
@@ -580,9 +629,43 @@ exports.main = async (event) => {
   if (action === 'listMine') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
     const result = await posts.where({ creator_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get();
+    const items = await enrichPostCreators(result.data || []);
     return {
       code: 0,
-      data: (result.data || []).map(normalizePost)
+      data: items.map(normalizePost)
+    };
+  }
+
+  if (action === 'listMyIntents') {
+    if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
+    const intentResult = await intents.where({ user_id: user.uid }).orderBy('created_at', 'desc').limit(payload.limit || 100).get();
+    const intentItems = (intentResult.data || []).map(normalizeIntent);
+    const postIds = Array.from(new Set(intentItems.map((item) => String(item.partner_post_id || item.partnerPostId || '')).filter(Boolean)));
+    const postResult = postIds.length
+      ? await posts.where({ _id: dbCmd.in(postIds) }).limit(postIds.length).get()
+      : { data: [] };
+    const postsById = (await enrichPostCreators(postResult.data || [])).reduce((map, item) => {
+      map[String(item._id || item.id || '')] = item;
+      return map;
+    }, {});
+    const data = intentItems
+      .map((intent) => {
+        const post = postsById[String(intent.partner_post_id || intent.partnerPostId || '')];
+        if (!post) return null;
+        return normalizePost({
+          ...post,
+          viewerIntent: intent,
+          viewer_intent: intent,
+          viewerIntentStatus: intent.status,
+          viewer_intent_status: intent.status,
+          viewerConversationId: intent.conversationId || intent.conversation_id || '',
+          viewer_conversation_id: intent.conversationId || intent.conversation_id || ''
+        });
+      })
+      .filter(Boolean);
+    return {
+      code: 0,
+      data
     };
   }
 
@@ -645,9 +728,10 @@ exports.main = async (event) => {
       return { code: 'FORBIDDEN', message: 'Only the creator can view partner intents.' };
     }
     const result = await intents.where({ partner_post_id: partnerPostId }).orderBy('created_at', 'desc').get();
+    const items = await enrichIntentUsers(result.data || []);
     return {
       code: 0,
-      data: (result.data || []).map(normalizeIntent)
+      data: items.map(normalizeIntent)
     };
   }
 

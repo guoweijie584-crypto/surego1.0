@@ -68,7 +68,7 @@
           <SuPartnerCard v-for="item in filteredPosts" :key="item.id" :partner="item" />
           <view v-if="filteredPosts.length === 0" class="empty-card">
             <SuIcon name="emptyPartner" size="88" glyph-size="42" variant="soft" color="#94a3b8" />
-            <text>这个分类暂时还没人发布。</text>
+            <text>{{ emptyText }}</text>
           </view>
         </view>
       </view>
@@ -87,7 +87,7 @@ import SuPartnerCard from '@/components/surego/SuPartnerCard.vue'
 import { listHackathonPartnerPosts, listPartnerPosts } from '@/common/api/partner.js'
 import { getUnreadMessageCount } from '@/common/api/message.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goPartnerCreate, goUserProfile } from '@/common/utils/route.js'
+import { getMiniProgramNavActionsStyle, getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goHackathon, goMessages, goUserProfile } from '@/common/utils/route.js'
 
 const selectedSchool = '天津大学'
 const HACKATHON_START_DATE = '2026-05-22'
@@ -97,7 +97,6 @@ const hackathonLoading = ref(false)
 const unreadCount = ref(0)
 const activeScene = ref('all')
 const searchKeyword = ref('')
-const activeType = activeScene
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 620 })
@@ -128,6 +127,11 @@ const hackathonTeamCountLabel = computed(() => (hackathonLoading.value ? '-' : S
 const hackathonIntentCount = computed(() => hackathonPosts.value.reduce((sum, item) => sum + Number(item.intentCount || item.intent_count || 0), 0))
 const hackathonIntentCountLabel = computed(() => (hackathonLoading.value ? '-' : String(hackathonIntentCount.value)))
 const hackathonStartLabel = computed(() => buildHackathonStartLabel(hackathonPosts.value))
+const emptyText = computed(() => (
+  searchKeyword.value.trim()
+    ? '没有找到相关搭子需求，换个关键词试试。'
+    : '这个分类暂时还没人发布。'
+))
 
 async function loadData() {
   hackathonLoading.value = true

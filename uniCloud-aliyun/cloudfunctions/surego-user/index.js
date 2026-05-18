@@ -6,6 +6,8 @@ const profileCollection = db.collection('surego-users');
 const uniIdUsers = db.collection('uni-id-users');
 const activityCollection = db.collection('surego-activities');
 const applicationCollection = db.collection('surego-applications');
+const checkinCollection = db.collection('surego-checkins');
+const followCollection = db.collection('surego-follows');
 
 const ROLE_VALUES = ['user', 'operator', 'admin'];
 const DEFAULT_ROLE = 'user';
@@ -25,6 +27,17 @@ function now() {
   return Date.now();
 }
 
+function normalizeMetricNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : fallback;
+}
+
+function normalizeOptionalMetricNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, number) : null;
+}
+
 function normalizeRoles(roles) {
   const values = Array.isArray(roles) ? roles : [roles];
   const next = values
@@ -40,6 +53,10 @@ function hasAdminRole(roles) {
 function hasOpsRole(roles) {
   const values = normalizeRoles(roles);
   return values.includes('admin') || values.includes('operator');
+}
+
+function normalizeVisibility(visibility = 'public') {
+  return ['public', 'members_only'].includes(visibility) ? visibility : 'public';
 }
 
 function authRequired() {
@@ -65,6 +82,13 @@ function lastAdminRequired() {
 
 function normalizeProfile(record = {}) {
   const roles = normalizeRoles(record.roles || record.role);
+  const followingCount = normalizeMetricNumber(record.followingCount ?? record.following_count ?? record.followCount ?? record.follow_count ?? 0);
+  const followerCount = normalizeMetricNumber(record.followerCount ?? record.follower_count ?? record.fansCount ?? record.fans_count ?? 0);
+  const fulfillmentSuccessCount = normalizeMetricNumber(record.fulfillmentSuccessCount ?? record.fulfillment_success_count ?? 0);
+  const fulfillmentTotalCount = normalizeMetricNumber(record.fulfillmentTotalCount ?? record.fulfillment_total_count ?? 0);
+  const fulfillmentRate = normalizeOptionalMetricNumber(
+    record.fulfillmentSuccessRate ?? record.fulfillment_success_rate ?? record.fulfillmentRate ?? record.fulfillment_rate
+  );
   return {
     ...record,
     id: record._id || record.id,
@@ -77,7 +101,23 @@ function normalizeProfile(record = {}) {
     mbti: record.mbti || '',
     bio: record.bio || '',
     quote: record.quote || '',
+    profileTags: record.profile_tags || record.profileTags || [],
+    profile_tags: record.profile_tags || record.profileTags || [],
     credit: Number(record.credit) || 100,
+    followingCount,
+    following_count: followingCount,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount,
+    fulfillmentSuccessRate: fulfillmentRate,
+    fulfillment_success_rate: fulfillmentRate,
+    fulfillmentRate,
+    fulfillment_rate: fulfillmentRate,
+    fulfillmentSuccessCount,
+    fulfillment_success_count: fulfillmentSuccessCount,
+    fulfillmentTotalCount,
+    fulfillment_total_count: fulfillmentTotalCount,
     roles,
     role: roles,
     roleUpdatedAt: record.role_updated_at || record.roleUpdatedAt || 0,
@@ -101,8 +141,12 @@ function isPubliclyVisibleActivity(item = {}) {
   const rawStatus = String(item.status || item.lifecycleStatus || '');
   const status = normalizeStatus(item.status || item.lifecycleStatus);
   const moderationStatus = normalizeModerationStatus(item.moderation_status || item.moderationStatus);
+  const visibility = normalizeVisibility(item.visibility);
   if (rawStatus === 'rejected' || rawStatus === 'hidden') return false;
-  return publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
+  return visibility === 'public'
+    && publicLifecycleStatuses.includes(status)
+    && publicModerationStatuses.includes(moderationStatus)
+    && !isActivityDateExpiredForFeed(item);
 }
 
 function pickActivityId(activity = {}) {
@@ -126,16 +170,106 @@ function normalizePublicActivity(activity = {}, relation = 'joined') {
   };
 }
 
+function parseActivityDate(activity = {}) {
+  const value = activity.dateValue || activity.date_value || activity.startAt || activity.start_at;
+  if (value) {
+    const parsed = new Date(String(value).replace(/\./g, '-'));
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  const dateText = String(activity.date || '').trim();
+  const isoMatched = dateText.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatched) {
+    const parsed = new Date(Number(isoMatched[1]), Number(isoMatched[2]) - 1, Number(isoMatched[3]));
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  const cnMatched = dateText.match(/(\d{1,2})月(\d{1,2})日/);
+  if (cnMatched) {
+    const parsed = new Date();
+    parsed.setMonth(Number(cnMatched[1]) - 1, Number(cnMatched[2]));
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }
+  return null;
+}
+
+function isActivityDateExpiredForFeed(item = {}) {
+  const parsed = parseActivityDate(item);
+  if (!parsed) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed.getTime() < today.getTime();
+}
+
+function isCompletedForFulfillment(activity = {}) {
+  const status = normalizeStatus(activity.status || activity.lifecycleStatus);
+  if (status === 'finished') return true;
+  if (status === 'cancelled') return false;
+  return isActivityDateExpiredForFeed(activity);
+}
+
 function normalizePublicProfile(record = {}, activitySummary = {}) {
   const profile = normalizeProfile(record);
+  const profileFollowerCount = normalizeMetricNumber(profile.followerCount ?? profile.follower_count ?? profile.fansCount ?? profile.fans_count ?? 0);
+  const hasSummaryFollowerCount = activitySummary.followerCount !== undefined
+    || activitySummary.follower_count !== undefined
+    || activitySummary.fansCount !== undefined
+    || activitySummary.fans_count !== undefined;
+  const followerCount = hasSummaryFollowerCount
+    ? normalizeMetricNumber(activitySummary.followerCount ?? activitySummary.follower_count ?? activitySummary.fansCount ?? activitySummary.fans_count ?? 0)
+    : profileFollowerCount;
+  const followedByMe = Boolean(activitySummary.followedByMe ?? activitySummary.followed_by_me ?? false);
+  const hasSummarySuccessCount = activitySummary.fulfillmentSuccessCount !== undefined
+    || activitySummary.fulfillment_success_count !== undefined;
+  const hasSummaryTotalCount = activitySummary.fulfillmentTotalCount !== undefined
+    || activitySummary.fulfillment_total_count !== undefined;
+  const hasSummaryFulfillmentRate = activitySummary.fulfillmentSuccessRate !== undefined
+    || activitySummary.fulfillment_success_rate !== undefined
+    || activitySummary.fulfillmentRate !== undefined
+    || activitySummary.fulfillment_rate !== undefined;
+  const fulfillmentSuccessCount = normalizeMetricNumber(
+    hasSummarySuccessCount
+      ? (activitySummary.fulfillmentSuccessCount ?? activitySummary.fulfillment_success_count)
+      : (profile.fulfillmentSuccessCount ?? profile.fulfillment_success_count ?? 0)
+  );
+  const fulfillmentTotalCount = normalizeMetricNumber(
+    hasSummaryTotalCount
+      ? (activitySummary.fulfillmentTotalCount ?? activitySummary.fulfillment_total_count)
+      : (profile.fulfillmentTotalCount ?? profile.fulfillment_total_count ?? 0)
+  );
+  const fulfillmentRate = normalizeOptionalMetricNumber(
+    hasSummaryFulfillmentRate
+      ? (activitySummary.fulfillmentSuccessRate ?? activitySummary.fulfillment_success_rate ?? activitySummary.fulfillmentRate ?? activitySummary.fulfillment_rate)
+      : (profile.fulfillmentSuccessRate ?? profile.fulfillment_success_rate ?? profile.fulfillmentRate ?? profile.fulfillment_rate)
+  );
   return {
+    uid: profile.uid || profile.userId,
+    userId: profile.userId || profile.uid,
     nickname: profile.nickname,
     avatar: profile.avatar,
     profileCompletedAt: profile.profileCompletedAt,
     mbti: profile.mbti,
     bio: profile.bio,
     quote: profile.quote,
+    profileTags: profile.profileTags || profile.profile_tags || [],
+    profile_tags: profile.profileTags || profile.profile_tags || [],
     credit: profile.credit,
+    followingCount: profile.followingCount,
+    following_count: profile.following_count,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount,
+    followedByMe,
+    followed_by_me: followedByMe,
+    fulfillmentSuccessRate: fulfillmentRate,
+    fulfillment_success_rate: fulfillmentRate,
+    fulfillmentRate,
+    fulfillment_rate: fulfillmentRate,
+    fulfillmentSuccessCount,
+    fulfillment_success_count: fulfillmentSuccessCount,
+    fulfillmentTotalCount,
+    fulfillment_total_count: fulfillmentTotalCount,
     activityCount: Number(activitySummary.activityCount || 0),
     hostedCount: Number(activitySummary.hostedCount || 0),
     joinedCount: Number(activitySummary.joinedCount || 0),
@@ -176,8 +310,8 @@ function getActivitySortTime(activity = {}) {
 
 async function listApprovedApplicationsForUser(userId) {
   const [snakeResult, camelResult] = await Promise.all([
-    applicationCollection.where({ user_id: userId, status: 'approved' }).limit(100).get(),
-    applicationCollection.where({ userId: userId, status: 'approved' }).limit(100).get()
+    applicationCollection.where({ user_id: userId, status: 'approved' }).limit(1000).get(),
+    applicationCollection.where({ userId: userId, status: 'approved' }).limit(1000).get()
   ]);
   const seen = new Set();
   return [...(snakeResult.data || []), ...(camelResult.data || [])].filter((item) => {
@@ -188,11 +322,117 @@ async function listApprovedApplicationsForUser(userId) {
   });
 }
 
+async function listCheckedActivityIdsForUser(userId) {
+  const [snakeResult, camelResult] = await Promise.all([
+    checkinCollection.where({ user_id: userId, status: 'checked' }).limit(1000).get(),
+    checkinCollection.where({ userId: userId, status: 'checked' }).limit(1000).get()
+  ]);
+  const ids = new Set();
+  for (const item of [...(snakeResult.data || []), ...(camelResult.data || [])]) {
+    const activityId = String(item.activity_id || item.activityId || '').trim();
+    if (activityId) ids.add(activityId);
+  }
+  return ids;
+}
+
+async function countUserFollowers(userId) {
+  const result = await followCollection
+    .where({
+      target_type: 'user',
+      target_id: String(userId || '')
+    })
+    .limit(1000)
+    .get();
+  const seen = new Set();
+  for (const item of result.data || []) {
+    const followerId = String(item.user_id || item.userId || item.follower_id || item.followerId || '').trim();
+    if (followerId) seen.add(followerId);
+  }
+  return seen.size;
+}
+
+async function isFollowingUser(targetUserId, followerUserId) {
+  const targetId = String(targetUserId || '').trim();
+  const followerId = String(followerUserId || '').trim();
+  if (!targetId || !followerId || targetId === followerId) return false;
+  const result = await followCollection
+    .where({
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId
+    })
+    .limit(1)
+    .get();
+  return Boolean((result.data || [])[0]);
+}
+
+function normalizeUserFollowResult(targetUserId, followedByMe, followerCount) {
+  const targetId = String(targetUserId || '').trim();
+  const count = normalizeMetricNumber(followerCount, 0);
+  return {
+    targetUserId: targetId,
+    target_user_id: targetId,
+    followedByMe: Boolean(followedByMe),
+    followed_by_me: Boolean(followedByMe),
+    followerCount: count,
+    follower_count: count,
+    fansCount: count,
+    fans_count: count
+  };
+}
+
+async function followUser(targetUserId, followerUserId) {
+  const targetId = String(targetUserId || '').trim();
+  const followerId = String(followerUserId || '').trim();
+  if (!targetId || !followerId || targetId === followerId) {
+    return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
+  }
+  const existing = await followCollection
+    .where({
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId
+    })
+    .limit(1)
+    .get();
+  if (!(existing.data || [])[0]) {
+    await followCollection.add({
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId,
+      created_at: now()
+    });
+  }
+  return normalizeUserFollowResult(targetId, true, await countUserFollowers(targetId));
+}
+
+async function unfollowUser(targetUserId, followerUserId) {
+  const targetId = String(targetUserId || '').trim();
+  const followerId = String(followerUserId || '').trim();
+  if (!targetId || !followerId) {
+    return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
+  }
+  const result = await followCollection
+    .where({
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId
+    })
+    .limit(1000)
+    .get();
+  await Promise.all((result.data || [])
+    .filter((item) => item._id)
+    .map((item) => followCollection.doc(item._id).remove().catch(() => null)));
+  return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
+}
+
 async function listPublicActivitiesForUser(userId) {
-  const [hostedSnakeResult, hostedCamelResult, approvedApplications] = await Promise.all([
-    activityCollection.where({ creator_id: userId }).limit(100).get(),
-    activityCollection.where({ creatorId: userId }).limit(100).get(),
-    listApprovedApplicationsForUser(userId)
+  const [hostedSnakeResult, hostedCamelResult, approvedApplications, checkedActivityIds, followerCount] = await Promise.all([
+    activityCollection.where({ creator_id: userId }).limit(1000).get(),
+    activityCollection.where({ creatorId: userId }).limit(1000).get(),
+    listApprovedApplicationsForUser(userId),
+    listCheckedActivityIdsForUser(userId),
+    countUserFollowers(userId)
   ]);
 
   const hosted = dedupeActivitiesById([
@@ -206,18 +446,42 @@ async function listPublicActivitiesForUser(userId) {
   const joinedResult = joinedActivityIds.length
     ? await activityCollection.where({ _id: dbCmd.in(joinedActivityIds) }).limit(joinedActivityIds.length).get()
     : { data: [] };
-  const joined = dedupeActivitiesById(joinedResult.data || [])
+  const approvedActivityItems = dedupeActivitiesById(joinedResult.data || []);
+  const joined = approvedActivityItems
     .filter(isPubliclyVisibleActivity)
     .filter((activity) => pickActivityCreatorId(activity) !== userId)
     .map((activity) => ({ ...activity, publicRelation: 'joined' }));
 
   const publicActivities = dedupeActivitiesById([...hosted, ...joined])
     .sort((a, b) => getActivitySortTime(b) - getActivitySortTime(a));
+  const fulfillmentActivityIds = approvedActivityItems
+    .filter((activity) => pickActivityCreatorId(activity) !== userId)
+    .filter(isCompletedForFulfillment)
+    .map(pickActivityId)
+    .filter(Boolean);
+  const fulfillmentSuccessCount = fulfillmentActivityIds
+    .filter((activityId) => checkedActivityIds.has(activityId)).length;
+  const fulfillmentTotalCount = fulfillmentActivityIds.length;
+  const fulfillmentSuccessRate = fulfillmentTotalCount
+    ? Math.round((fulfillmentSuccessCount / fulfillmentTotalCount) * 100)
+    : null;
 
   return {
     activityCount: publicActivities.length,
     hostedCount: hosted.length,
     joinedCount: joined.length,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount,
+    fulfillmentSuccessRate,
+    fulfillment_success_rate: fulfillmentSuccessRate,
+    fulfillmentRate: fulfillmentSuccessRate,
+    fulfillment_rate: fulfillmentSuccessRate,
+    fulfillmentSuccessCount,
+    fulfillment_success_count: fulfillmentSuccessCount,
+    fulfillmentTotalCount,
+    fulfillment_total_count: fulfillmentTotalCount,
     recentActivities: publicActivities.slice(0, 3).map((activity) => normalizePublicActivity(activity, activity.publicRelation || 'joined'))
   };
 }
@@ -254,7 +518,15 @@ function mergeProfileRecord(base = {}, next = {}) {
     mbti: next.mbti || base.mbti || '',
     bio: next.bio || base.bio || '',
     quote: next.quote || base.quote || '',
+    profile_tags: Array.isArray(next.profile_tags || next.profileTags)
+      ? (next.profile_tags || next.profileTags)
+      : (base.profile_tags || base.profileTags || []),
     credit: Number(next.credit || base.credit) || 100,
+    following_count: normalizeMetricNumber(next.following_count ?? next.followingCount ?? base.following_count ?? base.followingCount ?? 0),
+    follower_count: normalizeMetricNumber(next.follower_count ?? next.followerCount ?? next.fans_count ?? next.fansCount ?? base.follower_count ?? base.followerCount ?? base.fans_count ?? base.fansCount ?? 0),
+    fulfillment_success_rate: normalizeOptionalMetricNumber(next.fulfillment_success_rate ?? next.fulfillmentSuccessRate ?? next.fulfillment_rate ?? next.fulfillmentRate ?? base.fulfillment_success_rate ?? base.fulfillmentSuccessRate ?? base.fulfillment_rate ?? base.fulfillmentRate),
+    fulfillment_success_count: normalizeMetricNumber(next.fulfillment_success_count ?? next.fulfillmentSuccessCount ?? base.fulfillment_success_count ?? base.fulfillmentSuccessCount ?? 0),
+    fulfillment_total_count: normalizeMetricNumber(next.fulfillment_total_count ?? next.fulfillmentTotalCount ?? base.fulfillment_total_count ?? base.fulfillmentTotalCount ?? 0),
     roles: next.roles?.length ? next.roles : normalizeRoles(base.roles),
     updated_at: now()
   };
@@ -345,7 +617,15 @@ function buildProfile(payload = {}, user) {
     mbti: payload.mbti || '',
     bio: payload.bio || '',
     quote: payload.quote || '',
+    profile_tags: Array.isArray(payload.profileTags || payload.profile_tags)
+      ? (payload.profileTags || payload.profile_tags)
+      : [],
     credit: Number(payload.credit) || 100,
+    following_count: normalizeMetricNumber(payload.following_count ?? payload.followingCount ?? payload.followCount ?? payload.follow_count ?? 0),
+    follower_count: normalizeMetricNumber(payload.follower_count ?? payload.followerCount ?? payload.fans_count ?? payload.fansCount ?? 0),
+    fulfillment_success_rate: normalizeOptionalMetricNumber(payload.fulfillment_success_rate ?? payload.fulfillmentSuccessRate ?? payload.fulfillment_rate ?? payload.fulfillmentRate),
+    fulfillment_success_count: normalizeMetricNumber(payload.fulfillment_success_count ?? payload.fulfillmentSuccessCount ?? 0),
+    fulfillment_total_count: normalizeMetricNumber(payload.fulfillment_total_count ?? payload.fulfillmentTotalCount ?? 0),
     roles: normalizeRoles(user.roles),
     updated_at: now()
   };
@@ -425,6 +705,8 @@ exports.main = async (event) => {
       findUniIdUser(targetUserId),
       listPublicActivitiesForUser(targetUserId)
     ]);
+    activitySummary.followedByMe = await isFollowingUser(targetUserId, user.uid);
+    activitySummary.followed_by_me = activitySummary.followedByMe;
     return {
       code: 0,
       data: normalizePublicProfile(found || {
@@ -432,6 +714,24 @@ exports.main = async (event) => {
         nickname: uniIdUser?.nickname || uniIdUser?.username || '',
         avatar: uniIdUser?.avatar || ''
       }, activitySummary)
+    };
+  }
+
+  if (action === 'followUser') {
+    const targetUserId = String(payload.targetUserId || payload.target_user_id || payload.profileUserId || payload.profile_user_id || '').trim();
+    if (!targetUserId) return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
+    return {
+      code: 0,
+      data: await followUser(targetUserId, user.uid)
+    };
+  }
+
+  if (action === 'unfollowUser') {
+    const targetUserId = String(payload.targetUserId || payload.target_user_id || payload.profileUserId || payload.profile_user_id || '').trim();
+    if (!targetUserId) return { code: 'USER_NOT_FOUND', message: 'Target user does not exist.' };
+    return {
+      code: 0,
+      data: await unfollowUser(targetUserId, user.uid)
     };
   }
 

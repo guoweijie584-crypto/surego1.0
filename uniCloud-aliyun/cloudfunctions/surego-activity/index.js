@@ -5,6 +5,7 @@ const dbCmd = db.command;
 const collection = db.collection('surego-activities');
 const applications = db.collection('surego-applications');
 const uniIdUsers = db.collection('uni-id-users');
+const suregoUsers = db.collection('surego-users');
 
 const lifecycleStatuses = ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'];
 const publicLifecycleStatuses = ['published', 'recruiting', 'formed', 'ongoing'];
@@ -41,6 +42,35 @@ async function findUniIdUser(userId) {
   } catch (error) {
     return null;
   }
+}
+
+async function getSuregoUserProfileMap(userIds = []) {
+  const ids = Array.from(new Set((Array.isArray(userIds) ? userIds : []).map(String).filter(Boolean)));
+  if (!ids.length) return {};
+  try {
+    const result = await suregoUsers.where({ user_id: dbCmd.in(ids) }).limit(ids.length).get();
+    return (result.data || []).reduce((map, item) => {
+      if (item.user_id) map[String(item.user_id)] = item;
+      return map;
+    }, {});
+  } catch (error) {
+    return {};
+  }
+}
+
+function applyActivityCreatorProfile(activity = {}, profile = {}) {
+  if (!profile) return activity;
+  return {
+    ...activity,
+    organizer: profile.nickname || activity.organizer,
+    organizer_avatar: profile.avatar || activity.organizer_avatar,
+    organizerAvatar: profile.avatar || activity.organizerAvatar
+  };
+}
+
+async function enrichActivityCreators(items = []) {
+  const profileMap = await getSuregoUserProfileMap(items.map((item) => item.creator_id || item.creatorId));
+  return items.map((item) => applyActivityCreatorProfile(item, profileMap[String(item.creator_id || item.creatorId || '')]));
 }
 
 function isTokenOwnedByUser(userRecord = {}, uniIdToken = '') {
@@ -124,7 +154,31 @@ function isPubliclyVisibleActivity(item = {}) {
   const moderationStatus = normalizeModerationStatus(item.moderation_status || item.moderationStatus);
   const visibility = normalizeVisibility(item.visibility);
   if (rawStatus === 'rejected' || rawStatus === 'hidden') return false;
-  return visibility === 'public' && publicLifecycleStatuses.includes(status) && publicModerationStatuses.includes(moderationStatus);
+  return visibility === 'public'
+    && publicLifecycleStatuses.includes(status)
+    && publicModerationStatuses.includes(moderationStatus)
+    && !isActivityDateExpiredForFeed(item);
+}
+
+function isActivityDateExpiredForFeed(item = {}) {
+  const value = item.dateValue || item.date_value || item.startAt || item.start_at;
+  if (value) {
+    const parsed = new Date(String(value).replace(/\./g, '-'));
+    if (!Number.isNaN(parsed.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      parsed.setHours(0, 0, 0, 0);
+      return parsed.getTime() < today.getTime();
+    }
+  }
+  const matched = String(item.date || '').match(/(\d{1,2})月(\d{1,2})日/);
+  if (!matched) return false;
+  const parsed = new Date();
+  parsed.setMonth(Number(matched[1]) - 1, Number(matched[2]));
+  parsed.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return parsed.getTime() < today.getTime();
 }
 
 function normalizeIdList(ids = []) {
@@ -158,17 +212,36 @@ function normalizeActivity(item = {}) {
     invitedUserIds: item.invited_user_ids || item.invitedUserIds || [],
     invited_user_ids: item.invited_user_ids || item.invitedUserIds || [],
     participantIds: item.participant_ids || item.participantIds || [],
+    participantCount: Number(item.participantCount ?? item.participant_count ?? 0) || 0,
+    participant_count: Number(item.participantCount ?? item.participant_count ?? 0) || 0,
+    maxParticipants: Number(item.maxParticipants ?? item.max_participants ?? 0) || 0,
+    max_participants: Number(item.maxParticipants ?? item.max_participants ?? 0) || 0,
+    hasParticipantLimit: Boolean(item.hasParticipantLimit ?? item.has_participant_limit),
+    has_participant_limit: Boolean(item.hasParticipantLimit ?? item.has_participant_limit),
+    waitlist: item.waitlist !== false,
+    allowWaitlist: item.allowWaitlist !== false,
+    allow_waitlist: item.allow_waitlist !== false,
     createdAt: item.createdAt || item.created_at,
     updatedAt: item.updatedAt || item.updated_at
   };
 }
 
-function normalizeList(result) {
-  return (result.data || []).map(normalizeActivity);
+function normalizeList(itemsOrResult) {
+  const items = Array.isArray(itemsOrResult) ? itemsOrResult : (itemsOrResult.data || []);
+  return items.map(normalizeActivity);
 }
 
 function withoutEmptyId(payload) {
   const next = { ...payload };
+  next.participantCount = Number(payload.participantCount ?? payload.participant_count ?? 0) || 0;
+  next.participant_count = next.participantCount;
+  next.maxParticipants = Number(payload.maxParticipants ?? payload.max_participants ?? 0) || 0;
+  next.max_participants = next.maxParticipants;
+  next.hasParticipantLimit = Boolean(payload.hasParticipantLimit ?? payload.has_participant_limit);
+  next.has_participant_limit = next.hasParticipantLimit;
+  next.waitlist = payload.waitlist !== false;
+  next.allowWaitlist = payload.allowWaitlist !== false;
+  next.allow_waitlist = payload.allow_waitlist !== false;
   if (!next.id) delete next.id;
   delete next['is' + 'Creator'];
   delete next.moderationStatus;
@@ -190,15 +263,17 @@ exports.main = async (event) => {
   if (action === 'list') {
     const requestedLimit = Number(payload.limit) > 0 ? Number(payload.limit) : 20;
     const result = await collection.orderBy('created_at', 'desc').limit(Math.min(requestedLimit * 5, 100)).get();
+    const items = await enrichActivityCreators(result.data || []);
     return {
       code: 0,
-      data: normalizeList(result).filter(isPubliclyVisibleActivity).slice(0, requestedLimit)
+      data: normalizeList(items).filter(isPubliclyVisibleActivity).slice(0, requestedLimit)
     };
   }
 
   if (action === 'detail') {
     const result = await collection.doc(payload.id).get();
-    const activity = normalizeActivity((result.data || [])[0]);
+    const [rawActivity] = await enrichActivityCreators(result.data || []);
+    const activity = normalizeActivity(rawActivity);
     if (!activity?.id) {
       return { code: 0, data: null };
     }
@@ -239,6 +314,11 @@ exports.main = async (event) => {
     const joinedResult = activityIds.length
       ? await collection.where({ _id: dbCmd.in(activityIds) }).limit(activityIds.length).get()
       : { data: [] };
+    const [createdItems, invitedItems, joinedItems] = await Promise.all([
+      enrichActivityCreators(createdResult.data || []),
+      enrichActivityCreators(invitedResult.data || []),
+      enrichActivityCreators(joinedResult.data || [])
+    ]);
     applicationItems.forEach((item) => {
       const activityId = String(item.activity_id || item.activityId || '');
       if (activityId) applicationStatusByActivity[activityId] = item.status || 'pending';
@@ -247,8 +327,8 @@ exports.main = async (event) => {
       ...normalizeActivity(item),
       applicationStatus: applicationStatusByActivity[String(item._id || item.id)] || 'not_applied'
     });
-    const joined = (joinedResult.data || []).map(withApplicationStatus);
-    const invited = normalizeList(invitedResult)
+    const joined = joinedItems.map(withApplicationStatus);
+    const invited = normalizeList(invitedItems)
       .filter((item) => String(item.creator_id || item.creatorId || '') !== user.uid)
       .filter((item) => !applicationStatusByActivity[String(item._id || item.id)])
       .map((item) => ({
@@ -259,9 +339,10 @@ exports.main = async (event) => {
     return {
       code: 0,
       data: {
-        hosting: normalizeList(createdResult),
+        hosting: normalizeList(createdItems),
         joined: joined.filter((item) => item.applicationStatus === 'approved'),
         pending: joined.filter((item) => item.applicationStatus === 'pending'),
+        waitlist: joined.filter((item) => item.applicationStatus === 'waitlist'),
         rejected: joined.filter((item) => item.applicationStatus === 'rejected'),
         invited
       }
@@ -280,6 +361,8 @@ exports.main = async (event) => {
       source_partner_intent_ids: payload.sourcePartnerIntentIds || payload.source_partner_intent_ids || [],
       invited_user_ids: payload.invitedUserIds || payload.invited_user_ids || [],
       participant_ids: payload.participantIds || payload.participant_ids || [],
+      participantCount: payload.participantCount || payload.participant_count || 1,
+      participant_count: payload.participantCount || payload.participant_count || 1,
       status: 'reviewing',
       created_at: Date.now(),
       updated_at: Date.now()

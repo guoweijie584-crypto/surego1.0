@@ -323,6 +323,7 @@ function buildPartnerFilterText(item = {}) {
     item.detail,
     item.expectation,
     item.location,
+    item.locationRange || item.location_range,
     item.schedule,
     ...(Array.isArray(item.fitTags || item.fit_tags) ? (item.fitTags || item.fit_tags) : []),
     ...(Array.isArray(item.tags) ? item.tags : []),
@@ -683,6 +684,52 @@ export async function listMyPartnerPosts() {
   }
   const all = await listLocalPartnerPosts({ includeAll: true })
   return all.filter((item) => item.isCreator)
+}
+
+export async function listMyPartnerIntentPosts() {
+  if (shouldUseReferenceMockPreview()) {
+    return listLocalMyPartnerIntentPosts()
+  }
+  if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
+    try {
+      const items = await callSuregoFunction('surego-partner', 'listMyIntents', {})
+      return Array.isArray(items) ? items.map(normalizePartnerPost) : []
+    } catch (error) {
+      return handleSuregoCloudError(error, listLocalMyPartnerIntentPosts)
+    }
+  }
+  return listLocalMyPartnerIntentPosts()
+}
+
+async function listLocalMyPartnerIntentPosts() {
+  const userId = getCurrentUserId()
+  if (!userId) return []
+  const source = shouldUseReferenceMockPreview()
+    ? [...readIntents(), ...REFERENCE_INTENTS]
+    : readIntents()
+  const myIntents = source
+    .map(normalizeIntent)
+    .filter((item) => String(item.userId || item.user_id || '') === String(userId))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+  const seen = new Set()
+  const allPosts = [...readPosts(), ...partnerPosts]
+  return myIntents
+    .map((intent) => {
+      const partnerPostId = String(intent.partnerPostId || intent.partner_post_id || '')
+      if (!partnerPostId || seen.has(partnerPostId)) return null
+      seen.add(partnerPostId)
+      const post = allPosts.find((item) => String(item.id || item._id || '') === partnerPostId)
+      return post ? normalizePartnerPost({
+        ...post,
+        viewerIntent: intent,
+        viewer_intent: intent,
+        viewerIntentStatus: intent.status,
+        viewer_intent_status: intent.status,
+        viewerConversationId: intent.conversationId || intent.conversation_id || '',
+        viewer_conversation_id: intent.conversationId || intent.conversation_id || ''
+      }) : null
+    })
+    .filter(Boolean)
 }
 
 async function createLocalPartnerIntent(payload = {}) {

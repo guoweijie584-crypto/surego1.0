@@ -19,7 +19,7 @@
     <scroll-view scroll-y class="ref-scroll ref-scroll--no-tab" :scroll-top="scrollTop" scroll-with-animation :style="contentTopStyle">
       <view class="manager-summary ref-card">
         <view>
-          <text>{{ activity.participantCount || 0 }}/{{ activity.maxParticipants || 0 }}</text>
+          <text>{{ approvedCount }}/{{ activity.maxParticipants || 0 }}</text>
           <text>报名人数</text>
         </view>
         <view>
@@ -44,10 +44,11 @@
 
       <view v-if="activeTab === 'overview'" class="ref-stack">
         <view class="ref-task-card" @tap="activeTab = 'review'">
-          <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
-          <view class="ref-task-card__body">
-            <text>先处理报名申请</text>
-          </view>
+            <SuIcon name="people" size="44" glyph-size="22" variant="inline" color="#2388ff" />
+            <view class="ref-task-card__body">
+              <text>先处理报名申请</text>
+              <text>{{ pendingCount }} 个申请、{{ waitlistCount }} 个候补需要处理</text>
+            </view>
           <SuIcon name="arrowRight" size="36" glyph-size="18" variant="inline" color="#94a3b8" />
         </view>
         <view class="ref-task-card" @tap="activeTab = 'notice'">
@@ -117,10 +118,10 @@
           <view class="organizer-line">
             <view class="initial-avatar" @tap.stop="goUserDetail(item.userId || item.user_id, { activityId: activity.id })">{{ getInitial(item) }}</view>
             <view>
-              <text>报名同学</text>
+              <text>{{ getApplicantName(item) }}</text>
               <text>信用 95 · {{ getApplicationStatusLabel(item.status) }}</text>
             </view>
-            <text class="ref-pill" :class="item.status === 'approved' ? 'ref-pill--green' : item.status === 'rejected' ? 'ref-pill--amber' : 'ref-pill--blue'">
+            <text class="ref-pill" :class="item.status === 'approved' ? 'ref-pill--green' : item.status === 'rejected' || item.status === 'waitlist' ? 'ref-pill--amber' : 'ref-pill--blue'">
               {{ getApplicationStatusLabel(item.status) }}
             </text>
           </view>
@@ -135,11 +136,19 @@
             <view class="ref-secondary" @tap="openReview(item, 'rejected')">拒绝</view>
             <view class="ref-primary" @tap="openReview(item, 'approved')">通过</view>
           </view>
+          <view v-if="item.status === 'waitlist'" class="button-row">
+            <view class="ref-secondary" @tap="openReview(item, 'rejected')">移出候补</view>
+            <view class="ref-primary" :class="{ 'ref-primary--disabled': !hasAvailableSeat }" @tap="openReview(item, 'approved')">补位通过</view>
+          </view>
         </view>
       </view>
 
       <view v-if="activeTab === 'members'" class="ref-stack">
-        <view v-for="item in memberRows" :key="item.name" class="member-row ref-card">
+        <view v-if="memberRows.length === 0" class="ref-empty ref-card">
+          <SuIcon name="people" size="76" glyph-size="38" variant="inline" color="#cbd5e1" />
+          <text>暂无已通过成员</text>
+        </view>
+        <view v-for="item in memberRows" :key="item.id || item.name" class="member-row ref-card">
           <view class="initial-avatar">{{ item.name.slice(0, 1) }}</view>
           <view>
             <text>{{ item.name }}</text>
@@ -152,8 +161,8 @@
       <view v-if="activeTab === 'checkin'" class="ref-qr-card ref-card">
         <SuIcon name="scan" size="128" glyph-size="64" variant="inline" color="#2388ff" />
         <text class="ref-qr-card__code">发起人核销</text>
-        <input class="checkin-input" placeholder="输入手动核销码" />
-        <view class="ref-primary checkin-button" @tap="goManageCheckin(activity.id)">确认核销</view>
+        <text class="ref-qr-card__hint">进入核销页面后，可查看成员名单并完成现场核销。</text>
+        <view class="ref-primary checkin-button" @tap="goManageCheckin(activity.id)">进入核销页面</view>
       </view>
 
       <view v-if="activeTab === 'notice'" class="ref-form-card ref-card">
@@ -172,7 +181,7 @@
       </view>
     </scroll-view>
 
-    <SuActionSheet v-model="showReviewSheet" :title="reviewMode === 'approved' ? '通过申请' : '拒绝申请'">
+    <SuActionSheet v-model="showReviewSheet" :title="reviewSheetTitle">
       <view class="review-sheet">
         <textarea
           v-model="reviewForm.note"
@@ -198,6 +207,7 @@ import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { getActivityDetail, getAllowedActivityStatusTransitions, updateActivityStatus } from '@/common/api/activity.js'
 import { listApplications, reviewApplication } from '@/common/api/application.js'
+import { listActivityMembers } from '@/common/api/member.js'
 import { createMessage } from '@/common/api/message.js'
 import { getOrderStatusText, listOrdersByActivity } from '@/common/api/order.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -207,6 +217,7 @@ import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgra
 const activityId = ref('103')
 const activity = ref(createEmptyActivity('103'))
 const applications = ref([])
+const members = ref([])
 const ticketOrders = ref([])
 const activeTab = ref('overview')
 const scrollTop = ref(0)
@@ -255,6 +266,12 @@ const lifecycleActionCopy = {
 
 const pendingCount = computed(() => applications.value.filter((item) => item.status === 'pending').length)
 const waitlistCount = computed(() => applications.value.filter((item) => item.status === 'waitlist').length)
+const approvedCount = computed(() => applications.value.filter((item) => item.status === 'approved').length)
+const hasAvailableSeat = computed(() => {
+  if (!activity.value.hasParticipantLimit) return true
+  const max = Number(activity.value.maxParticipants || 0)
+  return max <= 0 || approvedCount.value < max
+})
 const paidAmount = computed(() => ticketOrders.value.filter((item) => item.status === 'paid').reduce((sum, item) => sum + Number(item.amount || 0), 0))
 const paidAmountText = computed(() => activity.value.partyMode === 'free' ? '无' : `¥${paidAmount.value}`)
 const lifecycleLabel = computed(() => lifecycleLabels[activity.value.status] || '报名中')
@@ -265,22 +282,31 @@ const availableLifecycleActions = computed(() => (
     .filter(Boolean)
 ))
 const memberRows = computed(() => {
-  const approved = applications.value.filter((item) => item.status === 'approved')
-  const rows = approved.length
-    ? approved.map((item, index) => ({
-        name: item.nickname || `报名同学 ${index + 1}`,
-        desc: '已占位 · 待核销',
-        badge: '成员',
-        tone: 'ref-pill--blue'
-      }))
-    : [
-        { name: '林同学', desc: '已占位 · 待核销', badge: '成员', tone: 'ref-pill--blue' },
-        { name: '小周', desc: '已占位 · 待核销', badge: '成员', tone: 'ref-pill--blue' }
-      ]
-  if (waitlistCount.value > 0) {
-    rows.push({ name: '候补同学', desc: '候补第 1 位', badge: '候补', tone: 'ref-pill--amber' })
-  }
+  const rows = members.value
+    .filter((item) => !item.isCreator)
+    .map((item) => ({
+      id: item.userId || item.id,
+      name: item.name || '报名同学',
+      desc: '已占位 · 待核销',
+      badge: '成员',
+      tone: 'ref-pill--blue'
+    }))
+  applications.value
+    .filter((item) => item.status === 'waitlist')
+    .forEach((item, index) => {
+      rows.push({
+        id: item.id || `waitlist_${index}`,
+        name: getApplicantName(item),
+        desc: `候补第 ${item.waitlistRank || item.waitlist_rank || index + 1} 位`,
+        badge: '候补',
+        tone: 'ref-pill--amber'
+      })
+    })
   return rows
+})
+const reviewSheetTitle = computed(() => {
+  if (reviewTarget.value?.status === 'waitlist' && reviewMode.value === 'approved') return '候补补位'
+  return reviewMode.value === 'approved' ? '通过申请' : '拒绝申请'
 })
 
 onLoad(async (query) => {
@@ -291,8 +317,14 @@ onLoad(async (query) => {
 async function loadData() {
   activity.value = await getActivityDetail(activityId.value)
   if (!ensureOwnerAccess()) return
-  applications.value = await listApplications(activityId.value)
-  ticketOrders.value = await listOrdersByActivity(activityId.value)
+  const [applicationItems, orderItems, memberItems] = await Promise.all([
+    listApplications(activityId.value),
+    listOrdersByActivity(activityId.value),
+    listActivityMembers(activityId.value)
+  ])
+  applications.value = applicationItems
+  ticketOrders.value = orderItems
+  members.value = memberItems
 }
 
 onPullDownRefresh(makeRefreshHandler(loadData))
@@ -316,7 +348,11 @@ function openActivityDetail() {
 }
 
 function getInitial(item) {
-  return item.gender === 'female' ? '女' : '同'
+  return (item.nickname || item.applicantName || item.name || '同').slice(0, 1)
+}
+
+function getApplicantName(item = {}) {
+  return item.nickname || item.applicantName || item.applicant_name || '报名同学'
 }
 
 function getLifecycleLabel(status) {
@@ -328,19 +364,6 @@ async function handleLifecycleAction(item) {
   const run = async () => {
     try {
       await setActivityLifecycle(item.key)
-      if (item.key === 'cancelled') {
-        const targets = applications.value.filter((application) => ['approved', 'pending'].includes(application.status))
-        await Promise.all(targets.map((application) => createMessage({
-          userId: application.userId || application.user_id,
-          eventKey: `activity:cancelled:${activity.value.id}:${application.userId || application.user_id}`,
-          type: 'activity',
-          title: '活动已取消',
-          content: `你报名的「${activity.value.title}」已取消，请查看后续安排。`,
-          sender: activity.value.organizer || 'SureGo',
-          activityId: activity.value.id,
-          read: false
-        }).catch(() => null)))
-      }
     } catch (error) {
       uni.showToast({ title: error?.message || '状态暂不可切换', icon: 'none' })
     }
@@ -371,7 +394,29 @@ async function setActivityLifecycle(status) {
     lifecycleStatus: result.status || status,
     ...((result.status || status) === 'reviewing' ? { moderationStatus: 'pending', moderation_status: 'pending' } : {})
   }
+  await notifyActivityStatusChanged(status)
   uni.showToast({ title: `已切换为${getLifecycleLabel(activity.value.status)}`, icon: 'none' })
+}
+
+async function notifyActivityStatusChanged(status) {
+  const titleMap = {
+    formed: '活动已成局',
+    ongoing: '活动已开始',
+    finished: '活动已结束',
+    cancelled: '活动已取消'
+  }
+  if (!titleMap[status]) return
+  const targets = applications.value.filter((application) => ['approved', 'pending', 'waitlist'].includes(application.status))
+  await Promise.all(targets.map((application) => createMessage({
+    userId: application.userId || application.user_id,
+    eventKey: `activity:status:${activity.value.id}:${status}:${application.userId || application.user_id}`,
+    type: 'activity',
+    title: titleMap[status],
+    content: `「${activity.value.title}」状态已更新为${getLifecycleLabel(status)}。`,
+    sender: activity.value.organizer || 'SureGo',
+    activityId: activity.value.id,
+    read: false
+  }).catch(() => null)))
 }
 
 async function handleAction(key) {
@@ -403,6 +448,10 @@ function getApplicationStatusLabel(status) {
 }
 
 function openReview(item, status) {
+  if (item?.status === 'waitlist' && status === 'approved' && !hasAvailableSeat.value) {
+    uni.showToast({ title: '当前名额已满，暂不能补位通过', icon: 'none' })
+    return
+  }
   reviewTarget.value = item
   reviewMode.value = status
   reviewForm.value = { note: '' }
@@ -417,8 +466,15 @@ async function submitReview() {
     uni.showToast({ title: '请填写拒绝原因', icon: 'none' })
     return
   }
+  if (reviewTarget.value.status === 'waitlist' && status === 'approved' && !hasAvailableSeat.value) {
+    uni.showToast({ title: '当前名额已满，暂不能补位通过', icon: 'none' })
+    return
+  }
   const options = status === 'approved'
-    ? { reviewNote: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
+    ? {
+        reviewNote: note || (reviewTarget.value.status === 'waitlist' ? '候补补位成功，请按时到场。' : ''),
+        application: { ...reviewTarget.value, activityTitle: activity.value.title }
+      }
     : { rejectReason: note, application: { ...reviewTarget.value, activityTitle: activity.value.title } }
   const reviewed = await reviewApplication(reviewTarget.value.id, status, options)
   const previousStatus = reviewTarget.value.status
@@ -436,12 +492,32 @@ async function submitReview() {
   }
   showReviewSheet.value = false
   uni.showToast({
-    title: status === 'approved' ? '已通过' : '已拒绝',
+    title: status === 'approved' ? '已通过' : '已处理',
     icon: 'none'
   })
 }
 
-function sendNotice() {
+async function sendNotice() {
+  const content = noticeText.value.trim()
+  if (!content) {
+    uni.showToast({ title: '请填写提醒内容', icon: 'none' })
+    return
+  }
+  const targets = applications.value.filter((application) => application.status === 'approved')
+  if (!targets.length) {
+    uni.showToast({ title: '暂无已通过成员可通知', icon: 'none' })
+    return
+  }
+  await Promise.all(targets.map((application) => createMessage({
+    userId: application.userId || application.user_id,
+    eventKey: `activity:notice:${activity.value.id}:${Date.now()}:${application.userId || application.user_id}`,
+    type: 'activity',
+    title: '集合提醒',
+    content,
+    sender: activity.value.organizer || 'SureGo',
+    activityId: activity.value.id,
+    read: false
+  }).catch(() => null)))
   uni.showToast({ title: '通知已发送', icon: 'none' })
 }
 </script>
@@ -726,18 +802,6 @@ function sendNotice() {
   align-items: center;
   gap: 18rpx;
   padding: 26rpx;
-}
-
-.checkin-input {
-  width: 100%;
-  height: 88rpx;
-  border: 0;
-  border-radius: 26rpx;
-  background: #edf6ff;
-  padding: 0 26rpx;
-  color: #102033;
-  font-size: 24rpx;
-  font-weight: 850;
 }
 
 .checkin-button,

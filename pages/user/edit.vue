@@ -28,7 +28,7 @@
           </view>
         </view>
 
-        <view class="profile-card">
+        <view class="profile-card profile-card--form">
           <view class="section-head">
             <text>基础资料</text>
           </view>
@@ -56,16 +56,20 @@
           </view>
         </view>
 
-        <view class="profile-card">
+        <view class="profile-card profile-card--tags">
           <view class="section-head">
             <text>标签与印象</text>
           </view>
           <view class="question-list">
-            <text v-for="item in profileTags" :key="item">{{ item }}</text>
+            <text v-for="item in profileTags" :key="item" @tap="removeProfileTag(item)">{{ item }}</text>
+          </view>
+          <view class="tag-editor">
+            <input class="input" v-model="tagInput" maxlength="12" adjust-position="false" cursor-spacing="28" placeholder="新增标签，例如 准时" placeholder-class="placeholder" />
+            <view @tap="addProfileTag">添加</view>
           </view>
         </view>
 
-        <view class="profile-card">
+        <view class="profile-card profile-card--account">
           <view class="section-head">
             <text>账号与认证</text>
           </view>
@@ -76,15 +80,15 @@
             </view>
           </view>
           <view class="account-list">
-            <view v-for="account in socialAccounts" :key="account.key" class="account-row">
+            <view v-for="account in socialAccounts" :key="account.key" class="account-row" @tap="handleSocialAccount(account)">
               <view>
                 <SuIcon :name="account.icon" size="48" glyph-size="24" variant="brand" :disabled="!account.active" />
                 <text>{{ account.label }}</text>
               </view>
-              <text :class="{ active: account.active }">{{ account.active ? '已展示' : '未绑定' }}</text>
+              <text :class="{ active: account.active }">{{ account.active ? '已展示' : '待接入' }}</text>
             </view>
           </view>
-          <view class="verify-row" @tap="goVerify">
+          <view class="verify-row" @tap="openVerify">
             <view>
               <SuIcon name="shield" size="48" glyph-size="24" variant="soft" />
               <text>学生认证</text>
@@ -127,6 +131,7 @@ const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const isPageLoading = ref(true)
+const DRAFT_KEY = 'surego_user_edit_draft'
 const form = reactive({
   nickname: '',
   avatar: '',
@@ -134,29 +139,33 @@ const form = reactive({
   mbti: '',
   bio: '',
   quote: '',
+  profileTags: [],
+  profile_tags: [],
   followingCount: 0,
   following_count: 0,
   followerCount: 0,
   follower_count: 0
 })
+const tagInput = ref('')
+const tagsTouched = ref(false)
 
 const canSave = computed(() => form.nickname.trim() && form.bio.trim())
 const socialAccounts = [
-  { key: 'xiaohongshu', label: '小红书', icon: 'xiaohongshu', active: true },
-  { key: 'douyin', label: '抖音', icon: 'douyin', active: true },
-  { key: 'github', label: 'GitHub', icon: 'github', active: true },
+  { key: 'xiaohongshu', label: '小红书', icon: 'xiaohongshu', active: false },
+  { key: 'douyin', label: '抖音', icon: 'douyin', active: false },
+  { key: 'github', label: 'GitHub', icon: 'github', active: false },
   { key: 'wechat', label: '微信', icon: 'wechat', active: false }
 ]
-const profileTags = computed(() => [
-  form.mbti || '同频玩家',
-  '饭搭子雷达',
-  '羽毛球新手',
-  '周末看展',
-  '不临时鸽',
-  '准时',
-  '好沟通',
-  '活动真实'
-])
+const profileTags = computed(() => {
+  const saved = Array.isArray(form.profileTags)
+    ? form.profileTags
+    : (Array.isArray(form.profile_tags) ? form.profile_tags : [])
+  if (tagsTouched.value || saved.length) {
+    return Array.from(new Set(saved.map((item) => String(item || '').trim()).filter(Boolean))).slice(0, 8)
+  }
+  const defaults = [form.mbti || '同频玩家', '饭搭子雷达', '准时', '好沟通']
+  return Array.from(new Set(defaults.map((item) => String(item || '').trim()).filter(Boolean))).slice(0, 8)
+})
 const profileCompletion = computed(() => {
   const checks = [form.avatar, form.nickname, form.mbti, form.bio, form.quote]
   const done = checks.filter((item) => String(item || '').trim()).length
@@ -184,7 +193,13 @@ onShow(async () => {
   isPageLoading.value = true
   try {
     const user = await getCurrentUser()
-    Object.assign(form, user)
+    const draft = getProfileDraft()
+    const nextProfile = draft && typeof draft === 'object' ? { ...user, ...draft } : user
+    Object.assign(form, nextProfile)
+    const tags = nextProfile.profileTags || nextProfile.profile_tags || nextProfile.impressionTags || nextProfile.impression_tags || []
+    form.profileTags = Array.isArray(tags) ? [...tags] : []
+    form.profile_tags = form.profileTags
+    tagsTouched.value = Boolean(draft?.tagsTouched)
     avatarTempPath.value = ''
     mbtiIndex.value = Math.max(0, mbtiOptions.indexOf(form.mbti))
   } finally {
@@ -195,6 +210,64 @@ onShow(async () => {
 function handleMbtiChange(event) {
   mbtiIndex.value = Number(event.detail.value)
   form.mbti = mbtiOptions[mbtiIndex.value]
+}
+
+function addProfileTag() {
+  const text = tagInput.value.trim()
+  if (!text) return
+  const next = Array.from(new Set([...(form.profileTags || []), text])).slice(0, 8)
+  form.profileTags = next
+  form.profile_tags = next
+  tagsTouched.value = true
+  tagInput.value = ''
+}
+
+function removeProfileTag(tag) {
+  const next = profileTags.value.filter((item) => item !== tag)
+  form.profileTags = next
+  form.profile_tags = next
+  tagsTouched.value = true
+}
+
+function handleSocialAccount(account) {
+  uni.showToast({
+    title: `${account.label}认证暂未接入`,
+    icon: 'none'
+  })
+}
+
+function getProfileDraft() {
+  try {
+    return uni.getStorageSync(DRAFT_KEY) || null
+  } catch (error) {
+    return null
+  }
+}
+
+function persistProfileDraft() {
+  try {
+    uni.setStorageSync(DRAFT_KEY, {
+      ...form,
+      profileTags: profileTags.value,
+      profile_tags: profileTags.value,
+      tagsTouched: tagsTouched.value
+    })
+  } catch (error) {
+    // local storage may be unavailable in some runtimes; navigation should still continue.
+  }
+}
+
+function clearProfileDraft() {
+  try {
+    uni.removeStorageSync(DRAFT_KEY)
+  } catch (error) {
+    // ignore local cleanup failures
+  }
+}
+
+function openVerify() {
+  persistProfileDraft()
+  goVerify()
 }
 
 function handleChooseAvatar(event) {
@@ -209,6 +282,8 @@ async function handleSave() {
   isSaving.value = true
   try {
     const payload = { ...form }
+    payload.profileTags = profileTags.value
+    payload.profile_tags = profileTags.value
     let avatarUploadFailed = false
     if (avatarTempPath.value) {
       try {
@@ -228,6 +303,7 @@ async function handleSave() {
     if (!avatarUploadFailed) {
       uni.showToast({ title: '资料已保存', icon: 'none' })
     }
+    clearProfileDraft()
     setTimeout(() => {
       goBackOrFallback()
     }, 260)
@@ -277,20 +353,20 @@ async function handleSave() {
 
 .edit-profile__content {
   display: grid;
-  gap: 22rpx;
-  padding: 24rpx 28rpx 80rpx;
+  gap: 18rpx;
+  padding: 22rpx 30rpx 90rpx;
 }
 
 .edit-hero {
   display: grid;
-  grid-template-columns: 172rpx minmax(0, 1fr);
+  grid-template-columns: 148rpx minmax(0, 1fr);
   align-items: center;
-  gap: 26rpx;
-  padding: 34rpx;
+  gap: 24rpx;
+  padding: 30rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 42rpx;
+  border-radius: 38rpx;
   background: linear-gradient(145deg, #ffffff 0%, #f4fbff 100%);
-  box-shadow: 0 18rpx 42rpx rgba(30, 88, 156, 0.08);
+  box-shadow: 0 16rpx 38rpx rgba(30, 88, 156, 0.075);
 }
 
 .edit-hero__body {
@@ -304,7 +380,7 @@ async function handleSave() {
 .edit-hero__body text:first-child {
   overflow: hidden;
   color: #102033;
-  font-size: 44rpx;
+  font-size: 40rpx;
   font-weight: 950;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -312,7 +388,7 @@ async function handleSave() {
 }
 
 .edit-hero__body text:last-child {
-  margin-top: 12rpx;
+  margin-top: 10rpx;
   color: #64748b;
   font-size: 24rpx;
   font-weight: 850;
@@ -320,17 +396,22 @@ async function handleSave() {
 }
 
 .profile-card {
-  padding: 34rpx;
+  padding: 28rpx;
   border: 1rpx solid rgba(24, 24, 27, 0.08);
-  border-radius: 36rpx;
+  border-radius: 32rpx;
   background: #fff;
   box-shadow: 0 12rpx 30rpx rgba(15, 23, 42, 0.055);
 }
 
+.profile-card--form {
+  display: grid;
+  gap: 22rpx;
+}
+
 .avatar-box {
   position: relative;
-  width: 172rpx;
-  height: 172rpx;
+  width: 148rpx;
+  height: 148rpx;
   padding: 0;
   border-radius: 50%;
   background: transparent;
@@ -341,8 +422,8 @@ async function handleSave() {
 }
 
 .avatar-box__image {
-  width: 172rpx;
-  height: 172rpx;
+  width: 148rpx;
+  height: 148rpx;
   border: 8rpx solid #fff;
   border-radius: 50%;
   background: #f1f5f9;
@@ -354,8 +435,8 @@ async function handleSave() {
   right: 4rpx;
   bottom: 8rpx;
   display: flex;
-  width: 54rpx;
-  height: 54rpx;
+  width: 50rpx;
+  height: 50rpx;
   align-items: center;
   justify-content: center;
   border: 4rpx solid #fff;
@@ -372,7 +453,12 @@ async function handleSave() {
 }
 
 .field {
-  margin-top: 28rpx;
+  display: grid;
+  gap: 12rpx;
+}
+
+.section-head + .field {
+  margin-top: 4rpx;
 }
 
 .label {
@@ -384,10 +470,9 @@ async function handleSave() {
 .input,
 .textarea {
   width: 100%;
-  margin-top: 14rpx;
   padding: 0 24rpx;
   border: 1rpx solid #eef2f7;
-  border-radius: 24rpx;
+  border-radius: 22rpx;
   background: #f8fafc;
   color: #0f172a;
   font-size: 26rpx;
@@ -395,7 +480,7 @@ async function handleSave() {
 }
 
 .input {
-  height: 82rpx;
+  height: 78rpx;
 }
 
 .input--picker {
@@ -404,8 +489,8 @@ async function handleSave() {
 }
 
 .textarea {
-  min-height: 170rpx;
-  padding: 24rpx;
+  min-height: 154rpx;
+  padding: 22rpx 24rpx;
   line-height: 1.55;
 }
 
@@ -416,29 +501,55 @@ async function handleSave() {
 .question-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 12rpx;
+  gap: 10rpx;
   margin-top: 18rpx;
 }
 
 .question-list text {
-  padding: 12rpx 18rpx;
+  min-height: 50rpx;
+  padding: 0 18rpx;
   border-radius: 999rpx;
   background: #f3f6fa;
   color: #64748b;
   font-size: 22rpx;
   font-weight: 900;
+  line-height: 50rpx;
+}
+
+.tag-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116rpx;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.tag-editor .input {
+  margin: 0;
+}
+
+.tag-editor > view {
+  display: flex;
+  height: 78rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  background: #2388ff;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 950;
 }
 
 .relation-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14rpx;
+  gap: 12rpx;
   margin-top: 20rpx;
 }
 
 .relation-strip view {
-  padding: 22rpx 18rpx;
-  border-radius: 28rpx;
+  padding: 20rpx 18rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.08);
+  border-radius: 24rpx;
   background: #f8fafc;
   text-align: center;
 }
@@ -462,18 +573,26 @@ async function handleSave() {
 
 .account-list {
   display: grid;
-  gap: 14rpx;
-  margin-top: 20rpx;
+  gap: 0;
+  margin-top: 18rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 26rpx;
+  overflow: hidden;
 }
 
 .account-row,
 .verify-row {
   display: flex;
+  min-height: 82rpx;
   align-items: center;
   justify-content: space-between;
   gap: 20rpx;
-  padding: 20rpx 0;
+  padding: 0 22rpx;
   border-bottom: 1rpx solid #eef2f7;
+}
+
+.account-row:last-child {
+  border-bottom: 0;
 }
 
 .account-row view,
@@ -504,7 +623,13 @@ async function handleSave() {
 }
 
 .verify-row {
-  margin-top: 8rpx;
+  margin-top: 16rpx;
+  border: 1rpx solid #eef2f7;
+  border-radius: 26rpx;
+}
+
+.verify-row > text {
+  color: #2388ff;
 }
 
 .completion-row {
@@ -539,9 +664,9 @@ async function handleSave() {
   height: 94rpx;
   align-items: center;
   justify-content: center;
-  margin-top: 2rpx;
-  border-radius: 30rpx;
-  background: #0f172a;
+  margin-top: 6rpx;
+  border-radius: 28rpx;
+  background: #2388ff;
   color: #fff;
   font-size: 28rpx;
   font-weight: 900;

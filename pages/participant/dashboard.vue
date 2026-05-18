@@ -137,6 +137,7 @@ const applicationState = computed(() => {
   if (activity.value.isCreator) return { key: 'leader', label: '局长模式' }
   if (activity.value.applicationStatus === 'approved') return { key: 'approved', label: '已通过' }
   if (activity.value.applicationStatus === 'pending') return { key: 'pending', label: '审核中' }
+  if (activity.value.applicationStatus === 'waitlist') return { key: 'waitlist', label: '候补中' }
   if (activity.value.applicationStatus === 'rejected') return { key: 'rejected', label: '未通过' }
   if (!application.value) return { key: 'none', label: '未报名' }
   return {
@@ -146,7 +147,9 @@ const applicationState = computed(() => {
         ? '已通过'
         : application.value.status === 'pending'
           ? '审核中'
-          : '未通过'
+          : application.value.status === 'waitlist'
+            ? '候补中'
+            : '未通过'
   }
 })
 
@@ -155,6 +158,10 @@ const reviewFeedback = computed(() => {
   const reviewNote = application.value?.reviewNote || activity.value.reviewNote || ''
   if (applicationState.value.key === 'rejected') return rejectReason || '发起人暂未填写拒绝原因'
   if (applicationState.value.key === 'approved') return reviewNote
+  if (applicationState.value.key === 'waitlist') {
+    const rank = application.value?.waitlistRank || application.value?.waitlist_rank || 0
+    return rank ? `当前候补第 ${rank} 位，有空位会通知你。` : '已加入候补队列，有空位会通知你。'
+  }
   return ''
 })
 
@@ -173,7 +180,10 @@ const checkinState = computed(() => {
   if (activity.value.applicationStatus === 'pending' || applicationState.value.key === 'pending') {
     return { key: 'waiting', label: '等待审核' }
   }
-  if (checkin.value) return { key: 'done', label: '已签到' }
+  if (applicationState.value.key === 'waitlist') {
+    return { key: 'waiting', label: '候补中', desc: '补位通过后生成入场凭证' }
+  }
+  if (checkin.value) return { key: 'done', label: '已签到', desc: `签到时间 ${checkin.value.checkedAt}` }
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') {
     return { key: 'pay', label: '先去支付' }
   }
@@ -184,10 +194,22 @@ const entryLabel = computed(() => {
   if (activity.value.isCreator) return '局长管理码'
   if (isTerminalActivity.value) return activityStatusMeta.value.label
   if (applicationState.value.key === 'pending') return '等待审核'
+  if (applicationState.value.key === 'waitlist') return '候补中'
   if (applicationState.value.key === 'rejected') return '未通过'
   if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '待支付'
   if (checkin.value) return '已签到'
   return '入场凭证'
+})
+
+const entryHint = computed(() => {
+  if (activity.value.isCreator) return '局长可进入管理台查看审核、签到和消息'
+  if (isTerminalActivity.value) return '活动已进入终态，凭证仅作记录查看'
+  if (applicationState.value.key === 'pending') return '审核通过后会自动生成凭证'
+  if (applicationState.value.key === 'waitlist') return reviewFeedback.value || '候补补位通过后会生成凭证'
+  if (applicationState.value.key === 'rejected') return reviewFeedback.value || '当前申请未通过，返回详情页查看原因'
+  if (paymentState.value.key === 'pending' && activity.value.partyMode !== 'free') return '先完成支付，再进入签到'
+  if (checkin.value) return '凭证已完成核销'
+  return '请向局长出示入场二维码'
 })
 
 const statCards = computed(() => [
@@ -207,6 +229,7 @@ const primaryActionText = computed(() => {
   if (activity.value.isCreator) return '进入管理台'
   if (isTerminalActivity.value) return '查看活动详情'
   if (applicationState.value.key === 'pending') return '等待审核'
+  if (applicationState.value.key === 'waitlist') return '查看候补'
   if (applicationState.value.key === 'rejected') return '返回详情页'
   if (['refunded', 'closed'].includes(paymentState.value.key)) return '查看订单'
   if (activity.value.partyMode !== 'free' && paymentState.value.key !== 'paid') return '去支付'
@@ -311,6 +334,11 @@ async function handlePrimaryAction() {
     return
   }
 
+  if (applicationState.value.key === 'waitlist') {
+    uni.showToast({ title: reviewFeedback.value || '候补中，有空位会通知你', icon: 'none' })
+    return
+  }
+
   if (applicationState.value.key === 'rejected') {
     goActivityDetail(activityId.value)
     return
@@ -363,7 +391,7 @@ async function handleMessageTap(item) {
       goManageDashboard(item.activityId)
       return
     }
-    if (['approved', 'pending'].includes(target?.applicationStatus)) {
+    if (['approved', 'pending', 'waitlist'].includes(target?.applicationStatus)) {
       goParticipantDashboard(item.activityId)
       return
     }

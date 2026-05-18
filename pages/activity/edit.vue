@@ -185,7 +185,7 @@ import { chooseAndUploadImage } from '@/common/api/upload.js'
 import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPresets, pickRandomCoverPreset } from '@/common/utils/cover-presets.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback, goManageDashboard } from '@/common/utils/route.js'
 
-const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
+const categories = ['剧本杀/桌游', '饭搭子/探店', '运动', '学习/自习', '约拍/展览/微醺']
 const CAMPUS_NAME = '天津大学'
 const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
@@ -207,10 +207,10 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const form = reactive({
   title: '',
   category: categories[0],
-  dateValue: '2026-05-01',
-  date: '5月1日',
-  time: '14:00',
-  endTime: '18:00',
+  dateValue: '',
+  date: '',
+  time: '',
+  endTime: '',
   location: '',
   address: '',
   latitude: '',
@@ -221,6 +221,9 @@ const form = reactive({
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
+  waitlist: true,
+  allowWaitlist: true,
+  allow_waitlist: true,
   partyMode: 'free',
   amount: '',
   description: '',
@@ -244,10 +247,10 @@ onLoad(async (query = {}) => {
   Object.assign(form, {
     title: activity.title || '',
     category: activity.category || categories[0],
-    dateValue: activity.dateValue || '2026-05-01',
-    date: activity.date || '5月1日',
-    time: activity.time || '14:00',
-    endTime: activity.endTime || '18:00',
+    dateValue: activity.dateValue || '',
+    date: activity.date || '',
+    time: activity.time || '',
+    endTime: activity.endTime || '',
     location: activity.location || '',
     address: activity.address || activity.location || '',
     latitude: activity.latitude || '',
@@ -258,6 +261,9 @@ onLoad(async (query = {}) => {
     maxParticipants: String(activity.maxParticipants || 10),
     hasParticipantLimit: Boolean(activity.hasParticipantLimit),
     requireApproval: Boolean(activity.requireApproval),
+    waitlist: activity.waitlist !== false,
+    allowWaitlist: activity.allowWaitlist !== false,
+    allow_waitlist: activity.allow_waitlist !== false,
     partyMode: activity.partyMode || 'free',
     amount: String(activity.amount || ''),
     description: activity.description || '',
@@ -362,21 +368,24 @@ function removeQuestion(index) {
 async function handleSave() {
   if (!canSave.value || isSaving.value) return
   isSaving.value = true
-  const updated = await updateActivity(activityId.value, {
-    ...form,
-    amount: Number(form.amount) || 0,
-    questions: form.questions.filter((item) => item.trim())
-  })
-  if (!updated) {
-    isSaving.value = false
-    uni.showToast({ title: '示例活动不可保存', icon: 'none' })
-    return
-  }
+  try {
+    const updated = await updateActivity(activityId.value, {
+      ...form,
+      amount: Number(form.amount) || 0,
+      questions: form.questions.filter((item) => item.trim())
+    })
+    if (!updated) {
+      uni.showToast({ title: '示例活动不可保存', icon: 'none' })
+      return
+    }
 
-  uni.showToast({ title: '活动已更新', icon: 'none' })
-  setTimeout(() => {
-    goManageDashboard(activityId.value, { replace: true })
-  }, 260)
+    uni.showToast({ title: '活动已更新', icon: 'none' })
+    setTimeout(() => {
+      goManageDashboard(activityId.value, { replace: true })
+    }, 260)
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
 

@@ -65,6 +65,23 @@ function canApplyToActivity(activity = {}) {
   return recruitableActivityStatuses.includes(status) && recruitableModerationStatuses.includes(moderationStatus);
 }
 
+function getActivityParticipantLimit(activity = {}) {
+  return {
+    hasLimit: Boolean(activity.hasParticipantLimit ?? activity.has_participant_limit),
+    max: Number(activity.maxParticipants ?? activity.max_participants ?? 0) || 0,
+    count: Number(activity.participantCount ?? activity.participant_count ?? 0) || 0
+  };
+}
+
+function isActivityFull(activity = {}) {
+  const limit = getActivityParticipantLimit(activity);
+  return Boolean(limit.hasLimit && limit.max > 0 && limit.count >= limit.max);
+}
+
+function isWaitlistEnabled(activity = {}) {
+  return activity.waitlist !== false && activity.allowWaitlist !== false && activity.allow_waitlist !== false;
+}
+
 function normalizeActivityLifecycleStatus(status = 'recruiting') {
   const value = String(status || 'recruiting');
   return ['draft', 'reviewing', 'published', 'recruiting', 'formed', 'ongoing', 'finished', 'cancelled'].includes(value)
@@ -88,11 +105,32 @@ async function getSuregoUserProfile(userId) {
 }
 
 async function getExistingApplication(activityId, userId) {
-  const result = await collection.where({
-    activity_id: String(activityId || ''),
-    user_id: String(userId || '')
-  }).orderBy('created_at', 'desc').limit(1).get();
-  return (result.data || [])[0] || null;
+  const [snakeResult, camelResult] = await Promise.all([
+    collection.where({
+      activity_id: String(activityId || ''),
+      user_id: String(userId || '')
+    }).orderBy('created_at', 'desc').limit(1).get(),
+    collection.where({
+      activityId: String(activityId || ''),
+      userId: String(userId || '')
+    }).orderBy('created_at', 'desc').limit(1).get()
+  ]);
+  return [...(snakeResult.data || []), ...(camelResult.data || [])]
+    .sort((a, b) => Number(b.created_at || b.createdAt || 0) - Number(a.created_at || a.createdAt || 0))[0] || null;
+}
+
+async function getWaitlistRank(activityId) {
+  const [snakeResult, camelResult] = await Promise.all([
+    collection.where({ activity_id: String(activityId || ''), status: 'waitlist' }).limit(1000).get(),
+    collection.where({ activityId: String(activityId || ''), status: 'waitlist' }).limit(1000).get()
+  ]);
+  const seen = new Set();
+  return [...(snakeResult.data || []), ...(camelResult.data || [])].filter((item) => {
+    const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).length + 1;
 }
 
 async function canManageActivity(activityId, user) {
@@ -111,9 +149,19 @@ function normalizeApplication(item = {}) {
     avatar: item.avatar || item.applicant_avatar || item.applicantAvatar || '',
     applicantName: item.applicantName || item.applicant_name || item.nickname || '',
     applicantAvatar: item.applicantAvatar || item.applicant_avatar || item.avatar || '',
+    waitlistRank: item.status === 'waitlist' ? (Number(item.waitlistRank ?? item.waitlist_rank ?? 0) || 0) : 0,
+    waitlist_rank: item.status === 'waitlist' ? (Number(item.waitlistRank ?? item.waitlist_rank ?? 0) || 0) : 0,
     reviewNote: item.reviewNote || item.review_note || '',
     rejectReason: item.rejectReason || item.reject_reason || '',
     reviewerId: item.reviewerId || item.reviewer_id || '',
+    activityTitle: item.activityTitle || item.activity_title || '',
+    activity_title: item.activityTitle || item.activity_title || '',
+    hasParticipantLimit: Boolean(item.hasParticipantLimit ?? item.has_participant_limit),
+    has_participant_limit: Boolean(item.hasParticipantLimit ?? item.has_participant_limit),
+    participantCount: Number(item.participantCount ?? item.participant_count ?? 0) || 0,
+    participant_count: Number(item.participantCount ?? item.participant_count ?? 0) || 0,
+    maxParticipants: Number(item.maxParticipants ?? item.max_participants ?? 0) || 0,
+    max_participants: Number(item.maxParticipants ?? item.max_participants ?? 0) || 0,
     createdAt: item.createdAt || item.created_at,
     reviewedAt: item.reviewedAt || item.reviewed_at
   };
@@ -132,6 +180,10 @@ function buildRecord(payload) {
     userId,
     user_id: userId
   };
+  if (record.status !== 'waitlist') {
+    delete record.waitlistRank;
+    delete record.waitlist_rank;
+  }
   if (!record.id) delete record.id;
   return record;
 }
@@ -154,6 +206,9 @@ exports.main = async (event) => {
     if (!canApplyToActivity(activity)) {
       return { code: 'ACTIVITY_NOT_RECRUITING', message: 'Activity is not recruiting.' };
     }
+    if (isActivityFull(activity) && !isWaitlistEnabled(activity)) {
+      return { code: 'ACTIVITY_FULL', message: 'Activity is full.' };
+    }
     const existing = await getExistingApplication(activityId, user.uid);
     if (existing) {
       return {
@@ -162,6 +217,8 @@ exports.main = async (event) => {
       };
     }
     const profile = await getSuregoUserProfile(user.uid);
+    const waitlist = payload.status === 'waitlist' || isActivityFull(activity);
+    const waitlistRank = waitlist ? await getWaitlistRank(activityId) : 0;
     const application = buildRecord({
       ...payload,
       activityId,
@@ -172,7 +229,17 @@ exports.main = async (event) => {
       avatar: payload.avatar || payload.applicantAvatar || payload.applicant_avatar || profile?.avatar || '',
       applicant_name: payload.applicantName || payload.applicant_name || payload.nickname || profile?.nickname || '',
       applicant_avatar: payload.applicantAvatar || payload.applicant_avatar || payload.avatar || profile?.avatar || '',
-      status: payload.status || 'pending',
+      activityTitle: payload.activityTitle || payload.activity_title || activity.title || '',
+      activity_title: payload.activityTitle || payload.activity_title || activity.title || '',
+      hasParticipantLimit: Boolean(activity.hasParticipantLimit ?? activity.has_participant_limit),
+      has_participant_limit: Boolean(activity.hasParticipantLimit ?? activity.has_participant_limit),
+      participantCount: Number(activity.participantCount ?? activity.participant_count ?? 0) || 0,
+      participant_count: Number(activity.participantCount ?? activity.participant_count ?? 0) || 0,
+      maxParticipants: Number(activity.maxParticipants ?? activity.max_participants ?? 0) || 0,
+      max_participants: Number(activity.maxParticipants ?? activity.max_participants ?? 0) || 0,
+      status: waitlist ? 'waitlist' : (payload.status || 'pending'),
+      waitlistRank,
+      waitlist_rank: waitlistRank,
       created_at: Date.now()
     });
     const result = await collection.add(application);
@@ -220,13 +287,27 @@ exports.main = async (event) => {
   if (action === 'listByActivity') {
     if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
     const activityId = String(payload.activityId || payload.activity_id);
-    const query = await canManageActivity(activityId, user)
-      ? { activityId }
-      : { activityId, userId: user.uid };
-    const result = await collection.where(query).orderBy('created_at', 'desc').get();
+    const canManage = await canManageActivity(activityId, user);
+    const [snakeResult, camelResult] = await Promise.all([
+      collection.where(canManage
+        ? { activity_id: activityId }
+        : { activity_id: activityId, user_id: user.uid }).orderBy('created_at', 'desc').get(),
+      collection.where(canManage
+        ? { activityId }
+        : { activityId, userId: user.uid }).orderBy('created_at', 'desc').get()
+    ]);
+    const seen = new Set();
+    const items = [...(snakeResult.data || []), ...(camelResult.data || [])]
+      .filter((item) => {
+        const key = String(item._id || item.id || `${item.activity_id || item.activityId}:${item.user_id || item.userId}`);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => Number(b.created_at || b.createdAt || 0) - Number(a.created_at || a.createdAt || 0));
     return {
       code: 0,
-      data: normalizeList(result)
+      data: items.map(normalizeApplication)
     };
   }
 
@@ -239,8 +320,15 @@ exports.main = async (event) => {
     }
     const reviewedAt = Date.now();
     const beforeStatus = target.status;
+    if (payload.status === 'approved' && beforeStatus !== 'approved') {
+      const activity = await getActivity(target.activity_id || target.activityId);
+      if (isActivityFull(activity)) {
+        return { code: 'ACTIVITY_FULL', message: '当前名额已满，暂不能通过候补。' };
+      }
+    }
     await collection.doc(payload.id).update({
       status: payload.status,
+      ...(payload.status === 'approved' ? { waitlistRank: 0, waitlist_rank: 0 } : {}),
       review_note: payload.reviewNote || payload.review_note || '',
       reject_reason: payload.rejectReason || payload.reject_reason || '',
       reviewer_id: user.uid,
@@ -268,6 +356,8 @@ exports.main = async (event) => {
         userId: target.user_id || target.userId,
         user_id: target.user_id || target.userId,
         status: payload.status,
+        waitlistRank: payload.status === 'approved' ? 0 : (target.waitlistRank || target.waitlist_rank || 0),
+        waitlist_rank: payload.status === 'approved' ? 0 : (target.waitlistRank || target.waitlist_rank || 0),
         reviewNote: payload.reviewNote || payload.review_note || '',
         rejectReason: payload.rejectReason || payload.reject_reason || '',
         reviewerId: payload.reviewerId || payload.reviewer_id || '',

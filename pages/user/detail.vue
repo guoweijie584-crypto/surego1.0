@@ -32,27 +32,15 @@
         </view>
 
         <view class="trust-strip">
-          <view>
-            <text>98.6%</text>
-            <text>到场率</text>
-          </view>
-          <view>
-            <text>{{ profile.activityCount || 0 }}</text>
-            <text>成行</text>
-          </view>
-          <view>
-            <text>{{ profile.hostedCount || 0 }}</text>
-            <text>主办</text>
-          </view>
-          <view>
-            <text>1.2%</text>
-            <text>爽约率</text>
+          <view v-for="item in trustStats" :key="item.key">
+            <text>{{ item.value }}</text>
+            <text>{{ item.label }}</text>
           </view>
         </view>
       </view>
 
       <view class="ref-bottom-cta public-actions">
-        <view class="ref-primary" :class="{ 'ref-primary--dark': followed }" @tap="followed = !followed">{{ followed ? '已关注' : '关注 TA' }}</view>
+        <view class="ref-primary" :class="{ 'ref-primary--dark': followed, 'ref-primary--disabled': followSubmitting }" @tap="toggleFollow">{{ followed ? '已关注' : '关注 TA' }}</view>
         <view class="ref-secondary" @tap="openFirstActivity">看 TA 的局</view>
       </view>
 
@@ -107,12 +95,13 @@ import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { DEFAULT_USER_AVATAR } from '@/common/api/auth.js'
-import { getUserProfileById } from '@/common/api/user.js'
+import { followUser, getUserProfileById, unfollowUser } from '@/common/api/user.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goActivityDetail, goBackOrFallback } from '@/common/utils/route.js'
 
 const userId = ref('')
 const contextActivityId = ref('')
 const followed = ref(false)
+const followSubmitting = ref(false)
 const profile = ref({
   nickname: '微信用户',
   avatar: DEFAULT_USER_AVATAR,
@@ -123,6 +112,20 @@ const profile = ref({
   activityCount: 0,
   hostedCount: 0,
   joinedCount: 0,
+  followerCount: 0,
+  follower_count: 0,
+  fansCount: 0,
+  fans_count: 0,
+  followedByMe: false,
+  followed_by_me: false,
+  fulfillmentSuccessRate: null,
+  fulfillment_success_rate: null,
+  fulfillmentRate: null,
+  fulfillment_rate: null,
+  fulfillmentSuccessCount: 0,
+  fulfillment_success_count: 0,
+  fulfillmentTotalCount: 0,
+  fulfillment_total_count: 0,
   recentActivities: []
 })
 const navStyle = getMiniProgramNavStyle()
@@ -131,6 +134,15 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
 
 const hasActivityContext = computed(() => Boolean(contextActivityId.value))
 const recentActivities = computed(() => Array.isArray(profile.value.recentActivities) ? profile.value.recentActivities : [])
+const trustStats = computed(() => {
+  const current = profile.value || {}
+  return [
+    { key: 'fulfillment', label: '履约率', value: getFulfillmentRate(current) },
+    { key: 'formed', label: '成行', value: String(getProfileNumber(current, ['activityCount', 'activity_count'], 0)) },
+    { key: 'hosted', label: '主办', value: String(getProfileNumber(current, ['hostedCount', 'hosted_count'], 0)) },
+    { key: 'fans', label: '粉丝', value: String(getProfileNumber(current, ['followerCount', 'follower_count', 'fansCount', 'fans_count'], 0)) }
+  ]
+})
 const socialAccounts = computed(() => [
   { label: '小红书', icon: 'compose', active: true },
   { label: '抖音', icon: 'videocam-filled', active: false },
@@ -172,10 +184,66 @@ onLoad(async (query = {}) => {
     nickname: data.nickname || '微信用户',
     recentActivities: Array.isArray(data.recentActivities) ? data.recentActivities : []
   }
+  followed.value = Boolean(data.followedByMe ?? data.followed_by_me ?? false)
 })
 
 function getActivityMeta(item = {}) {
   return [item.date, item.time, item.city || item.location].filter(Boolean).join(' · ') || '公开活动'
+}
+
+function getProfileNumber(profile = {}, keys = [], fallback = 0) {
+  for (const key of keys) {
+    const number = Number(profile[key])
+    if (Number.isFinite(number)) return Math.max(0, number)
+  }
+  return fallback
+}
+
+function formatPercent(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '--'
+  const percent = number <= 1 ? number * 100 : number
+  return `${Math.min(100, Math.max(0, percent)).toFixed(percent % 1 === 0 ? 0 : 1)}%`
+}
+
+function getFulfillmentRate(profile = {}) {
+  const explicit = profile.fulfillmentSuccessRate ?? profile.fulfillment_success_rate ?? profile.fulfillmentRate ?? profile.fulfillment_rate
+  if (explicit !== undefined && explicit !== null && explicit !== '') return formatPercent(explicit)
+  const success = getProfileNumber(profile, ['fulfillmentSuccessCount', 'fulfillment_success_count'], -1)
+  const total = getProfileNumber(profile, ['fulfillmentTotalCount', 'fulfillment_total_count'], -1)
+  if (success >= 0 && total > 0) return formatPercent(success / total)
+  return '--'
+}
+
+function applyFollowResult(result = {}) {
+  const fallbackCount = getProfileNumber(profile.value, ['followerCount', 'follower_count', 'fansCount', 'fans_count'], 0)
+  const followerCount = getProfileNumber(result, ['followerCount', 'follower_count', 'fansCount', 'fans_count'], fallbackCount)
+  const followedByMe = Boolean(result.followedByMe ?? result.followed_by_me ?? followed.value)
+  followed.value = followedByMe
+  profile.value = {
+    ...profile.value,
+    followedByMe,
+    followed_by_me: followedByMe,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount
+  }
+}
+
+async function toggleFollow() {
+  if (!userId.value || followSubmitting.value) return
+  followSubmitting.value = true
+  try {
+    const result = followed.value
+      ? await unfollowUser(userId.value)
+      : await followUser(userId.value)
+    applyFollowResult(result || {})
+  } catch (error) {
+    uni.showToast({ title: error?.message || '操作失败', icon: 'none' })
+  } finally {
+    followSubmitting.value = false
+  }
 }
 
 function openActivity(item = {}) {
@@ -231,6 +299,11 @@ function openFirstActivity() {
 
 .public-actions {
   margin-top: 0;
+}
+
+.ref-primary--disabled {
+  opacity: 0.65;
+  pointer-events: none;
 }
 
 .tag-list {

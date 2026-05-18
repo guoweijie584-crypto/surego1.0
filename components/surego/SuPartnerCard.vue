@@ -1,7 +1,7 @@
 <template>
   <view class="partner-post-card partner-post-card--compact" hover-class="partner-post-card--active" @tap="openDetail">
     <view class="partner-post-card__head">
-      <view class="organizer-line">
+      <view class="organizer-line" @tap.stop="openUser">
         <image class="organizer-line__avatar" :src="partner.avatar" mode="aspectFill" />
         <view>
           <text class="organizer-line__name su-line-1">{{ partner.author || partner.creator }}</text>
@@ -43,7 +43,7 @@
 <script setup>
 import { computed } from 'vue'
 import SuIcon from '@/components/surego/SuIcon.vue'
-import { goPartnerDetail } from '@/common/utils/route.js'
+import { goPartnerDetail, goUserDetail } from '@/common/utils/route.js'
 
 const props = defineProps({
   partner: {
@@ -89,6 +89,10 @@ const actionLabel = computed(() => {
 
 function openDetail() {
   goPartnerDetail(props.partner.id)
+}
+
+function openUser() {
+  goUserDetail(props.partner.creatorId || props.partner.creator_id)
 }
 </script>
 

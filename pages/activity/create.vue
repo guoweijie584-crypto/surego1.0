@@ -233,7 +233,7 @@ import { FALLBACK_COVER_IMAGE, getDefaultCoverPreset, isPresetCover, listCoverPr
 import { buildFieldHint, collectMissingFields, isFutureDate, normalizeTimeValue } from '@/common/utils/form.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goSuccess } from '@/common/utils/route.js'
 
-const categories = ['户外', '美食', '运动', '学习', '展览', '夜生活']
+const categories = ['剧本杀/桌游', '饭搭子/探店', '运动', '学习/自习', '约拍/展览/微醺']
 const CAMPUS_NAME = '天津大学'
 const CAMPUS_CITY_CODE = 'tju'
 const partyModes = [
@@ -254,6 +254,8 @@ const showCoverPicker = ref(false)
 const coverCategory = ref(categories[0])
 const isSubmitting = ref(false)
 const fieldErrorText = ref('')
+const defaultStartAt = getDefaultActivityDate(1)
+const defaultEndAt = getDefaultActivityDate(3)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -261,10 +263,10 @@ const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const form = reactive({
   title: '',
   category: categories[0],
-  dateValue: '2026-05-01',
-  date: '5月1日',
-  time: '14:00',
-  endTime: '18:00',
+  dateValue: formatDateValue(defaultStartAt),
+  date: getDisplayDate(formatDateValue(defaultStartAt)),
+  time: formatTimeValue(defaultStartAt),
+  endTime: formatTimeValue(defaultEndAt),
   location: '',
   address: '',
   latitude: '',
@@ -275,6 +277,9 @@ const form = reactive({
   maxParticipants: '10',
   hasParticipantLimit: true,
   requireApproval: true,
+  waitlist: true,
+  allowWaitlist: true,
+  allow_waitlist: true,
   partyMode: 'free',
   amount: '',
   description: '',
@@ -335,6 +340,28 @@ function handleDateChange(event) {
   const parts = form.dateValue.split('-')
   form.date = `${Number(parts[1])}月${Number(parts[2])}日`
   fieldErrorText.value = ''
+}
+
+function getDefaultActivityDate(hourOffset = 1) {
+  const value = new Date()
+  value.setMinutes(0, 0, 0)
+  value.setHours(value.getHours() + hourOffset)
+  return value
+}
+
+function formatDateValue(value = new Date()) {
+  const month = `${value.getMonth() + 1}`.padStart(2, '0')
+  const day = `${value.getDate()}`.padStart(2, '0')
+  return `${value.getFullYear()}-${month}-${day}`
+}
+
+function formatTimeValue(value = new Date()) {
+  return `${String(value.getHours()).padStart(2, '0')}:00`
+}
+
+function getDisplayDate(dateValue = formatDateValue()) {
+  const parts = String(dateValue).split('-')
+  return `${Number(parts[1])}月${Number(parts[2])}日`
 }
 
 function openCoverPicker() {
@@ -416,8 +443,14 @@ function validateForm() {
   if (!missingFields.length) {
     const startTime = normalizeTimeValue(form.time)
     const endTime = normalizeTimeValue(form.endTime)
+    const selectedStartAt = new Date(`${form.dateValue}T${startTime || '00:00'}:00`)
     if (startTime && endTime && endTime <= startTime) {
       fieldErrorText.value = '结束时间需晚于开始时间'
+      uni.showToast({ title: fieldErrorText.value, icon: 'none' })
+      return false
+    }
+    if (Number.isFinite(selectedStartAt.getTime()) && selectedStartAt.getTime() <= Date.now()) {
+      fieldErrorText.value = '开始时间需晚于当前时间'
       uni.showToast({ title: fieldErrorText.value, icon: 'none' })
       return false
     }
@@ -439,16 +472,20 @@ async function handleSubmit() {
   if (isSubmitting.value) return
   if (!validateForm()) return
   isSubmitting.value = true
-  const created = await createActivity({
-    ...form,
-    amount: Number(form.amount) || 0,
-    questions: form.questions.filter((item) => item.trim())
-  })
-  goSuccess({
-    type: 'CREATE',
-    activityId: created.id,
-    coverImage: created.image
-  })
+  try {
+    const created = await createActivity({
+      ...form,
+      amount: Number(form.amount) || 0,
+      questions: form.questions.filter((item) => item.trim())
+    })
+    goSuccess({
+      type: 'CREATE',
+      activityId: created.id,
+      coverImage: created.image
+    })
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 

@@ -8,7 +8,7 @@
         <view class="ref-back" @tap="goBackOrFallback(`/pages/activity/detail?id=${activity.id}`)">
           <SuIcon name="left" size="44" glyph-size="22" variant="inline" color="#102033" />
         </view>
-        <text class="ref-topbar__title">报名申请</text>
+        <text class="ref-topbar__title">{{ pageTitle }}</text>
         <view class="ref-icon-button">
           <SuIcon name="shield" size="40" glyph-size="20" variant="inline" color="#2388ff" />
         </view>
@@ -121,7 +121,11 @@ const mbtiOptions = [
 ]
 
 const selectedMbti = computed(() => (mbtiIndex.value > 0 ? mbtiOptions[mbtiIndex.value] : ''))
-const hasExistingApplication = computed(() => ['pending', 'approved', 'rejected'].includes(activity.value.applicationStatus))
+const isFull = computed(() => activity.value.hasParticipantLimit && Number(activity.value.participantCount || 0) >= Number(activity.value.maxParticipants || 0))
+const waitlistEnabled = computed(() => activity.value.waitlist !== false && activity.value.allowWaitlist !== false && activity.value.allow_waitlist !== false)
+const isWaitlistRegistration = computed(() => waitlistEnabled.value && isFull.value && !['pending', 'approved', 'rejected', 'waitlist'].includes(activity.value.applicationStatus))
+const hasExistingApplication = computed(() => ['pending', 'approved', 'rejected', 'waitlist'].includes(activity.value.applicationStatus))
+const pageTitle = computed(() => (isWaitlistRegistration.value || activity.value.applicationStatus === 'waitlist' ? '候补申请' : '报名申请'))
 const visibleQuestions = computed(() => (
   activity.value.questions && activity.value.questions.length
     ? activity.value.questions
@@ -132,11 +136,26 @@ const shortLocation = computed(() => {
   return (activity.value.location || '').split(' · ')[0] || activity.value.location
 })
 
+const noticeText = computed(() => {
+  if (isWaitlistRegistration.value || activity.value.applicationStatus === 'waitlist') {
+    return '当前名额已满，提交后会进入候补队列。候补不占用名额，发起人放出空位并通过后会通知你。'
+  }
+  if (activity.value.partyMode === 'sincerity') {
+    return `本局为诚意金局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，签到后记录为可退回状态。`
+  }
+  if (activity.value.partyMode === 'ticket') {
+    return `本局为门票局，申请后进入试运营订单确认，金额 ¥${activity.value.amount}，确认后锁定名额。`
+  }
+  return '请按时成行，爽约会影响信用星级。'
+})
+
 const submitText = computed(() => {
   if (activity.value.applicationStatus === 'pending') return '已申请，等待审核'
   if (activity.value.applicationStatus === 'approved') return '已加入该活动'
+  if (activity.value.applicationStatus === 'waitlist') return '已加入候补'
   if (activity.value.applicationStatus === 'rejected') return '申请未通过'
   if (activity.value.applicationStatus === 'invited') return '确认加入'
+  if (isWaitlistRegistration.value) return '加入候补队列'
   if (activity.value.requireApproval) return '提交申请'
   if (activity.value.partyMode === 'free') return '报名成功'
   return '提交申请并确认订单'
@@ -207,13 +226,28 @@ async function handleSubmit() {
       question,
       answer: answers.value[index] || ''
     })),
-    requireApproval: isInviteConfirmation ? false : activity.value.requireApproval
+    status: isWaitlistRegistration.value ? 'waitlist' : undefined,
+    requireApproval: isInviteConfirmation || isWaitlistRegistration.value ? false : activity.value.requireApproval,
+    hasParticipantLimit: activity.value.hasParticipantLimit,
+    participantCount: activity.value.participantCount || 0,
+    maxParticipants: activity.value.maxParticipants || 0,
+    waitlist: activity.value.waitlist !== false,
+    allowWaitlist: activity.value.allowWaitlist !== false,
+    allow_waitlist: activity.value.allow_waitlist !== false
   }
 
   await submitApplication(application)
   await syncApplicationStatus(activity.value.id)
 
   setTimeout(() => {
+    if (activity.value.applicationStatus === 'waitlist') {
+      goSuccess({
+        type: 'WAITLIST',
+        activityId: activity.value.id,
+        requireApproval: '1'
+      })
+      return
+    }
     if (activity.value.partyMode !== 'free') {
       goPayment({
         activityId: activity.value.id,
@@ -241,11 +275,13 @@ function validateJoinEligibility(silent = false) {
     messageText = '你已提交申请，请等待审核'
   } else if (current.applicationStatus === 'approved') {
     messageText = '你已加入该活动'
+  } else if (current.applicationStatus === 'waitlist') {
+    messageText = '你已加入候补队列'
   } else if (current.applicationStatus === 'rejected') {
     messageText = '该活动申请未通过，暂不可重复提交'
   } else if (!['published', 'recruiting'].includes(getActivityStatusMeta(current).key)) {
     messageText = '活动当前不在报名状态'
-  } else if (current.hasParticipantLimit && Number(current.participantCount || 0) >= Number(current.maxParticipants || 0)) {
+  } else if (!waitlistEnabled.value && current.hasParticipantLimit && Number(current.participantCount || 0) >= Number(current.maxParticipants || 0)) {
     messageText = '活动名额已满'
   } else if (['finished', 'cancelled'].includes(current.status) || ['finished', 'cancelled'].includes(current.lifecycleStatus)) {
     messageText = '活动已结束或取消'

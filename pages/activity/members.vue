@@ -80,7 +80,7 @@
         <view v-for="item in pendingMembers" :key="item.id" class="pending-card">
           <view class="pending-card__avatar">{{ item.gender === 'female' ? '女' : '友' }}</view>
           <view class="pending-card__body">
-            <text>待审核申请</text>
+            <text>{{ item.status === 'waitlist' ? `候补第 ${item.waitlistRank || item.waitlist_rank || 1} 位` : '待审核申请' }}</text>
             <text class="su-line-1">{{ item.message || '想加入这场活动' }}</text>
           </view>
           <text>{{ item.mbti || 'MBTI' }}</text>
@@ -164,7 +164,7 @@ const confirmedMembers = computed(() => {
   })
 })
 
-const pendingMembers = computed(() => applications.value.filter((item) => item.status === 'pending'))
+const pendingMembers = computed(() => applications.value.filter((item) => item.status === 'pending' || item.status === 'waitlist'))
 
 const seatsLeft = computed(() => {
   if (!activity.value.hasParticipantLimit) return '不限'

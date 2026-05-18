@@ -5,21 +5,21 @@
         <view class="detail__back" @tap="goBackOrFallback('/pages/partners/index')">
           <SuIcon name="left" size="48" glyph-size="24" variant="inline" color="#111827" />
         </view>
-        <view v-if="partner.isCreator" class="detail__manage" @tap="goPartnerWorkbench(partner.id)">
-          <SuIcon name="settings" size="34" glyph-size="17" variant="inline" color="#111827" />
-          <text>管理</text>
-        </view>
       </view>
     </view>
 
     <scroll-view scroll-y class="detail__scroll" :style="contentTopStyle">
-      <view v-if="!partner.id" class="detail__empty">
+      <view v-if="isLoading" class="detail__empty">
+        <SuIcon name="info" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
+        <text>搭子详情加载中...</text>
+      </view>
+      <view v-else-if="!partner.id" class="detail__empty">
         <SuIcon name="info" size="84" glyph-size="42" variant="inline" color="#cbd5e1" />
         <text>搭子需求不存在或已下线</text>
       </view>
       <view v-else>
         <view class="detail__hero">
-          <view class="detail__author">
+          <view class="detail__author" @tap="openCreatorProfile">
             <image class="detail__avatar" :src="partner.avatar" mode="aspectFill" />
             <view>
               <text class="detail__name">{{ partner.author || partner.creator }}</text>
@@ -89,7 +89,7 @@
           <text v-else class="wechat-contact-empty">未解锁</text>
         </view>
 
-        <view class="partner-action-grid">
+        <view v-if="!partner.isCreator" class="partner-action-grid">
           <view class="partner-action partner-action--primary" @tap="handleFollow">
             <SuIcon name="sceneAll" size="34" glyph-size="17" variant="inline" color="#fff" />
             <text>关注</text>
@@ -110,11 +110,11 @@
     </scroll-view>
 
     <view v-if="partner.id" class="detail__bar su-safe-bottom">
-      <view class="detail__secondary" @tap="handleFollow">
+      <view v-if="!partner.isCreator" class="detail__secondary" @tap="handleFollow">
         <SuIcon name="heart" size="40" glyph-size="20" variant="inline" color="#111827" />
         <text>关注</text>
       </view>
-      <view class="detail__primary" @tap="handlePrimaryAction">
+      <view class="detail__primary" :class="{ 'detail__primary--wide': partner.isCreator }" @tap="handlePrimaryAction">
         <text>{{ primaryActionText }}</text>
       </view>
     </view>
@@ -127,10 +127,11 @@ import { computed, ref } from 'vue'
 import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { createPartnerIntent, followPartnerPost, getPartnerPostDetail } from '@/common/api/partner.js'
 import { makeRefreshHandler } from '@/common/utils/refresh.js'
-import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerConversation, goPartnerWorkbench, guardLoginAction } from '@/common/utils/route.js'
+import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerConversation, goPartnerWorkbench, goUserDetail, guardLoginAction } from '@/common/utils/route.js'
 
 const partner = ref({})
 const currentId = ref('')
+const isLoading = ref(true)
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
@@ -162,7 +163,17 @@ const primaryActionText = computed(() => {
 })
 
 async function loadData() {
-  partner.value = await getPartnerPostDetail(currentId.value) || {}
+  if (!currentId.value) {
+    partner.value = {}
+    isLoading.value = false
+    return
+  }
+  isLoading.value = true
+  try {
+    partner.value = await getPartnerPostDetail(currentId.value) || {}
+  } finally {
+    isLoading.value = false
+  }
 }
 
 onLoad((options = {}) => {
@@ -187,13 +198,27 @@ async function handleIntent() {
     uni.showToast({ title: '本次意向未通过，可关注其他组队', icon: 'none' })
     return
   }
-  await createPartnerIntent({
+  const intent = await createPartnerIntent({
     partnerPostId: partner.value.id,
     creatorId: partner.value.creatorId,
     message: '我对这个搭子计划感兴趣'
   })
+  partner.value = {
+    ...partner.value,
+    viewerIntent: intent,
+    viewer_intent: intent,
+    viewerIntentStatus: intent?.status || 'pending',
+    viewer_intent_status: intent?.status || 'pending',
+    viewerConversationId: intent?.conversationId || intent?.conversation_id || '',
+    viewer_conversation_id: intent?.conversationId || intent?.conversation_id || '',
+    interested: Math.max(
+      Number(partner.value.interested || 0),
+      Number(partner.value.intentCount || 0) + 1
+    ),
+    intentCount: Number(partner.value.intentCount || 0) + 1
+  }
   uni.showToast({ title: '意向已发送', icon: 'success' })
-  loadData()
+  await loadData()
 }
 
 function handlePrimaryAction() {
@@ -266,6 +291,10 @@ function previewWechatQr() {
     urls: [wechatQrUrl.value]
   })
 }
+
+function openCreatorProfile() {
+  goUserDetail(partner.value.creatorId || partner.value.creator_id)
+}
 </script>
 
 <style scoped>
@@ -327,4 +356,5 @@ function previewWechatQr() {
 .detail__secondary, .detail__primary { display: flex; height: 86rpx; align-items: center; justify-content: center; border-radius: 999rpx; font-size: 25rpx; font-weight: 900; }
 .detail__secondary { width: 190rpx; gap: 8rpx; border: 1rpx solid #e2e8f0; color: #111827; background: #fff; }
 .detail__primary { flex: 1; color: #fff; background: #ff6b6b; box-shadow: 0 16rpx 34rpx rgba(255, 107, 107, 0.28); }
+.detail__primary--wide { width: 100%; }
 </style>
