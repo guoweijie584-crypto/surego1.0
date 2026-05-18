@@ -112,6 +112,8 @@ function buildUserPayload(payload = {}) {
     userId: payload.userId || payload.uid || getCurrentUserId(),
     nickname: sanitizeNickname(payload.nickname || current.nickname),
     avatar: sanitizeAvatar(payload.avatar || current.avatar),
+    mobile: payload.mobile || payload.phone || current.mobile || current.phone || '',
+    phone: payload.phone || payload.mobile || current.phone || current.mobile || '',
     avatarFileId: payload.avatarFileId || payload.avatar_file_id || current.avatarFileId || '',
     profileCompletedAt: payload.profileCompletedAt || payload.profile_completed_at || current.profileCompletedAt || 0,
     credit: Number(payload.credit) || Number(current.credit) || defaultUser.credit,
@@ -177,6 +179,30 @@ export async function getCurrentUser(options = {}) {
     }
   }
   return readLocalUser()
+}
+
+async function bindMobileByMpWeixin(detail = {}) {
+  if (typeof uniCloud === 'undefined' || typeof uniCloud.importObject !== 'function') {
+    throw new Error('手机号授权服务不可用')
+  }
+  if (!detail.code && !detail.encryptedData && !detail.phoneNumber && !detail.purePhoneNumber) {
+    throw new Error('未获取到微信手机号授权凭证')
+  }
+  const uniIdCo = uniCloud.importObject('uni-id-co', { customUI: true })
+  return uniIdCo.bindMobileByMpWeixin(detail)
+}
+
+export async function bindCurrentUserMobileByMpWeixin(detail = {}) {
+  const directMobile = detail.phoneNumber || detail.purePhoneNumber || detail.mobile || ''
+  if (directMobile) {
+    return updateCurrentUser({ mobile: directMobile, phone: directMobile })
+  }
+  await bindMobileByMpWeixin(detail)
+  const freshUser = await getCurrentUser({ allowFallback: false })
+  if (!freshUser.mobile && !freshUser.phone) {
+    throw new Error('手机号绑定成功，但暂未读取到号码')
+  }
+  return writeLocalUser(freshUser)
 }
 
 function normalizeUserRecord(item = {}) {
@@ -246,6 +272,7 @@ function countLocalUserFollowers(userId) {
     .filter((item) => (
       String(item.target_type || item.targetType || '') === 'user'
         && String(item.target_id || item.targetId || '') === targetUserId
+        && String(item.status || 'followed') !== 'unfollowed'
     ))
     .forEach((item) => {
       const followerId = String(item.user_id || item.userId || item.follower_id || item.followerId || '').trim()
@@ -262,11 +289,51 @@ function isLocalFollowingUser(targetUserId, followerUserId = getCurrentUserId())
     String(item.target_type || item.targetType || '') === 'user'
       && String(item.target_id || item.targetId || '') === targetId
       && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
+      && String(item.status || 'followed') !== 'unfollowed'
   ))
 }
 
 function writeLocalFollows(items) {
   uni.setStorageSync(LOCAL_FOLLOWS_KEY, Array.isArray(items) ? items : [])
+}
+
+function findLocalUserFollowRecord(targetUserId, followerUserId = getCurrentUserId()) {
+  const targetId = String(targetUserId || '').trim()
+  const followerId = String(followerUserId || '').trim()
+  if (!targetId || !followerId) return null
+  return readLocalList(LOCAL_FOLLOWS_KEY).find((item) => (
+    String(item.target_type || item.targetType || '') === 'user'
+      && String(item.target_id || item.targetId || '') === targetId
+      && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
+  )) || null
+}
+
+function mergeLocalUserFollowState(profile = {}, targetUserId = '') {
+  const targetId = String(targetUserId || profile.uid || profile.userId || profile.user_id || '').trim()
+  if (!targetId) return profile
+  const localRecord = findLocalUserFollowRecord(targetId)
+  const remoteFollowerCount = normalizeMetricNumber(
+    profile.followerCount ?? profile.follower_count ?? profile.fansCount ?? profile.fans_count,
+    0
+  )
+  const remoteFollowedByMe = Boolean(profile.followedByMe ?? profile.followed_by_me ?? false)
+  const hasLocalOverride = Boolean(localRecord)
+  const localFollowedByMe = hasLocalOverride && String(localRecord.status || 'followed') !== 'unfollowed'
+  const localSynced = hasLocalOverride && localRecord.synced === true
+  const delta = !hasLocalOverride || localSynced
+    ? 0
+    : (localFollowedByMe && !remoteFollowedByMe ? 1 : (!localFollowedByMe && remoteFollowedByMe ? -1 : 0))
+  const followedByMe = hasLocalOverride ? localFollowedByMe : remoteFollowedByMe
+  const followerCount = Math.max(0, remoteFollowerCount + delta)
+  return {
+    ...profile,
+    followedByMe,
+    followed_by_me: followedByMe,
+    followerCount,
+    follower_count: followerCount,
+    fansCount: followerCount,
+    fans_count: followerCount
+  }
 }
 
 function buildUserFollowPayload(targetUserId, followedByMe) {
@@ -284,25 +351,25 @@ function buildUserFollowPayload(targetUserId, followedByMe) {
   }
 }
 
-function followLocalUser(targetUserId, followerUserId = getCurrentUserId()) {
+function followLocalUser(targetUserId, followerUserId = getCurrentUserId(), options = {}) {
   const targetId = String(targetUserId || '').trim()
   const followerId = String(followerUserId || '').trim()
   if (!targetId || !followerId || targetId === followerId) {
     return Promise.resolve(buildUserFollowPayload(targetId, false))
   }
-  const follows = readLocalList(LOCAL_FOLLOWS_KEY)
-  const existing = follows.find((item) => (
+  const follows = readLocalList(LOCAL_FOLLOWS_KEY).filter((item) => !(
     String(item.target_type || item.targetType || '') === 'user'
       && String(item.target_id || item.targetId || '') === targetId
       && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
   ))
-  if (existing) return Promise.resolve(buildUserFollowPayload(targetId, true))
   writeLocalFollows([
     {
       id: `follow_user_${Date.now()}`,
       target_type: 'user',
       target_id: targetId,
       user_id: followerId,
+      status: 'followed',
+      synced: options.synced === true,
       created_at: new Date().toISOString()
     },
     ...follows
@@ -310,15 +377,31 @@ function followLocalUser(targetUserId, followerUserId = getCurrentUserId()) {
   return Promise.resolve(buildUserFollowPayload(targetId, true))
 }
 
-function unfollowLocalUser(targetUserId, followerUserId = getCurrentUserId()) {
+function unfollowLocalUser(targetUserId, followerUserId = getCurrentUserId(), options = {}) {
   const targetId = String(targetUserId || '').trim()
   const followerId = String(followerUserId || '').trim()
   if (!targetId || !followerId) return Promise.resolve(buildUserFollowPayload(targetId, false))
-  writeLocalFollows(readLocalList(LOCAL_FOLLOWS_KEY).filter((item) => !(
+  const follows = readLocalList(LOCAL_FOLLOWS_KEY).filter((item) => !(
     String(item.target_type || item.targetType || '') === 'user'
       && String(item.target_id || item.targetId || '') === targetId
       && String(item.user_id || item.userId || item.follower_id || item.followerId || '') === followerId
-  )))
+  ))
+  if (options.synced === true) {
+    writeLocalFollows(follows)
+    return Promise.resolve(buildUserFollowPayload(targetId, false))
+  }
+  writeLocalFollows([
+    {
+      id: `unfollow_user_${Date.now()}`,
+      target_type: 'user',
+      target_id: targetId,
+      user_id: followerId,
+      status: 'unfollowed',
+      synced: false,
+      created_at: new Date().toISOString()
+    },
+    ...follows
+  ])
   return Promise.resolve(buildUserFollowPayload(targetId, false))
 }
 
@@ -577,7 +660,10 @@ export async function getUserProfileById(userId) {
   if (!id) return normalizePublicProfile({})
   if (USE_UNICLOUD) {
     try {
-      return normalizePublicProfile(await callSuregoFunction('surego-user', 'publicProfile', { targetUserId: id }))
+      return mergeLocalUserFollowState(
+        normalizePublicProfile(await callSuregoFunction('surego-user', 'publicProfile', { targetUserId: id })),
+        id
+      )
     } catch (error) {
       return handleSuregoCloudError(error, () => buildLocalPublicProfile(id))
     }
@@ -590,7 +676,9 @@ export async function followUser(targetUserId) {
   if (!id) return buildUserFollowPayload('', false)
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
-      return await callSuregoFunction('surego-user', 'followUser', { targetUserId: id })
+      const result = await callSuregoFunction('surego-user', 'followUser', { targetUserId: id })
+      await followLocalUser(id, getCurrentUserId(), { synced: true })
+      return mergeLocalUserFollowState(result, id)
     } catch (error) {
       return handleSuregoCloudError(error, () => followLocalUser(id))
     }
@@ -603,7 +691,9 @@ export async function unfollowUser(targetUserId) {
   if (!id) return buildUserFollowPayload('', false)
   if (USE_UNICLOUD && !shouldUseReferenceMockPreview()) {
     try {
-      return await callSuregoFunction('surego-user', 'unfollowUser', { targetUserId: id })
+      const result = await callSuregoFunction('surego-user', 'unfollowUser', { targetUserId: id })
+      await unfollowLocalUser(id, getCurrentUserId(), { synced: true })
+      return mergeLocalUserFollowState(result, id)
     } catch (error) {
       return handleSuregoCloudError(error, () => unfollowLocalUser(id))
     }

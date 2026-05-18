@@ -15,7 +15,8 @@ source = source
 
 source += `
 Object.assign(__exports, {
-  getUserProfileById
+  getUserProfileById,
+  followUser
 })
 `
 
@@ -142,5 +143,13 @@ assert.deepEqual(
 assert.equal(profile.recentActivities.some((activity) => activity.id === 'hidden_hosted'), false)
 assert.equal(profile.recentActivities.some((activity) => activity.id === 'reviewing_hosted'), false)
 assert.equal(profile.recentActivities.some((activity) => activity.id === 'pending_joined'), false)
+
+const followed = await sandbox.__exports.followUser(targetUserId)
+assert.equal(followed.followedByMe, true)
+assert.equal(followed.followerCount, 1)
+
+const profileAfterFollow = await sandbox.__exports.getUserProfileById(targetUserId)
+assert.equal(profileAfterFollow.followedByMe, true)
+assert.equal(profileAfterFollow.followerCount, 1)
 
 console.log('public profile check passed')

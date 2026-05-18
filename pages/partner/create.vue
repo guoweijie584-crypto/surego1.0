@@ -152,7 +152,7 @@
     </scroll-view>
 
     <view class="create__bar su-safe-bottom">
-      <button class="preview-button" :disabled="submitting">预览</button>
+      <button class="preview-button" :disabled="submitting" @tap="openPreview">预览</button>
       <button class="create__button" :disabled="submitting" @tap="handleSubmit">
         {{ submitting ? '发布中...' : '发起搭子' }}
       </button>
@@ -174,6 +174,35 @@
         <button class="time-picker__confirm" @tap="confirmTimePicker">确认</button>
       </view>
     </SuActionSheet>
+
+    <SuActionSheet v-model="showPreviewSheet" title="发布预览">
+      <view class="preview-sheet">
+        <image v-if="previewCover" class="preview-sheet__cover" :src="previewCover" mode="aspectFill" />
+        <view v-else class="preview-sheet__cover preview-sheet__cover--empty">
+          <SuIcon name="sceneAll" size="80" glyph-size="40" variant="inline" color="#94a3b8" />
+        </view>
+        <view class="preview-sheet__header">
+          <text class="preview-sheet__title">{{ previewTitle }}</text>
+          <text class="preview-sheet__badge">{{ previewSceneLabel }}</text>
+        </view>
+        <view class="preview-sheet__meta">
+          <view>
+            <SuIcon name="calendar" size="30" glyph-size="15" variant="inline" color="#2388ff" />
+            <text>{{ form.schedule || '时间可商议' }}</text>
+          </view>
+          <view>
+            <SuIcon name="location" size="30" glyph-size="15" variant="inline" color="#0ea5e9" />
+            <text>{{ form.location || '地点待确认' }}</text>
+          </view>
+        </view>
+        <text class="preview-sheet__desc">{{ previewDescription }}</text>
+        <view v-if="form.wechatId || form.wechatQrUrl" class="preview-sheet__contact">
+          <SuIcon name="wechat" size="34" glyph-size="17" variant="inline" color="#22c55e" />
+          <text>{{ form.wechatId ? `微信号：${form.wechatId}` : '已上传微信二维码' }}</text>
+        </view>
+        <button class="preview-sheet__confirm" @tap="showPreviewSheet = false">继续编辑</button>
+      </view>
+    </SuActionSheet>
   </view>
 </template>
 
@@ -183,7 +212,7 @@ import SuActionSheet from '@/components/surego/SuActionSheet.vue'
 import { computed, reactive, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { createPartnerPost, HACKATHON_TOPIC_KEY } from '@/common/api/partner.js'
-import { chooseAndUploadImage, chooseAndUploadImages } from '@/common/api/upload.js'
+import { uploadImageFile } from '@/common/api/upload.js'
 import { getMiniProgramNavContentStyle, getMiniProgramNavRowStyle, getMiniProgramNavStyle, goBackOrFallback, goPartnerDetail } from '@/common/utils/route.js'
 
 const CAMPUS_NAME = '天津大学'
@@ -226,7 +255,9 @@ const form = reactive({
 const selectedScene = ref('')
 const isHackathonLocked = ref(false)
 const submitting = ref(false)
+const uploadingImages = ref(false)
 const showTimePicker = ref(false)
+const showPreviewSheet = ref(false)
 const timePickerValue = ref([0, 0, 0])
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
@@ -247,6 +278,10 @@ const visibleTimePickerValue = computed(() => (
   isTimePickerFlexible.value ? [timePickerValue.value[0]] : timePickerValue.value
 ))
 const primaryImage = computed(() => form.images[0]?.url || '')
+const previewCover = computed(() => primaryImage.value || form.wechatQrUrl || '')
+const previewTitle = computed(() => form.title.trim() || '一句话讲清楚你想找什么搭子')
+const previewDescription = computed(() => form.description.trim() || '这里会展示你填写的搭子需求、适合谁、怎么一起推进。')
+const previewSceneLabel = computed(() => getSceneOption(selectedScene.value)?.label || '未选择场景')
 
 function buildDateOptions() {
   const today = new Date()
@@ -313,18 +348,69 @@ function buildFitTags() {
   return tags
 }
 
+function isChooseImageCancel(error = {}) {
+  const message = String(error.errMsg || error.message || '').toLowerCase()
+  return message.includes('cancel') || message.includes('取消')
+}
+
+function chooseLocalImageFiles(options = {}) {
+  return new Promise((resolve, reject) => {
+    uni.chooseImage({
+      count: options.count || 1,
+      sizeType: options.sizeType || ['compressed'],
+      sourceType: options.sourceType || ['album', 'camera'],
+      success(result = {}) {
+        resolve((result.tempFilePaths || []).filter(Boolean))
+      },
+      fail(error = {}) {
+        if (isChooseImageCancel(error)) {
+          resolve([])
+          return
+        }
+        reject(error)
+      }
+    })
+  })
+}
+
+async function uploadSelectedImages(options = {}) {
+  const filePaths = await chooseLocalImageFiles(options)
+  const uploaded = []
+  for (const filePath of filePaths) {
+    uploaded.push(await uploadImageFile(filePath, options))
+  }
+  return uploaded
+}
+
+function showImageUploadError(error = {}) {
+  if (isChooseImageCancel(error)) return
+  uni.showToast({
+    title: error?.message || '图片上传失败，请稍后重试',
+    icon: 'none'
+  })
+}
+
 async function addImages() {
+  if (uploadingImages.value) return
   const remaining = Math.max(0, 9 - form.images.length)
   if (!remaining) return
-  const uploaded = await chooseAndUploadImages({
-    count: remaining,
-    prefix: 'surego/partner-images'
-  })
-  if (!uploaded.length) return
-  const nextImages = uploaded
-    .map((item) => ({ url: item.url, fileID: item.fileID || item.url }))
-    .filter((item) => item.url)
-  form.images = [...form.images, ...nextImages].slice(0, 9)
+
+  uploadingImages.value = true
+  try {
+    const uploaded = await uploadSelectedImages({
+      count: remaining,
+      prefix: 'surego/partner-images'
+    })
+    if (!uploaded.length) return
+    const nextImages = uploaded
+      .map((item) => ({ url: item.url, fileID: item.fileID || item.url }))
+      .filter((item) => item.url)
+    form.images = [...form.images, ...nextImages].slice(0, 9)
+  } catch (error) {
+    showImageUploadError(error)
+  } finally {
+    uploadingImages.value = false
+  }
 }
 
 function removeImage(index) {
@@ -341,16 +427,20 @@ function previewImage(index) {
 }
 
 async function addWechatQr() {
-  const uploaded = await chooseAndUploadImage({
-    count: 1,
-    prefix: 'surego/wechat-qr'
-  })
-  if (!uploaded?.url) return
-  form.wechatQr = {
-    url: uploaded.url,
-    fileID: uploaded.fileID || uploaded.url
+  try {
+    const [uploaded] = await uploadSelectedImages({
+      count: 1,
+      prefix: 'surego/wechat-qr'
+    })
+    if (!uploaded?.url) return
+    form.wechatQr = {
+      url: uploaded.url,
+      fileID: uploaded.fileID || uploaded.url
+    }
+    form.wechatQrUrl = uploaded.url
+  } catch (error) {
+    showImageUploadError(error)
   }
-  form.wechatQrUrl = uploaded.url
 }
 
 function previewWechatQr() {
@@ -417,6 +507,10 @@ function validateForm() {
   if (!form.description.trim()) return '请填写需求详情'
   if (!selectedScene.value) return '请选择兴趣场景'
   return ''
+}
+
+function openPreview() {
+  showPreviewSheet.value = true
 }
 
 async function handleSubmit() {
@@ -896,6 +990,97 @@ onLoad((options = {}) => {
   height: 88rpx;
   border-radius: 999rpx;
   font-size: 28rpx;
+  font-weight: 950;
+  line-height: 88rpx;
+}
+
+.preview-sheet {
+  display: grid;
+  gap: 22rpx;
+}
+
+.preview-sheet__cover {
+  width: 100%;
+  height: 320rpx;
+  overflow: hidden;
+  border-radius: 28rpx;
+  background: #e2e8f0;
+}
+
+.preview-sheet__cover--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx dashed #d8e0ea;
+  background: #f8fafc;
+}
+
+.preview-sheet__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16rpx;
+}
+
+.preview-sheet__title {
+  color: #102033;
+  font-size: 32rpx;
+  font-weight: 950;
+  line-height: 1.32;
+}
+
+.preview-sheet__badge {
+  display: inline-flex;
+  min-height: 46rpx;
+  align-items: center;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  background: #dbeafe;
+  color: #2388ff;
+  font-size: 21rpx;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.preview-sheet__meta {
+  display: grid;
+  gap: 12rpx;
+}
+
+.preview-sheet__meta view,
+.preview-sheet__contact {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 22rpx;
+  background: #f8fafc;
+}
+
+.preview-sheet__meta text,
+.preview-sheet__contact text {
+  min-width: 0;
+  color: #52657a;
+  font-size: 23rpx;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.preview-sheet__desc {
+  display: block;
+  color: #102033;
+  font-size: 25rpx;
+  font-weight: 850;
+  line-height: 1.6;
+}
+
+.preview-sheet__confirm {
+  height: 88rpx;
+  border-radius: 999rpx;
+  background: #102033;
+  color: #fff;
+  font-size: 26rpx;
   font-weight: 950;
   line-height: 88rpx;
 }

@@ -36,11 +36,11 @@
         </view>
       </view>
 
-      <scroll-view scroll-x class="ref-filter-row sticky-tabs" :show-scrollbar="false">
+      <view class="manage-tabs sticky-tabs">
         <text v-for="item in tabs" :key="item.key" :class="{ active: activeTab === item.key }" @tap="activeTab = item.key">
           {{ item.label }}
         </text>
-      </scroll-view>
+      </view>
 
       <view v-if="activeTab === 'overview'" class="ref-stack">
         <view class="ref-task-card" @tap="activeTab = 'review'">
@@ -612,9 +612,40 @@ async function sendNotice() {
   top: 0;
   z-index: 10;
   margin-top: 24rpx;
-  padding-top: 8rpx;
   background: rgba(247, 251, 255, 0.92);
   backdrop-filter: blur(18px);
+}
+
+.manage-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6rpx;
+  padding: 8rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.1);
+  border-radius: 30rpx;
+  background: #eef6ff;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.88), 0 10rpx 22rpx rgba(30, 88, 156, 0.04);
+}
+
+.manage-tabs text {
+  display: flex;
+  min-width: 0;
+  height: 66rpx;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22rpx;
+  color: #52657a;
+  font-size: 22rpx;
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.manage-tabs text.active {
+  background: #102033;
+  color: #fff;
+  box-shadow: 0 8rpx 18rpx rgba(16, 32, 51, 0.16);
 }
 
 .state-summary {

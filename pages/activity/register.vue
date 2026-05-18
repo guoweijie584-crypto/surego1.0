@@ -66,7 +66,16 @@
 
       <view class="ref-info-card ref-card register-gap">
         <text class="ref-info-card__title">手机号授权</text>
-        <text class="ref-pill ref-pill--blue register-pill">已授权：138****9021</text>
+        <view class="phone-auth-card">
+          <view>
+            <text>{{ phoneAuthTitle }}</text>
+            <text>{{ phoneAuthDesc }}</text>
+          </view>
+          <button v-if="!hasAuthorizedPhone" open-type="getPhoneNumber" @getphonenumber="handlePhoneNumber" class="phone-auth-button">
+            授权手机号
+          </button>
+          <text v-else class="ref-pill ref-pill--blue register-pill">{{ maskedPhone }}</text>
+        </view>
       </view>
 
       <view class="ref-bottom-cta">
@@ -82,6 +91,7 @@
 import SuIcon from '@/components/surego/SuIcon.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
+import { bindCurrentUserMobileByMpWeixin, getCurrentUser } from '@/common/api/user.js'
 import { getActivityDetail, getActivityStatusMeta } from '@/common/api/activity.js'
 import { getApplicationForActivity, submitApplication } from '@/common/api/application.js'
 import { createEmptyActivity } from '@/common/utils/activity-default.js'
@@ -96,6 +106,7 @@ const answers = ref([])
 const agreed = ref(false)
 const isSubmitting = ref(false)
 const isPageLoading = ref(true)
+const currentUser = ref({})
 const navStyle = getMiniProgramNavStyle()
 const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 34, minRightPaddingRpx: 24 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 22 })
@@ -168,11 +179,21 @@ const requiredAnswersDone = computed(() => {
 const canSubmit = computed(() => {
   return !hasExistingApplication.value && agreed.value && message.value.trim().length > 0 && requiredAnswersDone.value
 })
+const authorizedPhone = computed(() => String(currentUser.value.mobile || currentUser.value.phone || '').trim())
+const hasAuthorizedPhone = computed(() => Boolean(authorizedPhone.value))
+const maskedPhone = computed(() => `已授权：${maskPhoneNumber(authorizedPhone.value)}`)
+const phoneAuthTitle = computed(() => (hasAuthorizedPhone.value ? '手机号已授权' : '手机号未授权'))
+const phoneAuthDesc = computed(() => (
+  hasAuthorizedPhone.value
+    ? '用于活动临时联系和履约安全，其他用户不会直接看到完整号码。'
+    : '微信小程序需要你主动授权手机号，未授权时不会展示模拟号码。'
+))
 
 onLoad(async (query) => {
   const id = (query && query.id) || '101'
   isPageLoading.value = true
   try {
+    currentUser.value = await getCurrentUser().catch(() => ({}))
     const detail = await getActivityDetail(id)
     if (!detail?.id) {
       uni.showToast({ title: '活动不存在或暂不可报名', icon: 'none' })
@@ -186,6 +207,27 @@ onLoad(async (query) => {
     isPageLoading.value = false
   }
 })
+
+function maskPhoneNumber(value = '') {
+  const text = String(value || '').trim()
+  if (!text) return '未授权'
+  if (text.length < 7) return text
+  return `${text.slice(0, 3)}****${text.slice(-4)}`
+}
+
+async function handlePhoneNumber(event = {}) {
+  const detail = event.detail || {}
+  if (detail.errMsg && !String(detail.errMsg).includes('ok')) {
+    uni.showToast({ title: '未完成手机号授权', icon: 'none' })
+    return
+  }
+  try {
+    currentUser.value = await bindCurrentUserMobileByMpWeixin(detail)
+    uni.showToast({ title: '手机号已授权', icon: 'success' })
+  } catch (error) {
+    uni.showToast({ title: error?.message || '手机号授权失败', icon: 'none' })
+  }
+}
 
 async function syncApplicationStatus(id = activity.value.id) {
   try {
@@ -308,5 +350,50 @@ function validateJoinEligibility(silent = false) {
 
 .register-placeholder {
   color: #94a3b8;
+}
+
+.phone-auth-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18rpx;
+  margin-top: 18rpx;
+  padding: 20rpx;
+  border-radius: 28rpx;
+  background: #f8fafc;
+}
+
+.phone-auth-card view {
+  min-width: 0;
+}
+
+.phone-auth-card view text {
+  display: block;
+}
+
+.phone-auth-card view text:first-child {
+  color: #102033;
+  font-size: 25rpx;
+  font-weight: 950;
+}
+
+.phone-auth-card view text:last-child {
+  margin-top: 6rpx;
+  color: #64748b;
+  font-size: 21rpx;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.phone-auth-button {
+  height: 64rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  background: #2388ff;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 950;
+  line-height: 64rpx;
+  white-space: nowrap;
 }
 </style>

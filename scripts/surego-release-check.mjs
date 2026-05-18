@@ -788,7 +788,7 @@ if (followHelperSource.indexOf('if (USE_UNICLOUD)') > followHelperSource.indexOf
 }
 
 const partnerPageSource = read('pages/partners/index.vue')
-for (const token of ['SuPartnerCard', 'listPartnerPosts', 'goPartnerCreate', 'getUnreadMessageCount', 'activeType']) {
+for (const token of ['SuPartnerCard', 'listPartnerPosts', 'SuBottomDock', 'getUnreadMessageCount', 'activeScene']) {
   if (!partnerPageSource.includes(token)) {
     errors.push(`pages/partners/index.vue is missing release partner feed token: ${token}`)
   }
@@ -1059,6 +1059,14 @@ for (const token of ['validateJoinEligibility', 'adjust-position="false"', 'curs
 }
 if (registerSource.includes('overflow: hidden;')) {
   errors.push('pages/activity/register.vue must not hide overflow around keyboard form content')
+}
+for (const token of ['bindCurrentUserMobileByMpWeixin', 'open-type="getPhoneNumber"', 'phone-auth-card']) {
+  if (!registerSource.includes(token)) {
+    errors.push(`pages/activity/register.vue must use real phone authorization flow with ${token}`)
+  }
+}
+if (registerSource.includes('138****9021')) {
+  errors.push('pages/activity/register.vue must not show a hard-coded mock phone number')
 }
 
 const manageSource = read('pages/manage/dashboard.vue')

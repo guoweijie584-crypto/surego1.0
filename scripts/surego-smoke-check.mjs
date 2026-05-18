@@ -1068,6 +1068,11 @@ if (fs.existsSync(manageDashboardPath)) {
       errors.push(`pages/manage/dashboard.vue must label trial-order funds with ${token}`);
     }
   }
+  for (const token of ['manage-tabs', 'grid-template-columns: repeat(5, minmax(0, 1fr))']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/manage/dashboard.vue must keep evenly distributed management tabs with ${token}`);
+    }
+  }
 }
 
 const activityCloudPath = path.join(root, 'uniCloud-aliyun/cloudfunctions/surego-activity/index.js');
@@ -1164,6 +1169,11 @@ if (fs.existsSync(userProfilePath)) {
   }
   if (source.includes('count: loggedIn.value ? 2 : 0') || source.includes('靠谱、准时') || source.includes('活动组织清晰')) {
     errors.push('pages/user/profile.vue must not show hard-coded mock reviews after login');
+  }
+  for (const token of ['sub-filter-row--activity', 'sub-filter-row--partner', 'grid-template-columns: repeat(5, minmax(0, 1fr))']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/user/profile.vue must keep compact one-row profile action filters with ${token}`);
+    }
   }
 }
 
@@ -1463,6 +1473,14 @@ if (fs.existsSync(registerPagePath)) {
   }
   if (source.includes('overflow: hidden;')) {
     errors.push('pages/activity/register.vue must not hide overflow around keyboard form content');
+  }
+  for (const token of ['bindCurrentUserMobileByMpWeixin', 'open-type="getPhoneNumber"', 'phone-auth-card']) {
+    if (!source.includes(token)) {
+      errors.push(`pages/activity/register.vue must use real phone authorization flow with ${token}`);
+    }
+  }
+  if (source.includes('138****9021')) {
+    errors.push('pages/activity/register.vue must not show a hard-coded mock phone number');
   }
 }
 

@@ -280,6 +280,8 @@ export function getCurrentUserProfile() {
     userId: uid,
     nickname: sanitizeNickname(nicknameSource),
     avatar: sanitizeAvatar(uniIdUser.avatar_file?.url || avatarSource),
+    mobile: uniIdUser.mobile || uniIdUser.phone || localUser.mobile || localUser.phone || '',
+    phone: uniIdUser.phone || uniIdUser.mobile || localUser.phone || localUser.mobile || '',
     avatarFileId: uniIdUser.avatarFileId || uniIdUser.avatar_file_id || localUser.avatarFileId || '',
     profileCompletedAt: uniIdUser.profileCompletedAt || localUser.profileCompletedAt || 0,
     credit: Number(localUser.credit) || 100,

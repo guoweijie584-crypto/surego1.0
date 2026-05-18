@@ -101,6 +101,8 @@ function normalizeProfile(record = {}) {
     mbti: record.mbti || '',
     bio: record.bio || '',
     quote: record.quote || '',
+    mobile: record.mobile || record.phone || '',
+    phone: record.phone || record.mobile || '',
     profileTags: record.profile_tags || record.profileTags || [],
     profile_tags: record.profile_tags || record.profileTags || [],
     credit: Number(record.credit) || 100,
@@ -336,34 +338,132 @@ async function listCheckedActivityIdsForUser(userId) {
 }
 
 async function countUserFollowers(userId) {
-  const result = await followCollection
-    .where({
-      target_type: 'user',
-      target_id: String(userId || '')
-    })
-    .limit(1000)
-    .get();
+  const targetId = String(userId || '').trim();
+  if (!targetId) return 0;
+  const [snakeResult, camelResult] = await Promise.all([
+    followCollection
+      .where({
+        target_type: 'user',
+        target_id: targetId
+      })
+      .limit(1000)
+      .get(),
+    followCollection
+      .where({
+        targetType: 'user',
+        targetId
+      })
+      .limit(1000)
+      .get()
+  ]);
   const seen = new Set();
-  for (const item of result.data || []) {
+  for (const item of [...(snakeResult.data || []), ...(camelResult.data || [])]) {
     const followerId = String(item.user_id || item.userId || item.follower_id || item.followerId || '').trim();
     if (followerId) seen.add(followerId);
   }
   return seen.size;
 }
 
+async function syncUserFollowerCount(userId, followerCount) {
+  const targetId = String(userId || '').trim();
+  if (!targetId) return;
+  const found = await findByUserId(targetId);
+  const payload = {
+    follower_count: normalizeMetricNumber(followerCount, 0),
+    fans_count: normalizeMetricNumber(followerCount, 0),
+    updated_at: now()
+  };
+  if (found?._id) {
+    await profileCollection.doc(found._id).update(payload);
+    return;
+  }
+  await profileCollection.add({
+    user_id: targetId,
+    nickname: '',
+    avatar: '',
+    credit: 100,
+    roles: [DEFAULT_ROLE],
+    ...payload,
+    created_at: now()
+  });
+}
+
+async function listFollowRecords(targetUserId, followerUserId) {
+  const targetId = String(targetUserId || '').trim();
+  const followerId = String(followerUserId || '').trim();
+  if (!targetId || !followerId) return [];
+  const [snakeResult, camelResult] = await Promise.all([
+    followCollection
+      .where({
+        target_type: 'user',
+        target_id: targetId,
+        user_id: followerId
+      })
+      .limit(1000)
+      .get(),
+    followCollection
+      .where({
+        targetType: 'user',
+        targetId,
+        userId: followerId
+      })
+      .limit(1000)
+      .get()
+  ]);
+  const seen = new Set();
+  return [...(snakeResult.data || []), ...(camelResult.data || [])].filter((item) => {
+    const id = String(item._id || '');
+    if (id && seen.has(id)) return false;
+    if (id) seen.add(id);
+    return true;
+  });
+}
+
+async function countUserFollowing(userId) {
+  const followerId = String(userId || '').trim();
+  if (!followerId) return 0;
+  const [snakeResult, camelResult] = await Promise.all([
+    followCollection
+      .where({
+        target_type: 'user',
+        user_id: followerId
+      })
+      .limit(1000)
+      .get(),
+    followCollection
+      .where({
+        targetType: 'user',
+        userId: followerId
+      })
+      .limit(1000)
+      .get()
+  ]);
+  const seen = new Set();
+  for (const item of [...(snakeResult.data || []), ...(camelResult.data || [])]) {
+    const targetId = String(item.target_id || item.targetId || '').trim();
+    if (targetId) seen.add(targetId);
+  }
+  return seen.size;
+}
+
+async function syncUserFollowingCount(userId) {
+  const followerId = String(userId || '').trim();
+  if (!followerId) return;
+  const followingCount = await countUserFollowing(followerId);
+  const found = await findByUserId(followerId);
+  if (!found?._id) return;
+  await profileCollection.doc(found._id).update({
+    following_count: followingCount,
+    updated_at: now()
+  });
+}
+
 async function isFollowingUser(targetUserId, followerUserId) {
   const targetId = String(targetUserId || '').trim();
   const followerId = String(followerUserId || '').trim();
   if (!targetId || !followerId || targetId === followerId) return false;
-  const result = await followCollection
-    .where({
-      target_type: 'user',
-      target_id: targetId,
-      user_id: followerId
-    })
-    .limit(1)
-    .get();
-  return Boolean((result.data || [])[0]);
+  const result = await listFollowRecords(targetId, followerId);
+  return Boolean(result[0]);
 }
 
 function normalizeUserFollowResult(targetUserId, followedByMe, followerCount) {
@@ -387,23 +487,24 @@ async function followUser(targetUserId, followerUserId) {
   if (!targetId || !followerId || targetId === followerId) {
     return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
   }
-  const existing = await followCollection
-    .where({
-      target_type: 'user',
-      target_id: targetId,
-      user_id: followerId
-    })
-    .limit(1)
-    .get();
-  if (!(existing.data || [])[0]) {
+  const existing = await listFollowRecords(targetId, followerId);
+  if (!existing[0]) {
     await followCollection.add({
       target_type: 'user',
       target_id: targetId,
       user_id: followerId,
+      targetType: 'user',
+      targetId,
+      userId: followerId,
       created_at: now()
     });
   }
-  return normalizeUserFollowResult(targetId, true, await countUserFollowers(targetId));
+  const followerCount = await countUserFollowers(targetId);
+  await Promise.all([
+    syncUserFollowerCount(targetId, followerCount),
+    syncUserFollowingCount(followerId)
+  ]);
+  return normalizeUserFollowResult(targetId, true, followerCount);
 }
 
 async function unfollowUser(targetUserId, followerUserId) {
@@ -412,18 +513,16 @@ async function unfollowUser(targetUserId, followerUserId) {
   if (!targetId || !followerId) {
     return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
   }
-  const result = await followCollection
-    .where({
-      target_type: 'user',
-      target_id: targetId,
-      user_id: followerId
-    })
-    .limit(1000)
-    .get();
-  await Promise.all((result.data || [])
+  const result = await listFollowRecords(targetId, followerId);
+  await Promise.all(result
     .filter((item) => item._id)
     .map((item) => followCollection.doc(item._id).remove().catch(() => null)));
-  return normalizeUserFollowResult(targetId, false, await countUserFollowers(targetId));
+  const followerCount = await countUserFollowers(targetId);
+  await Promise.all([
+    syncUserFollowerCount(targetId, followerCount),
+    syncUserFollowingCount(followerId)
+  ]);
+  return normalizeUserFollowResult(targetId, false, followerCount);
 }
 
 async function listPublicActivitiesForUser(userId) {
@@ -518,6 +617,8 @@ function mergeProfileRecord(base = {}, next = {}) {
     mbti: next.mbti || base.mbti || '',
     bio: next.bio || base.bio || '',
     quote: next.quote || base.quote || '',
+    mobile: next.mobile || next.phone || base.mobile || base.phone || '',
+    phone: next.phone || next.mobile || base.phone || base.mobile || '',
     profile_tags: Array.isArray(next.profile_tags || next.profileTags)
       ? (next.profile_tags || next.profileTags)
       : (base.profile_tags || base.profileTags || []),
@@ -617,6 +718,8 @@ function buildProfile(payload = {}, user) {
     mbti: payload.mbti || '',
     bio: payload.bio || '',
     quote: payload.quote || '',
+    mobile: payload.mobile || payload.phone || '',
+    phone: payload.phone || payload.mobile || '',
     profile_tags: Array.isArray(payload.profileTags || payload.profile_tags)
       ? (payload.profileTags || payload.profile_tags)
       : [],
@@ -682,7 +785,11 @@ exports.main = async (event) => {
   if (!user.exists || !user.uid || user.uid === 'mock_user') return authRequired();
 
   if (action === 'profile') {
-    const found = await findByUserId(payload.userId || payload.user_id || user.uid);
+    const profileUserId = payload.userId || payload.user_id || user.uid;
+    const [found, uniIdUser] = await Promise.all([
+      findByUserId(profileUserId),
+      findUniIdUser(profileUserId)
+    ]);
     const authContext = {
       authUid: user.uid,
       tokenValid: user.tokenValid,
@@ -692,8 +799,8 @@ exports.main = async (event) => {
     return {
       code: 0,
       data: found
-        ? normalizeProfile({ ...found, roles: user.roles, ...authContext })
-        : normalizeProfile({ user_id: user.uid, roles: user.roles, ...authContext })
+        ? normalizeProfile({ ...found, mobile: found.mobile || uniIdUser?.mobile || '', phone: found.phone || uniIdUser?.mobile || '', roles: user.roles, ...authContext })
+        : normalizeProfile({ user_id: user.uid, mobile: uniIdUser?.mobile || '', phone: uniIdUser?.mobile || '', roles: user.roles, ...authContext })
     };
   }
 

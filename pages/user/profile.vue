@@ -95,13 +95,13 @@
                 :class="{ active: activeTab === item.key }"
                 @tap="switchProfileTab(item.key)"
               >
-                <text>{{ item.label }}</text>
+                <text>{{ item.shortLabel || item.label }}</text>
               </view>
             </view>
           </scroll-view>
 
           <view v-if="activeTab === 'activities'" class="profile-stack">
-            <view class="sub-filter-row">
+            <view class="sub-filter-row sub-filter-row--activity">
               <view
                 v-for="item in activityScopeTabs"
                 :key="item.key"
@@ -130,7 +130,7 @@
           </view>
 
           <view v-if="activeTab === 'partners'" class="profile-stack">
-            <view class="sub-filter-row">
+            <view class="sub-filter-row sub-filter-row--partner">
               <view
                 v-for="item in partnerScopeTabs"
                 :key="item.key"
@@ -229,11 +229,11 @@ const navRowStyle = getMiniProgramNavRowStyle({ leftPaddingRpx: 40, minRightPadd
 const navActionsStyle = getMiniProgramNavActionsStyle({ leftReserveRpx: 500 })
 const contentTopStyle = getMiniProgramNavContentStyle({ gapRpx: 18 })
 const activityScopeTabs = [
-  { key: 'joined', label: '我的报名', empty: '暂无报名活动' },
-  { key: 'checkin', label: '待到场 / 核销', empty: '暂无待到场活动' },
-  { key: 'hosting', label: '我发起的活动', empty: '暂无发起活动' },
-  { key: 'invited', label: '邀请待确认', empty: '暂无待确认邀请' },
-  { key: 'pending', label: '申请中', empty: '暂无申请中的活动' }
+  { key: 'joined', label: '我的报名', shortLabel: '报名', empty: '暂无报名活动' },
+  { key: 'checkin', label: '待到场 / 核销', shortLabel: '待到场', empty: '暂无待到场活动' },
+  { key: 'hosting', label: '我发起的活动', shortLabel: '发起', empty: '暂无发起活动' },
+  { key: 'invited', label: '邀请待确认', shortLabel: '邀请', empty: '暂无待确认邀请' },
+  { key: 'pending', label: '申请中', shortLabel: '申请', empty: '暂无申请中的活动' }
 ]
 const partnerScopeTabs = [
   { key: 'posted', label: '我发布的搭子', empty: '暂无发布的搭子' },
@@ -849,31 +849,38 @@ function switchProfileTab(key) {
 
 .sub-filter-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(176rpx, 1fr));
-  gap: 12rpx;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6rpx;
   margin-bottom: 6rpx;
-  padding: 14rpx;
-  border: 1rpx solid rgba(35, 136, 255, 0.08);
-  border-radius: 32rpx;
-  background: linear-gradient(180deg, #f7fbff 0%, #eef7ff 100%);
-  box-shadow: 0 12rpx 26rpx rgba(30, 88, 156, 0.045);
+  padding: 8rpx;
+  border: 1rpx solid rgba(35, 136, 255, 0.1);
+  border-radius: 30rpx;
+  background: #eef6ff;
+  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.88), 0 10rpx 22rpx rgba(30, 88, 156, 0.04);
 }
 
 .sub-filter-row__item {
   display: flex;
   min-width: 0;
-  min-height: 70rpx;
+  height: 64rpx;
   align-items: center;
   justify-content: center;
-  padding: 0 16rpx;
-  border: 1rpx solid rgba(35, 136, 255, 0.08);
-  border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.92);
+  padding: 0 4rpx;
+  border: 0;
+  border-radius: 22rpx;
+  background: transparent;
   color: #52657a;
-  font-size: 21rpx;
+  font-size: 20rpx;
   font-weight: 950;
-  box-shadow: inset 0 1rpx 0 rgba(255, 255, 255, 0.92);
   transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sub-filter-row--partner {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.sub-filter-row--partner .sub-filter-row__item {
+  font-size: 22rpx;
 }
 
 .sub-filter-row__item text {
@@ -883,10 +890,9 @@ function switchProfileTab(key) {
 }
 
 .sub-filter-row__item.active {
-  border-color: #2388ff;
-  background: #2388ff;
+  background: #102033;
   color: #fff;
-  box-shadow: 0 10rpx 20rpx rgba(35, 136, 255, 0.22);
+  box-shadow: 0 8rpx 18rpx rgba(16, 32, 51, 0.16);
 }
 
 .profile-stack {
